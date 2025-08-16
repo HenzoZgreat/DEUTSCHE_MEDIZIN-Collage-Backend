@@ -1,4 +1,4 @@
-package Henok.example.DeutscheCollageBack_endAPI.Service;
+package Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices;
 
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramModality;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.ProgramModalityRepository;

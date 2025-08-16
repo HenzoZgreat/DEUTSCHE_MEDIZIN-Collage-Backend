@@ -3,7 +3,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.EnrollmentTypeDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.EnrollmentType;
-import Henok.example.DeutscheCollageBack_endAPI.Service.EnrollmentTypeService;
+import Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices.EnrollmentTypeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

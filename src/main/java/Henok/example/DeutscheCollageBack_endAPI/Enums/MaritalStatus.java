@@ -1,4 +1,4 @@
-package Henok.example.DeutscheCollageBack_endAPI.Entity.Enums;
+package Henok.example.DeutscheCollageBack_endAPI.Enums;
 
 
 public enum MaritalStatus {

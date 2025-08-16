@@ -1,7 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Entity;
 
-import Henok.example.DeutscheCollageBack_endAPI.Entity.Enums.Gender;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.Enums.MaritalStatus;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.Gender;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.MaritalStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.*;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

@@ -1,6 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Entity;
 
-import Henok.example.DeutscheCollageBack_endAPI.Entity.Enums.Role;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;

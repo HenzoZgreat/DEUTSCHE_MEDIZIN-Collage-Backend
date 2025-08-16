@@ -3,7 +3,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Controller.MOEData;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.ImpairmentDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Impairment;
-import Henok.example.DeutscheCollageBack_endAPI.Service.ImpairmentService;
+import Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices.ImpairmentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

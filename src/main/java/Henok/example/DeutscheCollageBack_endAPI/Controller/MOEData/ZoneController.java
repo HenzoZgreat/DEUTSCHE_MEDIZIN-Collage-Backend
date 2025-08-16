@@ -2,7 +2,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Controller.MOEData;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.ZoneDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Zone;
-import Henok.example.DeutscheCollageBack_endAPI.Service.ZoneService;
+import Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices.ZoneService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

@@ -6,21 +6,16 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
+@Table(name = "class_year")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Department {
+public class ClassYear {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long dptID;
+    private Long id;
 
     @Column(nullable = false)
-    private String deptName;
-
-    @Column(nullable = true)
-    private Integer totalCrHr;
-
-    @Column(nullable = false)
-    private String departmentCode;
+    private String classYear;
 }

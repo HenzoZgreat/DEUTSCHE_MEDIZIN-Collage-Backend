@@ -1,4 +1,4 @@
-package Henok.example.DeutscheCollageBack_endAPI.Service;
+package Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.ImpairmentDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Impairment;

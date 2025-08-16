@@ -1,7 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller.MOEData;
 
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramModality;
-import Henok.example.DeutscheCollageBack_endAPI.Service.ProgramModalityService;
+import Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices.ProgramModalityService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
