@@ -25,26 +25,27 @@ public class BatchClassYearSemester {
     @JoinColumn(name = "batchID", nullable = false)
     private Batch batch;
 
-    @Column(nullable = false)
-    private Integer classYear;
+    @ManyToOne
+    @JoinColumn(name = "class_year_id", nullable = false)
+    private ClassYear classYear;
 
     @ManyToOne
     @JoinColumn(name = "semester", nullable = false)
     private Semester semester;
 
     @ManyToOne
-    @JoinColumn(name = "academic_year", nullable = false)
+    @JoinColumn(name = "academic_year")
     private AcademicYear entryYear;
 
-    @Column(nullable = false)
+    @Column
     private LocalDate classStart_GC;
 
-    @Column(nullable = false)
+    @Column
     private String classStart_EC;
 
-    @Column(nullable = false)
+    @Column
     private LocalDate classEnd_GC;
 
-    @Column(nullable = false)
+    @Column
     private String classEnd_EC;
 }

@@ -1,4 +1,4 @@
-package Henok.example.DeutscheCollageBack_endAPI.DTO;
+package Henok.example.DeutscheCollageBack_endAPI.DTO.MOE_DTOs;
 
 
 import com.fasterxml.jackson.annotation.JsonProperty;

@@ -5,6 +5,7 @@ import Henok.example.DeutscheCollageBack_endAPI.Entity.ClassYear;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.ClassYearRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -20,18 +21,27 @@ public class ClassYearService {
         if (classYearDTO.getClassYear() == null || classYearDTO.getClassYear().isEmpty()) {
             throw new IllegalArgumentException("Class year cannot be empty");
         }
-        ClassYear classYear = new ClassYear();
-        classYear.setClassYear(classYearDTO.getClassYear());
-        classYear = classYearRepository.save(classYear);
-        classYearDTO.setId(classYear.getId());
-        return classYearDTO;
+        if (classYearRepository.findByClassYear(classYearDTO.getClassYear()).isPresent()) {
+            throw new DataIntegrityViolationException("Class year '" + classYearDTO.getClassYear() + "' already exists");
+        }
+        try {
+            ClassYear classYear = new ClassYear();
+            classYear.setClassYear(classYearDTO.getClassYear());
+            classYearRepository.save(classYear);
+            return classYearDTO;
+        } catch (DataIntegrityViolationException e) {
+            throw new DataIntegrityViolationException("Failed to create class year due to duplicate entry or database constraint");
+        }
     }
 
     public List<ClassYearDTO> getAllClassYears() {
-        return classYearRepository.findAll().stream()
+        List<ClassYear> classYears = classYearRepository.findAll();
+        if (classYears.isEmpty()) {
+            throw new ResourceNotFoundException("No class years found");
+        }
+        return classYears.stream()
                 .map(classYear -> {
                     ClassYearDTO dto = new ClassYearDTO();
-                    dto.setId(classYear.getId());
                     dto.setClassYear(classYear.getClassYear());
                     return dto;
                 })
@@ -42,7 +52,6 @@ public class ClassYearService {
         ClassYear classYear = classYearRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("ClassYear not found with id: " + id));
         ClassYearDTO dto = new ClassYearDTO();
-        dto.setId(classYear.getId());
         dto.setClassYear(classYear.getClassYear());
         return dto;
     }
@@ -51,18 +60,29 @@ public class ClassYearService {
         if (classYearDTO.getClassYear() == null || classYearDTO.getClassYear().isEmpty()) {
             throw new IllegalArgumentException("Class year cannot be empty");
         }
-        ClassYear classYear = classYearRepository.findById(id)
+        ClassYear existing = classYearRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("ClassYear not found with id: " + id));
-        classYear.setClassYear(classYearDTO.getClassYear());
-        classYearRepository.save(classYear);
-        classYearDTO.setId(id);
-        return classYearDTO;
+        if (!existing.getClassYear().equals(classYearDTO.getClassYear()) &&
+                classYearRepository.findByClassYear(classYearDTO.getClassYear()).isPresent()) {
+            throw new DataIntegrityViolationException("Class year '" + classYearDTO.getClassYear() + "' already exists");
+        }
+        try {
+            existing.setClassYear(classYearDTO.getClassYear());
+            classYearRepository.save(existing);
+            return classYearDTO;
+        } catch (DataIntegrityViolationException e) {
+            throw new DataIntegrityViolationException("Failed to update class year due to duplicate entry or database constraint");
+        }
     }
 
     public void deleteClassYear(Long id) {
         if (!classYearRepository.existsById(id)) {
             throw new ResourceNotFoundException("ClassYear not found with id: " + id);
         }
-        classYearRepository.deleteById(id);
+        try {
+            classYearRepository.deleteById(id);
+        } catch (DataIntegrityViolationException e) {
+            throw new DataIntegrityViolationException("Cannot delete class year due to existing dependencies");
+        }
     }
 }

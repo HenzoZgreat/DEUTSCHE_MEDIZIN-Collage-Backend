@@ -1,6 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices;
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.AreaTypeDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.MOE_DTOs.AreaTypeDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.AreaType;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.AreaTypeRepository;
 import org.springframework.beans.factory.annotation.Autowired;

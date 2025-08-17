@@ -1,7 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices;
 
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.AttritionCauseDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.MOE_DTOs.AttritionCauseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.AttritionCause;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.AttritionCauseRepository;
 import org.springframework.beans.factory.annotation.Autowired;

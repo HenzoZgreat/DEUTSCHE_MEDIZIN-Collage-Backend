@@ -1,7 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller.MOEData;
 
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.ImpairmentDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.MOE_DTOs.ImpairmentDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Impairment;
 import Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices.ImpairmentService;
 import org.springframework.beans.factory.annotation.Autowired;

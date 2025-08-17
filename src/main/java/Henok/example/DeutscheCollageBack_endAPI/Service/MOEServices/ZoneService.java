@@ -1,6 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices;
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.ZoneDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.MOE_DTOs.ZoneDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Region;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Zone;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.RegionRepository;

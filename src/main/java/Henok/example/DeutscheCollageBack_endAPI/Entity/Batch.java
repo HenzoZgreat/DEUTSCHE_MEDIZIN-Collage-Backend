@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "Batchs_T")
+@Table(name = "batch")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -13,8 +13,8 @@ public class Batch {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long batchId;
+    private Long id;
 
-    @Column(name = "batch_name", nullable = false)
-    private int batchName; // you specified batchName should be int
+    @Column(name = "batch_name", nullable = false, unique = true)
+    private String batchName;
 }

@@ -1,7 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller.MOEData;
 
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.CountryDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.MOE_DTOs.CountryDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Country;
 import Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices.CountryService;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -6,7 +6,5 @@ import lombok.Data;
 
 @Data
 public class BatchDTO {
-    @JsonProperty("batchName")
-    @JsonAlias("Batch")
-    private int batchName;
+    private String batchName;
 }
