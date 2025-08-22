@@ -143,7 +143,7 @@ public class AppliedStudent {
     @JoinColumn(name = "program_modality", nullable = false)
     private ProgramModality programModality;
 
-    // Exam Result
-    @Column
-    private byte[] grade12ExamResult;
+    // Single PDF document for all required files (nullable)
+    @Lob
+    private byte[] document;
 }

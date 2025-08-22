@@ -5,6 +5,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @Entity
 @Data
 @NoArgsConstructor
@@ -22,7 +25,10 @@ public class Course {
     private String cCode;
 
     @Column(nullable = false)
-    private Integer crHr;
+    private Integer theoryHrs = 0;
+
+    @Column(nullable = false)
+    private Integer labHrs = 0;
 
     @ManyToOne
     @JoinColumn(name = "cCatagoryID", nullable = false)
@@ -31,4 +37,12 @@ public class Course {
     @ManyToOne
     @JoinColumn(name = "departmentID", nullable = false)
     private Department department;
+
+    @ManyToMany
+    @JoinTable(
+            name = "course_prerequisites",
+            joinColumns = @JoinColumn(name = "course_id"),
+            inverseJoinColumns = @JoinColumn(name = "prerequisite_id")
+    )
+    private Set<Course> prerequisites = new HashSet<>();
 }

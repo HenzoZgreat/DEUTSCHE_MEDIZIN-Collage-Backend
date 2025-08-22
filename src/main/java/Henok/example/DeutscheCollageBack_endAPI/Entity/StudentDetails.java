@@ -1,6 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Entity;
 
 
+import Henok.example.DeutscheCollageBack_endAPI.Enums.DocumentStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Gender;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.MaritalStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.*;
@@ -164,8 +165,23 @@ public class StudentDetails {
     private Department departmentEnrolled;
 
     @ManyToOne
+    @JoinColumn(name = "student_recent_department", nullable = false)
+    private Department studentRecentDepartment;
+
+    @ManyToOne
     @JoinColumn(name = "program_modality", nullable = false)
     private ProgramModality programModality;
+
+    // Single PDF document for all required files (nullable)
+    @Lob
+    private byte[] document;
+
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private DocumentStatus documentStatus = DocumentStatus.INCOMPLETE; // Default to INCOMPLETE
+
+    // Remark for incomplete documents
+    private String remark;
 
     // Transfer and Exit Exam Information
     @Column(nullable = false)
