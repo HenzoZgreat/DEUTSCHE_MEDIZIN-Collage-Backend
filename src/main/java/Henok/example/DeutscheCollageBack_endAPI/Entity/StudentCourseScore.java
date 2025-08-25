@@ -4,22 +4,21 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Entity
-@Table(name = "student_course")
+@Table(name = "student_course_score")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class StudentCourse {
+public class StudentCourseScore {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "student_id", nullable = false)
-    private StudentDetails student;
+    @JoinColumn(name = "student_user_id", nullable = false)
+    private User student;
 
     @ManyToOne
     @JoinColumn(name = "course_id", nullable = false)
@@ -36,8 +35,6 @@ public class StudentCourse {
     @Column
     private Double score;
 
-    @Setter
     @Column(nullable = false)
     private boolean isReleased = false;
-
 }

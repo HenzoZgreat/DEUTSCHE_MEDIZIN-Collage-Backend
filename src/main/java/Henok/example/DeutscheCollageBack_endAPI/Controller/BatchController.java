@@ -22,7 +22,6 @@ public class BatchController {
     private BatchService batchService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER')")
     public ResponseEntity<?> addBatches(@RequestBody List<BatchDTO> batchDTOs) {
         try {
             BatchDTO created = batchService.addBatches(batchDTOs);
@@ -37,7 +36,6 @@ public class BatchController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER')")
     public ResponseEntity<?> getAllBatches() {
         try {
             return ResponseEntity.ok(batchService.getAllBatches());
@@ -47,7 +45,6 @@ public class BatchController {
     }
 
     @PostMapping("/single")
-    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER')")
     public ResponseEntity<?> addBatch(@RequestBody BatchDTO batchDTO) {
         try {
             BatchDTO created = batchService.addBatch(batchDTO);
@@ -62,7 +59,6 @@ public class BatchController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER')")
     public ResponseEntity<?> getBatchById(@PathVariable Long id) {
         try {
             return ResponseEntity.ok(batchService.getBatchById(id));
@@ -72,7 +68,6 @@ public class BatchController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER')")
     public ResponseEntity<?> updateBatch(@PathVariable Long id, @RequestBody BatchDTO batchDTO) {
         try {
             return ResponseEntity.ok(batchService.updateBatch(id, batchDTO));
@@ -86,7 +81,6 @@ public class BatchController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER')")
     public ResponseEntity<?> deleteBatch(@PathVariable Long id) {
         try {
             batchService.deleteBatch(id);

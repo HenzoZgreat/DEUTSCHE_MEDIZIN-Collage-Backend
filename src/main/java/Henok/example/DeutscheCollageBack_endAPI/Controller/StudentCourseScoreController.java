@@ -1,10 +1,10 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseDTO;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentCourse;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScoreDTO;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentCourseScore;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
-import Henok.example.DeutscheCollageBack_endAPI.Service.StudentCourseService;
+import Henok.example.DeutscheCollageBack_endAPI.Service.StudentCourseScoreService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,16 +13,16 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/student-courses")
-public class StudentCourseController {
+@RequestMapping("/api/student-course-scores")
+public class StudentCourseScoreController {
 
     @Autowired
-    private StudentCourseService studentCourseService;
+    private StudentCourseScoreService studentCourseScoreService;
 
     @PostMapping("/add")
-    public ResponseEntity<?> addCourse(@RequestBody StudentCourseDTO dto) {
+    public ResponseEntity<?> addCourse(@RequestBody StudentCourseScoreDTO dto) {
         try {
-            studentCourseService.addCourse(dto);
+            studentCourseScoreService.addCourse(dto);
             return ResponseEntity.ok("Course added successfully");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
@@ -36,9 +36,9 @@ public class StudentCourseController {
 
     @PutMapping("/score/{studentId}/{courseId}/{batchClassYearSemesterId}")
     public ResponseEntity<?> updateScore(@PathVariable Long studentId, @PathVariable Long courseId,
-                                         @PathVariable Long batchClassYearSemesterId, @RequestBody StudentCourseDTO dto) {
+                                         @PathVariable Long batchClassYearSemesterId, @RequestBody StudentCourseScoreDTO dto) {
         try {
-            studentCourseService.updateScore(studentId, courseId, batchClassYearSemesterId, dto.getScore());
+            studentCourseScoreService.updateScore(studentId, courseId, batchClassYearSemesterId, dto.getScore());
             return ResponseEntity.ok("Score updated successfully");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
@@ -52,9 +52,9 @@ public class StudentCourseController {
 
     @PutMapping("/release/{studentId}/{courseId}/{batchClassYearSemesterId}")
     public ResponseEntity<?> releaseScore(@PathVariable Long studentId, @PathVariable Long courseId,
-                                          @PathVariable Long batchClassYearSemesterId, @RequestBody StudentCourseDTO dto) {
+                                          @PathVariable Long batchClassYearSemesterId, @RequestBody StudentCourseScoreDTO dto) {
         try {
-            studentCourseService.releaseScore(studentId, courseId, batchClassYearSemesterId, dto.getIsReleased());
+            studentCourseScoreService.releaseScore(studentId, courseId, batchClassYearSemesterId, dto.getIsReleased());
             return ResponseEntity.ok("Score release status updated successfully");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
@@ -69,7 +69,7 @@ public class StudentCourseController {
     @GetMapping("/scores/{studentId}")
     public ResponseEntity<?> getStudentScores(@PathVariable Long studentId) {
         try {
-            List<StudentCourse> scores = studentCourseService.getStudentScores(studentId);
+            List<StudentCourseScore> scores = studentCourseScoreService.getStudentScores(studentId);
             return ResponseEntity.ok(scores);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));

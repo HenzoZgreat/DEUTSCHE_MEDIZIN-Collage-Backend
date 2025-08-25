@@ -11,6 +11,7 @@ import Henok.example.DeutscheCollageBack_endAPI.Repository.DepartmentRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -39,7 +40,7 @@ public class CourseService {
 
         for (Course course : courses) {
             validateCourse(course);
-            if (courseRepository.existsByCCode(course.getCCode())) {
+            if (courseRepository.existsBycCode(course.getCCode())) {
                 throw new IllegalArgumentException("Course code already exists: " + course.getCCode());
             }
             validatePrerequisites(course);
@@ -56,7 +57,7 @@ public class CourseService {
         Course course = mapToEntity(courseDTO);
         validateCourse(course);
 
-        if (courseRepository.existsByCCode(course.getCCode())) {
+        if (courseRepository.existsBycCode(course.getCCode())) {
             throw new IllegalArgumentException("Course code already exists: " + course.getCCode());
         }
 
@@ -77,6 +78,16 @@ public class CourseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
     }
 
+    public List<Course> getPrerequisitesByCourseId(Long courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
+        Set<Course> prerequisites = course.getPrerequisites();
+        if (prerequisites.isEmpty()) {
+            throw new ResourceNotFoundException("No prerequisites found for course with id: " + courseId);
+        }
+        return new ArrayList<>(prerequisites);
+    }
+
     public void updateCourse(Long id, CourseDTO courseDTO) {
         if (courseDTO == null) {
             throw new IllegalArgumentException("Course DTO cannot be null");
@@ -85,7 +96,7 @@ public class CourseService {
         Course existingCourse = getCourseById(id);
         String newCCode = courseDTO.getCCode();
 
-        if (!existingCourse.getCCode().equals(newCCode) && courseRepository.existsByCCode(newCCode)) {
+        if (!existingCourse.getCCode().equals(newCCode) && courseRepository.existsBycCode(newCCode)) {
             throw new IllegalArgumentException("Course code already exists: " + newCCode);
         }
 

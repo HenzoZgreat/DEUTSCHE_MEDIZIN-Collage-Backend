@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class StudentCourseDTO {
+public class StudentCourseScoreDTO {
     private Long studentId;
     private Long courseId;
     private Long batchClassYearSemesterId;

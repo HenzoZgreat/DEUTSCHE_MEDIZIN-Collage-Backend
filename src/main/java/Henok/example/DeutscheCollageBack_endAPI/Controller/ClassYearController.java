@@ -21,7 +21,6 @@ public class ClassYearController {
     private ClassYearService classYearService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER')")
     public ResponseEntity<?> createClassYear(@RequestBody ClassYearDTO classYearDTO) {
         try {
             ClassYearDTO created = classYearService.createClassYear(classYearDTO);
@@ -34,7 +33,6 @@ public class ClassYearController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER')")
     public ResponseEntity<?> getAllClassYears() {
         try {
             return ResponseEntity.ok(classYearService.getAllClassYears());
@@ -44,7 +42,6 @@ public class ClassYearController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER')")
     public ResponseEntity<?> getClassYearById(@PathVariable Long id) {
         try {
             return ResponseEntity.ok(classYearService.getClassYearById(id));
@@ -54,7 +51,6 @@ public class ClassYearController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER')")
     public ResponseEntity<?> updateClassYear(@PathVariable Long id, @RequestBody ClassYearDTO classYearDTO) {
         try {
             return ResponseEntity.ok(classYearService.updateClassYear(id, classYearDTO));
@@ -68,7 +64,6 @@ public class ClassYearController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER')")
     public ResponseEntity<?> deleteClassYear(@PathVariable Long id) {
         try {
             classYearService.deleteClassYear(id);

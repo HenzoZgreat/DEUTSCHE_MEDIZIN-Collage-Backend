@@ -2,6 +2,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Service;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentStatusDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentStatus;
+import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.StudentStatusRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -13,36 +14,88 @@ import java.util.stream.Collectors;
 public class StudentStatusService {
 
     @Autowired
-    private StudentStatusRepo statusRepository;
+    private StudentStatusRepo studentStatusRepository;
 
-    public void addStatuses(List<StudentStatusDTO> statusDTOs) {
-        List<StudentStatus> statuses = statusDTOs.stream()
-                .map(dto -> new StudentStatus(null, dto.getStatusName()))
+    public void addStudentStatuses(List<StudentStatusDTO> studentStatusDTOs) {
+        if (studentStatusDTOs == null || studentStatusDTOs.isEmpty()) {
+            throw new IllegalArgumentException("Student status list cannot be null or empty");
+        }
+
+        List<StudentStatus> studentStatuses = studentStatusDTOs.stream()
+                .map(this::mapToEntity)
                 .collect(Collectors.toList());
-        statusRepository.saveAll(statuses);
+
+        for (StudentStatus status : studentStatuses) {
+            validateStudentStatus(status);
+            if (studentStatusRepository.existsByStatusName(status.getStatusName())) {
+                throw new IllegalArgumentException("Student status name already exists: " + status.getStatusName());
+            }
+        }
+
+        studentStatusRepository.saveAll(studentStatuses);
     }
 
-    public List<StudentStatus> getAllStatuses() {
-        return statusRepository.findAll();
+    public void addStudentStatus(StudentStatusDTO studentStatusDTO) {
+        if (studentStatusDTO == null) {
+            throw new IllegalArgumentException("Student status DTO cannot be null");
+        }
+
+        StudentStatus studentStatus = mapToEntity(studentStatusDTO);
+        validateStudentStatus(studentStatus);
+
+        if (studentStatusRepository.existsByStatusName(studentStatus.getStatusName())) {
+            throw new IllegalArgumentException("Student status name already exists: " + studentStatus.getStatusName());
+        }
+
+        studentStatusRepository.save(studentStatus);
     }
 
-    public void addStatus(StudentStatusDTO statusDTO) {
-        StudentStatus status = new StudentStatus(null, statusDTO.getStatusName());
-        statusRepository.save(status);
+    public List<StudentStatus> getAllStudentStatuses() {
+        List<StudentStatus> studentStatuses = studentStatusRepository.findAll();
+        if (studentStatuses.isEmpty()) {
+            throw new ResourceNotFoundException("No student statuses found");
+        }
+        return studentStatuses;
     }
 
-    public StudentStatus getStatusById(Long id) {
-        return statusRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Status not found: " + id));
+    public StudentStatus getStudentStatusById(Long id) {
+        return studentStatusRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Student status not found with id: " + id));
     }
 
-    public void updateStatus(Long id, StudentStatusDTO statusDTO) {
-        StudentStatus status = getStatusById(id);
-        status.setStatusName(statusDTO.getStatusName());
-        statusRepository.save(status);
+    public void updateStudentStatus(Long id, StudentStatusDTO studentStatusDTO) {
+        if (studentStatusDTO == null) {
+            throw new IllegalArgumentException("Student status DTO cannot be null");
+        }
+
+        StudentStatus existingStatus = getStudentStatusById(id);
+        String newStatusName = studentStatusDTO.getStatusName();
+
+        if (!existingStatus.getStatusName().equals(newStatusName) &&
+                studentStatusRepository.existsByStatusName(newStatusName)) {
+            throw new IllegalArgumentException("Student status name already exists: " + newStatusName);
+        }
+
+        existingStatus.setStatusName(newStatusName);
+        validateStudentStatus(existingStatus);
+
+        studentStatusRepository.save(existingStatus);
     }
 
-    public void deleteStatus(Long id) {
-        statusRepository.deleteById(id);
+    public void deleteStudentStatus(Long id) {
+        if (!studentStatusRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Student status not found with id: " + id);
+        }
+        studentStatusRepository.deleteById(id);
+    }
+
+    private StudentStatus mapToEntity(StudentStatusDTO dto) {
+        return new StudentStatus(null, dto.getStatusName());
+    }
+
+    private void validateStudentStatus(StudentStatus studentStatus) {
+        if (studentStatus.getStatusName() == null || studentStatus.getStatusName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Student status name cannot be null or empty");
+        }
     }
 }
