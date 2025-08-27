@@ -36,8 +36,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/auth/login", "/api/register").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
                         .requestMatchers(HttpMethod.GET,
+                                "/api/enums/**",
                                 "/api/country/**",
                                 "/api/impairments/**",
                                 "/api/program-modality/**",
@@ -56,7 +57,8 @@ public class SecurityConfig {
                                 "/api/student-course-scores/**",
                                 "/api/student-statuses",
                                 "/api/semesters/**").hasRole("REGISTRAR")
-                        .requestMatchers("/api/register/student").hasAnyRole("REGISTRAR", "VICE_DEAN", "STUDENT", "DEPARTMENT_HEAD")
+                        .requestMatchers("/api/auth/register/student").hasAnyRole("REGISTRAR", "VICE_DEAN", "STUDENT", "DEPARTMENT_HEAD")
+                        .requestMatchers("/api/auth//register/registrar").hasAnyRole("GENERAL_MANAGER", "VICE_DEAN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);

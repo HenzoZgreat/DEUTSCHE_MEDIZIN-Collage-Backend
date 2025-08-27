@@ -1,6 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.UserRegisterRequest;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,9 +21,8 @@ public class UserService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username)
+        return userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
-        return user;
     }
 
     public User registerUser(UserRegisterRequest request) {

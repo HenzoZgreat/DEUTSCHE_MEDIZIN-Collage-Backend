@@ -1,4 +1,4 @@
-package Henok.example.DeutscheCollageBack_endAPI.DTO;
+package Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin;
 
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import lombok.Data;

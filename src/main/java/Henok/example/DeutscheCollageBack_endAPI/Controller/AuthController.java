@@ -1,10 +1,16 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.AuthRequest;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.AuthResponse;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.UserRegisterRequest;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.*;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.GeneralManagerDetail;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.RegistrarDetail;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentDetails;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
+import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
+import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Security.JwtUtil;
+import Henok.example.DeutscheCollageBack_endAPI.Service.GeneralManagerService;
+import Henok.example.DeutscheCollageBack_endAPI.Service.RegistrarService;
+import Henok.example.DeutscheCollageBack_endAPI.Service.StudentDetailService;
 import Henok.example.DeutscheCollageBack_endAPI.Service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -26,12 +32,16 @@ public class AuthController {
 
     @Autowired
     private AuthenticationManager authenticationManager;
-
     @Autowired
     private JwtUtil jwtUtil;
-
     @Autowired
     private UserService userService;
+    @Autowired
+    private StudentDetailService studentDetailService;
+    @Autowired
+    private GeneralManagerService generalManagerService;
+    @Autowired
+    private RegistrarService registrarService;
 
     @PostMapping("/login")
     public ResponseEntity<?> createAuthenticationToken(@RequestBody AuthRequest authRequest) throws Exception {
@@ -44,7 +54,7 @@ public class AuthController {
             final String jwt = jwtUtil.generateToken(userDetails);
             return ResponseEntity.ok(new AuthResponse(jwt));
         } catch (BadCredentialsException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse("Invalid username or password"));
         }
     }
 
@@ -54,7 +64,45 @@ public class AuthController {
             User user = userService.registerUser(request);
             return ResponseEntity.ok("User registered successfully with username: " + user.getUsername());
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/register/student")
+    public ResponseEntity<?> registerStudent(@RequestBody StudentRegisterRequest request) {
+        try {
+            StudentDetails studentDetails = studentDetailService.registerStudent(request);
+            return ResponseEntity.ok("Student registered successfully with username: " + studentDetails.getUser().getUsername());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("An error occurred while registering the student"));
+        }
+    }
+
+    @PostMapping("/register/general-manager")
+    public ResponseEntity<?> registerGeneralManager(@RequestBody GeneralManagerRegisterRequest request) {
+        try {
+            GeneralManagerDetail generalManagerDetail = generalManagerService.registerGeneralManager(request);
+            return ResponseEntity.ok("General Manager registered successfully with username: " + generalManagerDetail.getUser().getUsername());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("An error occurred while registering the general manager"));
+        }
+    }
+
+    @PostMapping("/register/registrar")
+    public ResponseEntity<?> registerRegistrar(@RequestBody RegistrarRegisterRequest request) {
+        try {
+            RegistrarDetail registrarDetail = registrarService.registerRegistrar(request);
+            return ResponseEntity.ok("Registrar registered successfully with username: " + registrarDetail.getUser().getUsername());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("An error occurred while registering the registrar"));
         }
     }
 }

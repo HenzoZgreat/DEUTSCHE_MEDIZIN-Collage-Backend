@@ -7,5 +7,6 @@ public enum Role {
     REGISTRAR,
     FINANCIAL_STAFF,
     VICE_DEAN,
-    DEAN
+    DEAN,
+    GENERAL_MANAGER
 }
