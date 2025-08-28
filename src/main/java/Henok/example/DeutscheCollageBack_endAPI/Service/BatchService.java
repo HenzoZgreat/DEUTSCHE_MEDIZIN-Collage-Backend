@@ -136,7 +136,7 @@ public class BatchService {
             if (classYearValue.equals("1")) {
                 // First year: combine with S1 and S2
                 semesters.stream()
-                        .filter(s -> s.getAcademicPeriodCode().equals("S1") || s.getAcademicPeriodCode().equals("S2"))
+                        .filter(s -> s.getAcademicPeriodCode().equals("S1") || s.getAcademicPeriodCode().equals("S2") || s.getAcademicPeriodCode().equals("S3"))
                         .forEach(semester -> combinations.add(
                                 new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null)
                         ));

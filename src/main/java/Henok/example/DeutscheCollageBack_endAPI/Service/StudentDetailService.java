@@ -41,7 +41,7 @@ public class StudentDetailService {
     private BatchClassYearSemesterRepo batchClassYearSemesterRepository;
 
     @Autowired
-    private SchoolBackgroundRepo schoolBackgroundRepository;
+    private SchoolBackgroundRepository schoolBackgroundRepository;
 
     @Autowired
     private StudentStatusRepo studentStatusRepository;

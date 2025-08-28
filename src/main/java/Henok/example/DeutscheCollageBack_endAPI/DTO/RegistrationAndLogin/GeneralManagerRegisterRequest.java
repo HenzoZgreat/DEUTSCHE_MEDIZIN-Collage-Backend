@@ -19,6 +19,4 @@ public class GeneralManagerRegisterRequest {
     private String lastNameEnglish;
     private String email;
     private String phoneNumber;
-    private byte[] nationalIdImage;
-    private byte[] photograph;
 }

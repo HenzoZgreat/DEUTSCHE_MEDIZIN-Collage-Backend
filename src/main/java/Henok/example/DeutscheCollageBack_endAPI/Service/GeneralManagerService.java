@@ -6,9 +6,13 @@ import Henok.example.DeutscheCollageBack_endAPI.Entity.GeneralManagerDetail;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.GeneralManagerDetailRepository;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 
 @Service
 public class GeneralManagerService {
@@ -19,8 +23,11 @@ public class GeneralManagerService {
     @Autowired
     private GeneralManagerDetailRepository generalManagerDetailRepository;
 
+    @Autowired
+    private EntityManager entityManager;
+
     @Transactional
-    public GeneralManagerDetail registerGeneralManager(GeneralManagerRegisterRequest request) {
+    public GeneralManagerDetail registerGeneralManager(GeneralManagerRegisterRequest request, MultipartFile nationalIdImage, MultipartFile photograph) {
         // Validate required fields
         if (request.getUsername() == null || request.getUsername().isEmpty()) {
             throw new IllegalArgumentException("Username cannot be empty");
@@ -52,25 +59,49 @@ public class GeneralManagerService {
             throw new IllegalArgumentException("Phone number already exists");
         }
 
-        // Create User with GENERAL_MANAGER role
+        // Create and save User with GENERAL_MANAGER role
         UserRegisterRequest userRequest = new UserRegisterRequest();
         userRequest.setUsername(request.getUsername());
         userRequest.setPassword(request.getPassword());
         userRequest.setRole(Role.GENERAL_MANAGER);
         User user = userService.registerUser(userRequest);
 
+        // Flush to ensure User is persisted
+        entityManager.flush();
+
+        // Check for existing GeneralManagerDetail with the same user
+        if (generalManagerDetailRepository.findByUser(user).isPresent()) {
+            throw new IllegalArgumentException("General Manager detail already exists for user: " + user.getUsername());
+        }
+
         // Create GeneralManagerDetail
         GeneralManagerDetail generalManagerDetail = new GeneralManagerDetail();
         generalManagerDetail.setUser(user);
-        generalManagerDetail.setUserId(user.getId());
         generalManagerDetail.setFirstNameAmharic(request.getFirstNameAmharic());
         generalManagerDetail.setLastNameAmharic(request.getLastNameAmharic());
         generalManagerDetail.setFirstNameEnglish(request.getFirstNameEnglish());
         generalManagerDetail.setLastNameEnglish(request.getLastNameEnglish());
         generalManagerDetail.setEmail(request.getEmail());
         generalManagerDetail.setPhoneNumber(request.getPhoneNumber());
-        generalManagerDetail.setNationalIdImage(request.getNationalIdImage());
-        generalManagerDetail.setPhotograph(request.getPhotograph());
+
+        // Convert MultipartFile to byte[]
+        byte[] nationalIdImageBytes = null;
+        byte[] photographBytes = null;
+        try {
+            if (nationalIdImage != null && !nationalIdImage.isEmpty()) {
+                nationalIdImageBytes = nationalIdImage.getBytes();
+            }
+            if (photograph != null && !photograph.isEmpty()) {
+                photographBytes = photograph.getBytes();
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to process image files: " + e.getMessage());
+        }
+        generalManagerDetail.setNationalIdImage(nationalIdImageBytes);
+        generalManagerDetail.setPhotograph(photographBytes);
+
+        // Clear persistence context to avoid stale entity issues
+        entityManager.clear();
 
         return generalManagerDetailRepository.save(generalManagerDetail);
     }

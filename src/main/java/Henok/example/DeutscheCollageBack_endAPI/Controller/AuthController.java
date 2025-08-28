@@ -14,6 +14,7 @@ import Henok.example.DeutscheCollageBack_endAPI.Service.StudentDetailService;
 import Henok.example.DeutscheCollageBack_endAPI.Service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -21,10 +22,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -82,22 +81,30 @@ public class AuthController {
         }
     }
 
-    @PostMapping("/register/general-manager")
-    public ResponseEntity<?> registerGeneralManager(@RequestBody GeneralManagerRegisterRequest request) {
+    @PostMapping(value = "/register/general-manager", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> registerGeneralManager(
+            @RequestPart("data") GeneralManagerRegisterRequest request,
+            @RequestPart(value = "nationalIdImage", required = false) MultipartFile nationalIdImage,
+            @RequestPart(value = "photograph", required = false) MultipartFile photograph) {
         try {
-            GeneralManagerDetail generalManagerDetail = generalManagerService.registerGeneralManager(request);
+            System.out.println("request looks like :" + request);
+            GeneralManagerDetail generalManagerDetail = generalManagerService.registerGeneralManager(request, nationalIdImage, photograph);
             return ResponseEntity.ok("General Manager registered successfully with username: " + generalManagerDetail.getUser().getUsername());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
+            System.out.println(e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("An error occurred while registering the general manager"));
         }
     }
 
-    @PostMapping("/register/registrar")
-    public ResponseEntity<?> registerRegistrar(@RequestBody RegistrarRegisterRequest request) {
+    @PostMapping(value = "/register/registrar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> registerRegistrar(
+            @RequestPart(name = "data") RegistrarRegisterRequest request,
+            @RequestPart(name = "nationalIdImage", required = false) MultipartFile nationalIdImage,
+            @RequestPart(name = "photograph", required = false) MultipartFile photograph) {
         try {
-            RegistrarDetail registrarDetail = registrarService.registerRegistrar(request);
+            RegistrarDetail registrarDetail = registrarService.registerRegistrar(request, nationalIdImage, photograph);
             return ResponseEntity.ok("Registrar registered successfully with username: " + registrarDetail.getUser().getUsername());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
