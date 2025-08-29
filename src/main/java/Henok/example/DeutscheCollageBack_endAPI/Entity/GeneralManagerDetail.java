@@ -1,7 +1,5 @@
 package Henok.example.DeutscheCollageBack_endAPI.Entity;
 
-import Henok.example.DeutscheCollageBack_endAPI.Service.Base64ImageDeserializer;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;

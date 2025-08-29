@@ -1,8 +1,8 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.BatchClassYearSemesterService;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
+import Henok.example.DeutscheCollageBack_endAPI.Service.BatchClassYearSemesterService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/batches")
+@RequestMapping("/api/bcsy")
 public class BatchClassYearSemesterController {
 
     @Autowired

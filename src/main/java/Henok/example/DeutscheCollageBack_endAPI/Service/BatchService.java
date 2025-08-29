@@ -122,44 +122,44 @@ public class BatchService {
     }
 
     private void generateBatchClassYearSemesterCombinations(Batch batch) {
-        List<ClassYear> classYears = classYearRepository.findAll();
-        List<Semester> semesters = semesterRepository.findAll();
-
-        if (classYears.isEmpty() || semesters.isEmpty()) {
-            throw new IllegalStateException("Class years or semesters not found");
-        }
-
-        List<BatchClassYearSemester> combinations = new ArrayList<>();
-
-        for (ClassYear classYear : classYears) {
-            String classYearValue = classYear.getClassYear();
-            if (classYearValue.equals("1")) {
-                // First year: combine with S1 and S2
-                semesters.stream()
-                        .filter(s -> s.getAcademicPeriodCode().equals("S1") || s.getAcademicPeriodCode().equals("S2") || s.getAcademicPeriodCode().equals("S3"))
-                        .forEach(semester -> combinations.add(
-                                new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null)
-                        ));
-            } else if (classYearValue.startsWith("PC") || classYearValue.startsWith("C")) {
-                // Medical years (PC1, PC2, C1, C2, C3): combine with FS
-                semesters.stream()
-                        .filter(s -> s.getAcademicPeriodCode().equals("FS"))
-                        .forEach(semester -> combinations.add(
-                                new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null)
-                        ));
-            } else {
-                // Other years (2, 3, 4, 5, 6): combine with S1 and S2
-                semesters.stream()
-                        .filter(s -> s.getAcademicPeriodCode().equals("S1") || s.getAcademicPeriodCode().equals("S2"))
-                        .forEach(semester -> combinations.add(
-                                new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null)
-                        ));
-            }
-        }
-
-        if (combinations.isEmpty()) {
-            throw new IllegalStateException("No valid batch-class-year-semester combinations generated");
-        }
-        batchClassYearSemesterService.saveAll(combinations);
+//        List<ClassYear> classYears = classYearRepository.findAll();
+//        List<Semester> semesters = semesterRepository.findAll();
+//
+//        if (classYears.isEmpty() || semesters.isEmpty()) {
+//            throw new IllegalStateException("Class years or semesters not found");
+//        }
+//
+//        List<BatchClassYearSemester> combinations = new ArrayList<>();
+//
+//        for (ClassYear classYear : classYears) {
+//            String classYearValue = classYear.getClassYear();
+//            if (classYearValue.equals("1")) {
+//                // First year: combine with S1 and S2
+//                semesters.stream()
+//                        .filter(s -> s.getAcademicPeriodCode().equals("S1") || s.getAcademicPeriodCode().equals("S2") || s.getAcademicPeriodCode().equals("S3"))
+//                        .forEach(semester -> combinations.add(
+//                                new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null)
+//                        ));
+//            } else if (classYearValue.startsWith("PC") || classYearValue.startsWith("C")) {
+//                // Medical years (PC1, PC2, C1, C2, C3): combine with FS
+//                semesters.stream()
+//                        .filter(s -> s.getAcademicPeriodCode().equals("FS"))
+//                        .forEach(semester -> combinations.add(
+//                                new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null)
+//                        ));
+//            } else {
+//                // Other years (2, 3, 4, 5, 6): combine with S1 and S2
+//                semesters.stream()
+//                        .filter(s -> s.getAcademicPeriodCode().equals("S1") || s.getAcademicPeriodCode().equals("S2"))
+//                        .forEach(semester -> combinations.add(
+//                                new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null)
+//                        ));
+//            }
+//        }
+//
+//        if (combinations.isEmpty()) {
+//            throw new IllegalStateException("No valid batch-class-year-semester combinations generated");
+//        }
+//        batchClassYearSemesterService.saveAll(combinations);
     }
 }
