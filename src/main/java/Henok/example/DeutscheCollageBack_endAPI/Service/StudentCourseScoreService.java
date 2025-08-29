@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.GradeDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScoreDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
@@ -99,4 +100,23 @@ public class StudentCourseScoreService {
         }
         return scores;
     }
+
+    public GradeDTO getGrade(Long scoreId) {
+        StudentCourseScore score = studentCourseScoreRepo.findById(scoreId)
+                .orElseThrow(() -> new ResourceNotFoundException("Score not found with id: " + scoreId));
+
+        // Dynamic calculation
+        GradingSystem gs = score.getBatchClassYearSemester().getGradingSystem();
+        if (gs == null) {
+            throw new IllegalStateException("No grading system assigned to this batch");
+        }
+
+        MarkInterval interval = gs.getIntervals().stream()
+                .filter(i -> score.getScore() >= i.getMin() && score.getScore() <= i.getMax())
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No matching interval for score: " + score.getScore()));
+
+        return new GradeDTO(interval.getGradeLetter(), interval.getGivenValue());
+    }
+
 }

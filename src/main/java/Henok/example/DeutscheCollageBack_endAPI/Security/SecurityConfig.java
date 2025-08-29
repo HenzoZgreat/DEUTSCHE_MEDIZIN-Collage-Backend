@@ -47,7 +47,10 @@ public class SecurityConfig {
                                 "/api/zone/**",
                                 "/api/academic-years/**",
                                 "/api/departments/**",
-                                "/api/enrollment-type/**").permitAll()
+                                "/api/enrollment-type/**",
+                                "/api/school-backgrounds/**",
+                                "/api/class-years/**",
+                                "/api/semesters/**").permitAll()
 
                         .requestMatchers("/api/batches/**",
                                 "/api/class-years/**",
@@ -55,7 +58,7 @@ public class SecurityConfig {
                                 "/api/course-categories/**",
                                 "/api/departments/**",
                                 "/api/student-course-scores/**",
-                                "/api/student-statuses",
+                                "/api/student-statuses/**",
                                 "/api/semesters/**").hasRole("REGISTRAR")
                         .requestMatchers("/api/auth/register/student").hasAnyRole("REGISTRAR", "VICE_DEAN", "STUDENT", "DEPARTMENT_HEAD")
                         .requestMatchers("/api/auth/register/registrar").hasAnyRole("GENERAL_MANAGER", "VICE_DEAN")

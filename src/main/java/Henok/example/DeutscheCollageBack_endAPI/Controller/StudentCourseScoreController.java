@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.GradeDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScoreDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentCourseScore;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
@@ -78,4 +79,17 @@ public class StudentCourseScoreController {
                     .body(new ErrorResponse("Failed to retrieve scores: " + e.getMessage()));
         }
     }
+
+    @GetMapping("/{scoreId}/grade")
+    public ResponseEntity<?> getGrade(@PathVariable Long scoreId) {
+        try {
+            GradeDTO grade = studentCourseScoreService.getGrade(scoreId);
+            return ResponseEntity.ok(grade);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
 }

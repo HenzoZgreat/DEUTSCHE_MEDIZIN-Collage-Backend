@@ -143,6 +143,15 @@ public class AppliedStudent {
     @JoinColumn(name = "program_modality", nullable = false)
     private ProgramModality programModality;
 
+    // Academic Year and Semester Preferences
+    @ManyToOne
+    @JoinColumn(name = "class_year_id", nullable = false)
+    private ClassYear classYear; // References ClassYear table to specify the year of application
+
+    @ManyToOne
+    @JoinColumn(name = "academic_period_code", nullable = false)
+    private Semester semester; // References Semester table to specify the semester of application
+
     // Single PDF document for all required files (nullable)
     @Lob
     private byte[] document;

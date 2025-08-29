@@ -25,20 +25,28 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
     @Autowired
     private AuthenticationManager authenticationManager;
+
     @Autowired
     private JwtUtil jwtUtil;
+
     @Autowired
     private UserService userService;
+
     @Autowired
     private StudentDetailService studentDetailService;
+
     @Autowired
     private GeneralManagerService generalManagerService;
+
     @Autowired
     private RegistrarService registrarService;
 
@@ -61,7 +69,10 @@ public class AuthController {
     public ResponseEntity<?> registerUser(@RequestBody UserRegisterRequest request) {
         try {
             User user = userService.registerUser(request);
-            return ResponseEntity.ok("User registered successfully with username: " + user.getUsername());
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "User registered successfully with username: " + user.getUsername());
+            response.put("userID", user.getId().toString());
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
         }
@@ -71,7 +82,10 @@ public class AuthController {
     public ResponseEntity<?> registerStudent(@RequestBody StudentRegisterRequest request) {
         try {
             StudentDetails studentDetails = studentDetailService.registerStudent(request);
-            return ResponseEntity.ok("Student registered successfully with username: " + studentDetails.getUser().getUsername());
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Student registered successfully with username: " + studentDetails.getUser().getUsername());
+            response.put("userID", studentDetails.getUser().getId().toString());
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
         } catch (ResourceNotFoundException e) {
@@ -83,17 +97,18 @@ public class AuthController {
 
     @PostMapping(value = "/register/general-manager", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> registerGeneralManager(
-            @RequestPart("data") GeneralManagerRegisterRequest request,
-            @RequestPart(value = "nationalIdImage", required = false) MultipartFile nationalIdImage,
-            @RequestPart(value = "photograph", required = false) MultipartFile photograph) {
+            @RequestPart(name = "data") GeneralManagerRegisterRequest request,
+            @RequestPart(name = "nationalIdImage", required = false) MultipartFile nationalIdImage,
+            @RequestPart(name = "photograph", required = false) MultipartFile photograph) {
         try {
-            System.out.println("request looks like :" + request);
             GeneralManagerDetail generalManagerDetail = generalManagerService.registerGeneralManager(request, nationalIdImage, photograph);
-            return ResponseEntity.ok("General Manager registered successfully with username: " + generalManagerDetail.getUser().getUsername());
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "General Manager registered successfully with username: " + generalManagerDetail.getUser().getUsername());
+            response.put("userID", generalManagerDetail.getUser().getId().toString());
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
-            System.out.println(e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("An error occurred while registering the general manager"));
         }
     }
@@ -105,7 +120,10 @@ public class AuthController {
             @RequestPart(name = "photograph", required = false) MultipartFile photograph) {
         try {
             RegistrarDetail registrarDetail = registrarService.registerRegistrar(request, nationalIdImage, photograph);
-            return ResponseEntity.ok("Registrar registered successfully with username: " + registrarDetail.getUser().getUsername());
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Registrar registered successfully with username: " + registrarDetail.getUser().getUsername());
+            response.put("userID", registrarDetail.getUser().getId().toString());
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
