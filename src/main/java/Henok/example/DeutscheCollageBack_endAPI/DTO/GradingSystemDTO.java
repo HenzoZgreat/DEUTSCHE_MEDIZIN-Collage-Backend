@@ -12,11 +12,9 @@ import java.util.List;
 @AllArgsConstructor
 public class GradingSystemDTO {
 
-    private Long id;
     private String versionName;
-    private LocalDate effectiveDate;
     private List<MarkIntervalDTO> intervals;
 
-    // Explanation: DTO for GradingSystem to expose only necessary fields in API responses/requests.
-    // Why: Avoids exposing entity internals; supports nested intervals for full representation.
+    // Explanation: DTO for GradingSystem to expose only versionName and intervals in API requests/responses.
+    // Why: Excludes id (auto-generated) and effectiveDate (auto-filled in service); avoids exposing entity internals.
 }

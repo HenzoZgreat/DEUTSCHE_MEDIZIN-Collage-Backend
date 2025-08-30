@@ -10,6 +10,7 @@ import Henok.example.DeutscheCollageBack_endAPI.Repository.MarkIntervalRepositor
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -40,7 +41,7 @@ public class GradingSystemService {
         // Manual mapping: DTO to Entity
         GradingSystem entity = new GradingSystem();
         entity.setVersionName(dto.getVersionName());
-        entity.setEffectiveDate(dto.getEffectiveDate());
+        entity.setEffectiveDate(LocalDate.now()); // Auto-fill effective date
         entity.setIntervals(new ArrayList<>());
 
         // Map intervals
@@ -101,7 +102,7 @@ public class GradingSystemService {
 
         // Update fields
         entity.setVersionName(dto.getVersionName());
-        entity.setEffectiveDate(dto.getEffectiveDate());
+        entity.setEffectiveDate(LocalDate.now()); // Auto-update effective date
 
         // Clear and update intervals
         entity.getIntervals().clear();
@@ -163,9 +164,7 @@ public class GradingSystemService {
      */
     private GradingSystemDTO toDTO(GradingSystem entity) {
         GradingSystemDTO dto = new GradingSystemDTO();
-        dto.setId(entity.getId());
         dto.setVersionName(entity.getVersionName());
-        dto.setEffectiveDate(entity.getEffectiveDate());
         List<MarkIntervalDTO> intervalDTOs = entity.getIntervals().stream()
                 .map(interval -> new MarkIntervalDTO(
                         interval.getId(),
@@ -181,5 +180,5 @@ public class GradingSystemService {
     }
 
     // Explanation: Service handles CRUD for GradingSystem with manual DTO mapping.
-    // Why: Manual mapping avoids ModelMapper dependency; includes validation and error handling.
+    // Why: Sets effectiveDate to current date; excludes id/effectiveDate from DTO; includes validation and error handling.
 }
