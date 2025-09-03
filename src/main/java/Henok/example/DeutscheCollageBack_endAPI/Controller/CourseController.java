@@ -37,6 +37,7 @@ public class CourseController {
     @PostMapping("/single")
     public ResponseEntity<?> addCourse(@RequestBody CourseDTO courseDTO) {
         try {
+            System.out.println("Before anything checking DTO : " + courseDTO);
             courseService.addCourse(courseDTO);
             return ResponseEntity.ok("Course added successfully");
         } catch (IllegalArgumentException e) {

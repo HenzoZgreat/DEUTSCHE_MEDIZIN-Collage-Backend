@@ -50,11 +50,13 @@ public class CourseService {
     }
 
     public void addCourse(CourseDTO courseDTO) {
+        System.out.println("just after the function call checking DTO : " + courseDTO);
         if (courseDTO == null) {
             throw new IllegalArgumentException("Course DTO cannot be null");
         }
 
         Course course = mapToEntity(courseDTO);
+        System.out.println("Affter Mapping is done, DTO");
         validateCourse(course);
 
         if (courseRepository.existsBycCode(course.getCCode())) {

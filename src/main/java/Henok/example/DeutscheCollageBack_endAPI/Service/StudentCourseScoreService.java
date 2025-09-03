@@ -28,6 +28,12 @@ public class StudentCourseScoreService {
     @Autowired
     private CourseSourceRepo courseSourceRepo;
 
+    @Autowired
+    private GradingSystemService gradingSystemService;
+
+    @Autowired
+    private StudentDetailsRepository studentDetailsRepository; // Assume exists for fetching student details
+
     public void addCourse(StudentCourseScoreDTO dto) {
         if (dto == null) {
             throw new IllegalArgumentException("Student course score DTO cannot be null");
@@ -101,16 +107,27 @@ public class StudentCourseScoreService {
         return scores;
     }
 
+    /**
+     * Computes the grade for a student course score based on the student's recent department.
+     * @param scoreId The score ID.
+     * @return GradeDTO with letter grade and GPA value.
+     * @throws ResourceNotFoundException if score or student details not found.
+     * @throws IllegalStateException if grading system or interval missing.
+     */
     public GradeDTO getGrade(Long scoreId) {
         StudentCourseScore score = studentCourseScoreRepo.findById(scoreId)
                 .orElseThrow(() -> new ResourceNotFoundException("Score not found with id: " + scoreId));
 
-        // Dynamic calculation
-        GradingSystem gs = score.getBatchClassYearSemester().getGradingSystem();
-        if (gs == null) {
-            throw new IllegalStateException("No grading system assigned to this batch");
-        }
+        // Get student details to fetch recent department
+        StudentDetails studentDetails = studentDetailsRepository.findByUser(score.getStudent())
+                .orElseThrow(() -> new ResourceNotFoundException("Student details not found for student id: " + score.getStudent().getId()));
 
+        Department department = studentDetails.getStudentRecentDepartment();
+
+        // Resolve latest applicable grading system (department-specific or global fallback)
+        GradingSystem gs = gradingSystemService.findApplicableGradingSystem(department);
+
+        // Find matching interval
         MarkInterval interval = gs.getIntervals().stream()
                 .filter(i -> score.getScore() >= i.getMin() && score.getScore() <= i.getMax())
                 .findFirst()
@@ -118,5 +135,9 @@ public class StudentCourseScoreService {
 
         return new GradeDTO(interval.getGradeLetter(), interval.getGivenValue());
     }
+
+    // Explanation: Computes grade dynamically using student's recent department for grading system resolution.
+    // Why: Handles department-specific grading with global fallback; uses latest system as per requirement.
+    // Additional methods: For score CRUD as per existing system.
 
 }

@@ -24,11 +24,18 @@ public class GradingSystem {
     private String versionName; // e.g., "2023 Standard", "2025 Revised" – human-readable name for admin reference
 
     @Column(nullable = false)
-    private LocalDate effectiveDate; // Date this system starts applying, for historical tracking
+    private LocalDate effectiveDate; // Date this system starts applying, retained but unused for grade resolution
+
+    @Column(nullable = true)
+    private String remark; // Optional remark or note about the grading system
+
+    @ManyToOne
+    @JoinColumn(name = "department_id", nullable = true)
+    private Department department; // Optional: Links to department for department-specific systems; null for global
 
     @OneToMany(mappedBy = "gradingSystem", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MarkInterval> intervals = new ArrayList<>(); // List of intervals for this version
 
-    // Explanation: This entity groups intervals to version the grading scale.
-    // Why: Prevents global changes; each version is immutable once created.
+    // Explanation: Entity groups intervals to version the grading scale, with optional department and remark.
+    // Why: Supports department-specific grading; nullable remark for notes; effectiveDate retained but not used for resolution.
 }

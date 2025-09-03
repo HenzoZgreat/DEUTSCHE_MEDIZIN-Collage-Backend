@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -13,8 +12,10 @@ import java.util.List;
 public class GradingSystemDTO {
 
     private String versionName;
+    private Long departmentId; // Optional: ID of the department for department-specific systems; null for global
+    private String remark; // Optional remark or note about the grading system
     private List<MarkIntervalDTO> intervals;
 
-    // Explanation: DTO for GradingSystem to expose only versionName and intervals in API requests/responses.
-    // Why: Excludes id (auto-generated) and effectiveDate (auto-filled in service); avoids exposing entity internals.
+    // Explanation: DTO for GradingSystem to expose versionName, optional departmentId, remark, and intervals.
+    // Why: Allows creating department-specific or global systems; excludes id as it is auto-generated.
 }

@@ -204,7 +204,6 @@ public class StudentDetailService {
         // Create StudentDetails
         StudentDetails studentDetails = new StudentDetails();
         studentDetails.setUser(user);
-        studentDetails.setUserId(user.getId());
         studentDetails.setFirstNameAMH(request.getFirstNameAMH());
         studentDetails.setFirstNameENG(request.getFirstNameENG());
         studentDetails.setFatherNameAMH(request.getFatherNameAMH());

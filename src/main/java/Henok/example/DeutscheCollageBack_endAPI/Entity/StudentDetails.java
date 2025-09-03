@@ -19,14 +19,18 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class StudentDetails {
 
-    // Primary Key and User Relationship
+    // New auto-generated primary key for the StudentDetails table.
+    // Why: Provides an independent identity for StudentDetails, decoupling it from User's ID.
+    // This allows easier management and avoids shared PK issues in some query scenarios.
     @Id
-    @Column(name = "user_id")
-    private Long userId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
+    // Foreign key reference to User table.
+    // Why: Establishes a one-to-one relationship without sharing the PK.
+    // Nullable=false ensures every StudentDetails must link to a User.
     @OneToOne
-    @MapsId
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     // Personal Information (Names in Amharic and English)

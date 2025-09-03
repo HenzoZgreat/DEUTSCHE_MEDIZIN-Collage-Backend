@@ -30,6 +30,8 @@ public class GradingSystemController {
             return ResponseEntity.ok(created);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
         }
     }
 
@@ -91,5 +93,5 @@ public class GradingSystemController {
     }
 
     // Explanation: RESTful controller for GradingSystem CRUD.
-    // Why: Uses ResponseEntity<?> for create/update to allow ErrorResponse; maintains security and error handling.
+    // Why: Supports departmentId in DTO for department-specific systems; handles errors appropriately.
 }

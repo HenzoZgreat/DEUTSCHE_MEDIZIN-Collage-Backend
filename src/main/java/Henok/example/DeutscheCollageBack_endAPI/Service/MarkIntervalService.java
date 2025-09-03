@@ -130,7 +130,7 @@ public class MarkIntervalService {
      */
     private void validateSingleInterval(MarkInterval interval) {
         if (interval.getMin() >= interval.getMax()) {
-            throw new IllegalArgumentException("Invalid interval: min must be less than max");
+            throw new IllegalArgumentException("Invalid interval: minimum value must be less than maximum value");
         }
         if (interval.getGivenValue() < 0) {
             throw new IllegalArgumentException("Invalid GPA value: must be non-negative");

@@ -16,6 +16,4 @@ public class MarkIntervalDTO {
     private double givenValue;
     private String gradeLetter;
 
-    // Explanation: DTO for MarkInterval to handle API inputs/outputs without entity exposure.
-    // Why: Ensures data transfer is lightweight and secure.
 }
