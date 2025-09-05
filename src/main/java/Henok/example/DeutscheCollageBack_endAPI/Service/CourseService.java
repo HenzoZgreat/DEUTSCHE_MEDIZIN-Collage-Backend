@@ -56,7 +56,7 @@ public class CourseService {
         }
 
         Course course = mapToEntity(courseDTO);
-        System.out.println("Affter Mapping is done, DTO");
+        System.out.println("After Mapping is done, DTO");
         validateCourse(course);
 
         if (courseRepository.existsBycCode(course.getCCode())) {

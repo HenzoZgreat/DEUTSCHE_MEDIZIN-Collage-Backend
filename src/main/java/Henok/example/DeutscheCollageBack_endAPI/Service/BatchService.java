@@ -4,13 +4,18 @@ import Henok.example.DeutscheCollageBack_endAPI.DTO.BatchDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Batch;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.BatchClassYearSemester;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.ClassYear;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.GradingSystem;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Semester;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.BatchRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.ClassYearRepository;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.GradingSystemRepository;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.SemesterRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -28,6 +33,8 @@ public class BatchService {
     private SemesterRepo semesterRepository;
     @Autowired
     private BatchClassYearSemesterService batchClassYearSemesterService;
+    @Autowired
+    private GradingSystemRepository gradingSystemRepository; // For fetching latest by effective date
 
     public BatchDTO addBatches(List<BatchDTO> batchDTOs) {
         if (batchDTOs == null || batchDTOs.isEmpty()) {
@@ -77,6 +84,7 @@ public class BatchService {
         return batches.stream()
                 .map(batch -> {
                     BatchDTO dto = new BatchDTO();
+                    dto.setId(batch.getId());
                     dto.setBatchName(batch.getBatchName());
                     return dto;
                 })
@@ -87,6 +95,7 @@ public class BatchService {
         Batch batch = batchRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Batch not found with id: " + id));
         BatchDTO dto = new BatchDTO();
+        dto.setId(batch.getId());
         dto.setBatchName(batch.getBatchName());
         return dto;
     }
@@ -122,44 +131,54 @@ public class BatchService {
     }
 
     private void generateBatchClassYearSemesterCombinations(Batch batch) {
-//        List<ClassYear> classYears = classYearRepository.findAll();
-//        List<Semester> semesters = semesterRepository.findAll();
-//
-//        if (classYears.isEmpty() || semesters.isEmpty()) {
-//            throw new IllegalStateException("Class years or semesters not found");
-//        }
-//
-//        List<BatchClassYearSemester> combinations = new ArrayList<>();
-//
-//        for (ClassYear classYear : classYears) {
-//            String classYearValue = classYear.getClassYear();
-//            if (classYearValue.equals("1")) {
-//                // First year: combine with S1 and S2
-//                semesters.stream()
-//                        .filter(s -> s.getAcademicPeriodCode().equals("S1") || s.getAcademicPeriodCode().equals("S2") || s.getAcademicPeriodCode().equals("S3"))
-//                        .forEach(semester -> combinations.add(
-//                                new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null)
-//                        ));
-//            } else if (classYearValue.startsWith("PC") || classYearValue.startsWith("C")) {
-//                // Medical years (PC1, PC2, C1, C2, C3): combine with FS
-//                semesters.stream()
-//                        .filter(s -> s.getAcademicPeriodCode().equals("FS"))
-//                        .forEach(semester -> combinations.add(
-//                                new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null)
-//                        ));
-//            } else {
-//                // Other years (2, 3, 4, 5, 6): combine with S1 and S2
-//                semesters.stream()
-//                        .filter(s -> s.getAcademicPeriodCode().equals("S1") || s.getAcademicPeriodCode().equals("S2"))
-//                        .forEach(semester -> combinations.add(
-//                                new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null)
-//                        ));
-//            }
-//        }
-//
-//        if (combinations.isEmpty()) {
-//            throw new IllegalStateException("No valid batch-class-year-semester combinations generated");
-//        }
-//        batchClassYearSemesterService.saveAll(combinations);
+        List<ClassYear> classYears = classYearRepository.findAll();
+        List<Semester> semesters = semesterRepository.findAll();
+
+        if (classYears.isEmpty() || semesters.isEmpty()) {
+            throw new IllegalStateException("Class years or semesters not found");
+        }
+
+        // Fetch the latest grading system by effective date
+        Pageable topOne = PageRequest.of(0, 1);
+        Page<GradingSystem> page = gradingSystemRepository.findLatestByEffectiveDate(topOne);
+        GradingSystem defaultGradingSystem = page.getContent().stream()
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No grading system found"));
+
+        List<BatchClassYearSemester> combinations = new ArrayList<>();
+
+        for (ClassYear classYear : classYears) {
+            String classYearValue = classYear.getClassYear();
+            if (classYearValue.equals("1")) {
+                // First year: combine with S1, S2, and S3
+                semesters.stream()
+                        .filter(s -> s.getAcademicPeriodCode().equals("S1") || s.getAcademicPeriodCode().equals("S2") || s.getAcademicPeriodCode().equals("S3"))
+                        .forEach(semester -> combinations.add(
+                                new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null, defaultGradingSystem)
+                        ));
+            } else if (classYearValue.startsWith("PC") || classYearValue.startsWith("C")) {
+                // Medical years (PC1, PC2, C1, C2, C3): combine with FS
+                semesters.stream()
+                        .filter(s -> s.getAcademicPeriodCode().equals("FS"))
+                        .forEach(semester -> combinations.add(
+                                new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null, defaultGradingSystem)
+                        ));
+            } else {
+                // Other years (2, 3, 4, 5, 6): combine with S1 and S2
+                semesters.stream()
+                        .filter(s -> s.getAcademicPeriodCode().equals("S1") || s.getAcademicPeriodCode().equals("S2"))
+                        .forEach(semester -> combinations.add(
+                                new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null, defaultGradingSystem)
+                        ));
+            }
+        }
+
+        if (combinations.isEmpty()) {
+            throw new IllegalStateException("No valid batch-class-year-semester combinations generated");
+        }
+        batchClassYearSemesterService.saveAll(combinations);
     }
+
+    // Explanation: Updated to fetch latest GradingSystem by effectiveDate and include in BatchClassYearSemester constructor.
+    // Why: Fixes missing gradingSystem parameter; ensures non-null constraint; uses latest global system.
 }

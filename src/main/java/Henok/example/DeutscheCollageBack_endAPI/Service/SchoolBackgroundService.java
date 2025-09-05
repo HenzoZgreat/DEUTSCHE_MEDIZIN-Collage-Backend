@@ -45,6 +45,7 @@ public class SchoolBackgroundService {
         return schoolBackgrounds.stream()
                 .map(schoolBackground -> {
                     SchoolBackgroundDTO dto = new SchoolBackgroundDTO();
+                    dto.setId(schoolBackground.getId());
                     dto.setBackground(schoolBackground.getBackground());
                     return dto;
                 })
@@ -55,6 +56,7 @@ public class SchoolBackgroundService {
         SchoolBackground schoolBackground = schoolBackgroundRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("SchoolBackground not found with id: " + id));
         SchoolBackgroundDTO dto = new SchoolBackgroundDTO();
+        dto.setId(schoolBackground.getId());
         dto.setBackground(schoolBackground.getBackground());
         return dto;
     }

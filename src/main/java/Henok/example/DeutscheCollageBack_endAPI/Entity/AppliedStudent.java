@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Entity;
 
+import Henok.example.DeutscheCollageBack_endAPI.Enums.ApplicationStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Gender;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.MaritalStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.*;
@@ -151,6 +152,11 @@ public class AppliedStudent {
     @ManyToOne
     @JoinColumn(name = "academic_period_code", nullable = false)
     private Semester semester; // References Semester table to specify the semester of application
+
+    // Application Status
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private ApplicationStatus applicationStatus = ApplicationStatus.PENDING; // Default to PENDING
 
     // Single PDF document for all required files (nullable)
     @Lob

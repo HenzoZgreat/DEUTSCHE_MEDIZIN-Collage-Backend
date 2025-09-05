@@ -6,4 +6,11 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface AppliedStudentRepository extends JpaRepository<AppliedStudent, Long> {
+
+    /**
+     * Checks if an applicant exists with the given phone number.
+     * @param phoneNumber The phone number to check.
+     * @return True if an applicant exists with the phone number.
+     */
+    boolean existsByPhoneNumber(String phoneNumber);
 }

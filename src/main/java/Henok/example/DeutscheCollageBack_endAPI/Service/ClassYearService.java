@@ -42,6 +42,7 @@ public class ClassYearService {
         return classYears.stream()
                 .map(classYear -> {
                     ClassYearDTO dto = new ClassYearDTO();
+                    dto.setId(classYear.getId());
                     dto.setClassYear(classYear.getClassYear());
                     return dto;
                 })
@@ -52,6 +53,7 @@ public class ClassYearService {
         ClassYear classYear = classYearRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("ClassYear not found with id: " + id));
         ClassYearDTO dto = new ClassYearDTO();
+        dto.setId(classYear.getId());
         dto.setClassYear(classYear.getClassYear());
         return dto;
     }
