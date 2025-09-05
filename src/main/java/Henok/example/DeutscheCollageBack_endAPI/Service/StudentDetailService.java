@@ -2,6 +2,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Service;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.StudentRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.*;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.DocumentStatus;
@@ -11,16 +12,24 @@ import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.*;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.List;
 
 @Service
 public class StudentDetailService {
 
     @Autowired
-    private UserService userService;
+    private StudentDetailsRepository studentDetailsRepository;
 
     @Autowired
-    private StudentDetailsRepository studentDetailsRepository;
+    private UserRepository userRepository;
+
+    @Autowired
+    private UserService userService;
 
     @Autowired
     private WoredaRepository woredaRepository;
@@ -32,26 +41,152 @@ public class StudentDetailService {
     private RegionRepository regionRepository;
 
     @Autowired
-    private DepartmentRepo departmentRepository;
-
-    @Autowired
-    private ProgramModalityRepository programModalityRepository;
-
-    @Autowired
-    private BatchClassYearSemesterRepo batchClassYearSemesterRepository;
+    private ImpairmentRepository impairmentRepository;
 
     @Autowired
     private SchoolBackgroundRepository schoolBackgroundRepository;
 
     @Autowired
+    private BatchClassYearSemesterRepo batchClassYearSemesterRepository;
+
+    @Autowired
     private StudentStatusRepo studentStatusRepository;
 
     @Autowired
-    private ImpairmentRepository impairmentRepository;
+    private DepartmentRepo departmentRepository;
 
-    @Transactional
-    public StudentDetails registerStudent(StudentRegisterRequest request) {
+    @Autowired
+    private ProgramModalityRepository programModalityRepository;
+
+    // Registers a new student with the provided details and files
+    // Why: Handles student registration with multipart form data, validates inputs, and ensures data integrity
+    public StudentDetails registerStudent(StudentRegisterRequest request, MultipartFile studentPhoto, MultipartFile document) {
         // Validate required fields
+        validateRegistrationRequest(request);
+
+        // Register user with STUDENT role
+        UserRegisterRequest userRequest = new UserRegisterRequest();
+        userRequest.setUsername(request.getUsername());
+        userRequest.setPassword(request.getPassword());
+        userRequest.setRole(Role.STUDENT);
+        User user;
+        try {
+            user = userService.registerUser(userRequest);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("User registration failed: " + e.getMessage());
+        }
+
+        // Map request to StudentDetails entity
+        StudentDetails student;
+        try {
+            student = mapRequestToEntity(request, user, studentPhoto, document);
+        } catch (ResourceNotFoundException e) {
+            throw new ResourceNotFoundException("Failed to map request: " + e.getMessage());
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to process file uploads: " + e.getMessage());
+        }
+
+        // Save student
+        try {
+            return studentDetailsRepository.save(student);
+        } catch (DataIntegrityViolationException e) {
+            throw new DataIntegrityViolationException("Failed to register student due to database constraint: " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException("Unexpected error during student registration: " + e.getMessage());
+        }
+    }
+
+    // Retrieves all active students (enabled users)
+    // Why: For admin/registrar views, filters out disabled accounts
+    public List<StudentDetails> getAllStudents() {
+        try {
+            List<StudentDetails> students = studentDetailsRepository.findAllByUserEnabledTrue();
+            if (students.isEmpty()) {
+                throw new ResourceNotFoundException("No active students found");
+            }
+            return students;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to retrieve students: " + e.getMessage());
+        }
+    }
+
+    // Retrieves a student by ID, ensuring they are active
+    // Why: For detailed views or updates, respects enabled flag
+    public StudentDetails getStudentById(Long id) {
+        try {
+            return studentDetailsRepository.findByIdAndUserEnabledTrue(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Active student not found with id: " + id));
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to retrieve student with id " + id + ": " + e.getMessage());
+        }
+    }
+
+    // Updates a student's details with optional file uploads
+    // Why: Allows modification with multipart form data, respects enabled status
+    public StudentDetails updateStudent(Long id, StudentUpdateDTO dto, MultipartFile studentPhoto, MultipartFile document) {
+        // Validate DTO
+        if (dto == null) {
+            throw new IllegalArgumentException("Update request cannot be null");
+        }
+
+        // Fetch existing student
+        StudentDetails existing;
+        try {
+            existing = getStudentById(id);
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to fetch student for update: " + e.getMessage());
+        }
+
+        // Update fields if provided
+        try {
+            updateStudentFields(existing, dto, studentPhoto, document);
+            return studentDetailsRepository.save(existing);
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (DataIntegrityViolationException e) {
+            throw new DataIntegrityViolationException("Failed to update student due to database constraint: " + e.getMessage());
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to process file uploads: " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException("Unexpected error during student update: " + e.getMessage());
+        }
+    }
+
+    // Enables a student by enabling their user account
+    // Why: Activates account for login, sets all flags to active
+    public void enableStudent(Long studentId) {
+        try {
+            StudentDetails student = studentDetailsRepository.findById(studentId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
+            userService.enableUser(student.getUser().getId());
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to enable student with id " + studentId + ": " + e.getMessage());
+        }
+    }
+
+    // Disables a student by disabling their user account
+    // Why: Suspends account without deletion, respects dependencies
+    public void disableStudent(Long studentId) {
+        try {
+            StudentDetails student = studentDetailsRepository.findById(studentId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
+            userService.disableUser(student.getUser().getId());
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to disable student with id " + studentId + ": " + e.getMessage());
+        }
+    }
+
+    // Validates registration request fields
+    // Why: Ensures all required fields are present and valid before processing
+    private void validateRegistrationRequest(StudentRegisterRequest request) {
         if (request.getUsername() == null || request.getUsername().isEmpty()) {
             throw new IllegalArgumentException("Username cannot be empty");
         }
@@ -59,40 +194,40 @@ public class StudentDetailService {
             throw new IllegalArgumentException("Password cannot be empty");
         }
         if (request.getFirstNameAMH() == null || request.getFirstNameAMH().isEmpty()) {
-            throw new IllegalArgumentException("First name in Amharic cannot be empty");
+            throw new IllegalArgumentException("First name (Amharic) cannot be empty");
         }
         if (request.getFirstNameENG() == null || request.getFirstNameENG().isEmpty()) {
-            throw new IllegalArgumentException("First name in English cannot be empty");
+            throw new IllegalArgumentException("First name (English) cannot be empty");
         }
         if (request.getFatherNameAMH() == null || request.getFatherNameAMH().isEmpty()) {
-            throw new IllegalArgumentException("Father's name in Amharic cannot be empty");
+            throw new IllegalArgumentException("Father name (Amharic) cannot be empty");
         }
         if (request.getFatherNameENG() == null || request.getFatherNameENG().isEmpty()) {
-            throw new IllegalArgumentException("Father's name in English cannot be empty");
+            throw new IllegalArgumentException("Father name (English) cannot be empty");
         }
         if (request.getGrandfatherNameAMH() == null || request.getGrandfatherNameAMH().isEmpty()) {
-            throw new IllegalArgumentException("Grandfather's name in Amharic cannot be empty");
+            throw new IllegalArgumentException("Grandfather name (Amharic) cannot be empty");
         }
         if (request.getGrandfatherNameENG() == null || request.getGrandfatherNameENG().isEmpty()) {
-            throw new IllegalArgumentException("Grandfather's name in English cannot be empty");
+            throw new IllegalArgumentException("Grandfather name (English) cannot be empty");
         }
         if (request.getMotherNameAMH() == null || request.getMotherNameAMH().isEmpty()) {
-            throw new IllegalArgumentException("Mother's name in Amharic cannot be empty");
+            throw new IllegalArgumentException("Mother name (Amharic) cannot be empty");
         }
         if (request.getMotherNameENG() == null || request.getMotherNameENG().isEmpty()) {
-            throw new IllegalArgumentException("Mother's name in English cannot be empty");
+            throw new IllegalArgumentException("Mother name (English) cannot be empty");
         }
         if (request.getMotherFatherNameAMH() == null || request.getMotherFatherNameAMH().isEmpty()) {
-            throw new IllegalArgumentException("Mother's father name in Amharic cannot be empty");
+            throw new IllegalArgumentException("Mother's father name (Amharic) cannot be empty");
         }
         if (request.getMotherFatherNameENG() == null || request.getMotherFatherNameENG().isEmpty()) {
-            throw new IllegalArgumentException("Mother's father name in English cannot be empty");
+            throw new IllegalArgumentException("Mother's father name (English) cannot be empty");
         }
         if (request.getGender() == null) {
-            throw new IllegalArgumentException("Gender cannot be empty");
+            throw new IllegalArgumentException("Gender cannot be null");
         }
-        if (request.getAge() == null || request.getAge() <= 0) {
-            throw new IllegalArgumentException("Age must be a positive integer");
+        if (request.getAge() == null || request.getAge() < 0) {
+            throw new IllegalArgumentException("Age must be a non-negative integer");
         }
         if (request.getPhoneNumber() == null || request.getPhoneNumber().isEmpty()) {
             throw new IllegalArgumentException("Phone number cannot be empty");
@@ -101,43 +236,43 @@ public class StudentDetailService {
             throw new IllegalArgumentException("Date of birth (EC) cannot be empty");
         }
         if (request.getDateOfBirthGC() == null) {
-            throw new IllegalArgumentException("Date of birth (GC) cannot be empty");
+            throw new IllegalArgumentException("Date of birth (GC) cannot be null");
         }
-        if (request.getPlaceOfBirthWoredaCode() == null || request.getPlaceOfBirthWoredaCode().isEmpty()) {
-            throw new IllegalArgumentException("Place of birth woreda code cannot be empty");
+        if (request.getPlaceOfBirthWoredaCode() == null) {
+            throw new IllegalArgumentException("Place of birth Woreda code cannot be null");
         }
-        if (request.getPlaceOfBirthZoneCode() == null || request.getPlaceOfBirthZoneCode().isEmpty()) {
-            throw new IllegalArgumentException("Place of birth zone code cannot be empty");
+        if (request.getPlaceOfBirthZoneCode() == null) {
+            throw new IllegalArgumentException("Place of birth Zone code cannot be null");
         }
-        if (request.getPlaceOfBirthRegionCode() == null || request.getPlaceOfBirthRegionCode().isEmpty()) {
-            throw new IllegalArgumentException("Place of birth region code cannot be empty");
+        if (request.getPlaceOfBirthRegionCode() == null) {
+            throw new IllegalArgumentException("Place of birth Region code cannot be null");
         }
-        if (request.getCurrentAddressWoredaCode() == null || request.getCurrentAddressWoredaCode().isEmpty()) {
-            throw new IllegalArgumentException("Current address woreda code cannot be empty");
+        if (request.getCurrentAddressWoredaCode() == null) {
+            throw new IllegalArgumentException("Current address Woreda code cannot be null");
         }
-        if (request.getCurrentAddressZoneCode() == null || request.getCurrentAddressZoneCode().isEmpty()) {
-            throw new IllegalArgumentException("Current address zone code cannot be empty");
+        if (request.getCurrentAddressZoneCode() == null) {
+            throw new IllegalArgumentException("Current address Zone code cannot be null");
         }
-        if (request.getCurrentAddressRegionCode() == null || request.getCurrentAddressRegionCode().isEmpty()) {
-            throw new IllegalArgumentException("Current address region code cannot be empty");
+        if (request.getCurrentAddressRegionCode() == null) {
+            throw new IllegalArgumentException("Current address Region code cannot be null");
         }
         if (request.getMaritalStatus() == null) {
-            throw new IllegalArgumentException("Marital status cannot be empty");
+            throw new IllegalArgumentException("Marital status cannot be null");
         }
         if (request.getSchoolBackgroundId() == null) {
-            throw new IllegalArgumentException("School background ID cannot be empty");
+            throw new IllegalArgumentException("School background cannot be null");
         }
         if (request.getContactPersonFirstNameAMH() == null || request.getContactPersonFirstNameAMH().isEmpty()) {
-            throw new IllegalArgumentException("Contact person first name in Amharic cannot be empty");
+            throw new IllegalArgumentException("Contact person first name (Amharic) cannot be empty");
         }
         if (request.getContactPersonFirstNameENG() == null || request.getContactPersonFirstNameENG().isEmpty()) {
-            throw new IllegalArgumentException("Contact person first name in English cannot be empty");
+            throw new IllegalArgumentException("Contact person first name (English) cannot be empty");
         }
         if (request.getContactPersonLastNameAMH() == null || request.getContactPersonLastNameAMH().isEmpty()) {
-            throw new IllegalArgumentException("Contact person last name in Amharic cannot be empty");
+            throw new IllegalArgumentException("Contact person last name (Amharic) cannot be empty");
         }
         if (request.getContactPersonLastNameENG() == null || request.getContactPersonLastNameENG().isEmpty()) {
-            throw new IllegalArgumentException("Contact person last name in English cannot be empty");
+            throw new IllegalArgumentException("Contact person last name (English) cannot be empty");
         }
         if (request.getContactPersonPhoneNumber() == null || request.getContactPersonPhoneNumber().isEmpty()) {
             throw new IllegalArgumentException("Contact person phone number cannot be empty");
@@ -146,112 +281,267 @@ public class StudentDetailService {
             throw new IllegalArgumentException("Date enrolled (EC) cannot be empty");
         }
         if (request.getDateEnrolledGC() == null) {
-            throw new IllegalArgumentException("Date enrolled (GC) cannot be empty");
+            throw new IllegalArgumentException("Date enrolled (GC) cannot be null");
         }
         if (request.getBatchClassYearSemesterId() == null) {
-            throw new IllegalArgumentException("Batch class year semester ID cannot be empty");
-        }
-        if (request.getDepartmentEnrolledId() == null) {
-            throw new IllegalArgumentException("Department enrolled ID cannot be empty");
-        }
-        if (request.getProgramModalityCode() == null || request.getProgramModalityCode().isEmpty()) {
-            throw new IllegalArgumentException("Program modality code cannot be empty");
+            throw new IllegalArgumentException("Batch class year semester cannot be null");
         }
         if (request.getStudentRecentStatusId() == null) {
-            throw new IllegalArgumentException("Student recent status ID cannot be empty");
+            throw new IllegalArgumentException("Student recent status cannot be null");
         }
-
-        // Check for unique phone number
-        if (studentDetailsRepository.findByPhoneNumber(request.getPhoneNumber()).isPresent()) {
-            throw new IllegalArgumentException("Phone number already exists");
+        if (request.getDepartmentEnrolledId() == null) {
+            throw new IllegalArgumentException("Department enrolled cannot be null");
         }
+        if (request.getProgramModalityCode() == null) {
+            throw new IllegalArgumentException("Program modality cannot be null");
+        }
+    }
 
-        // Create User with STUDENT role
-        UserRegisterRequest userRequest = new UserRegisterRequest();
-        userRequest.setUsername(request.getUsername());
-        userRequest.setPassword(request.getPassword());
-        userRequest.setRole(Role.STUDENT);
-        User user = userService.registerUser(userRequest);
+    // Updates student fields from DTO and file uploads
+    // Why: Centralizes update logic, only updates provided fields and files
+    private void updateStudentFields(StudentDetails student, StudentUpdateDTO dto, MultipartFile studentPhoto, MultipartFile document) throws IOException {
+        if (dto.getFirstNameAMH() != null && !dto.getFirstNameAMH().isEmpty()) {
+            student.setFirstNameAMH(dto.getFirstNameAMH());
+        }
+        if (dto.getFirstNameENG() != null && !dto.getFirstNameENG().isEmpty()) {
+            student.setFirstNameENG(dto.getFirstNameENG());
+        }
+        if (dto.getFatherNameAMH() != null && !dto.getFatherNameAMH().isEmpty()) {
+            student.setFatherNameAMH(dto.getFatherNameAMH());
+        }
+        if (dto.getFatherNameENG() != null && !dto.getFatherNameENG().isEmpty()) {
+            student.setFatherNameENG(dto.getFatherNameENG());
+        }
+        if (dto.getGrandfatherNameAMH() != null && !dto.getGrandfatherNameAMH().isEmpty()) {
+            student.setGrandfatherNameAMH(dto.getGrandfatherNameAMH());
+        }
+        if (dto.getGrandfatherNameENG() != null && !dto.getGrandfatherNameENG().isEmpty()) {
+            student.setGrandfatherNameENG(dto.getGrandfatherNameENG());
+        }
+        if (dto.getMotherNameAMH() != null && !dto.getMotherNameAMH().isEmpty()) {
+            student.setMotherNameAMH(dto.getMotherNameAMH());
+        }
+        if (dto.getMotherNameENG() != null && !dto.getMotherNameENG().isEmpty()) {
+            student.setMotherNameENG(dto.getMotherNameENG());
+        }
+        if (dto.getMotherFatherNameAMH() != null && !dto.getMotherFatherNameAMH().isEmpty()) {
+            student.setMotherFatherNameAMH(dto.getMotherFatherNameAMH());
+        }
+        if (dto.getMotherFatherNameENG() != null && !dto.getMotherFatherNameENG().isEmpty()) {
+            student.setMotherFatherNameENG(dto.getMotherFatherNameENG());
+        }
+        if (dto.getGender() != null) {
+            student.setGender(dto.getGender());
+        }
+        if (dto.getAge() != null && dto.getAge() >= 0) {
+            student.setAge(dto.getAge());
+        }
+        if (dto.getPhoneNumber() != null && !dto.getPhoneNumber().isEmpty()) {
+            if (studentDetailsRepository.existsByPhoneNumberAndIdNot(dto.getPhoneNumber(), student.getId())) {
+                throw new IllegalArgumentException("Phone number already in use");
+            }
+            student.setPhoneNumber(dto.getPhoneNumber());
+        }
+        if (dto.getDateOfBirthEC() != null && !dto.getDateOfBirthEC().isEmpty()) {
+            student.setDateOfBirthEC(dto.getDateOfBirthEC());
+        }
+        if (dto.getDateOfBirthGC() != null) {
+            student.setDateOfBirthGC(dto.getDateOfBirthGC());
+        }
+        if (dto.getPlaceOfBirthWoredaCode() != null) {
+            Woreda woreda = woredaRepository.findById(dto.getPlaceOfBirthWoredaCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Woreda not found with code: " + dto.getPlaceOfBirthWoredaCode()));
+            student.setPlaceOfBirthWoreda(woreda);
+        }
+        if (dto.getPlaceOfBirthZoneCode() != null) {
+            Zone zone = zoneRepository.findById(dto.getPlaceOfBirthZoneCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Zone not found with code: " + dto.getPlaceOfBirthZoneCode()));
+            student.setPlaceOfBirthZone(zone);
+        }
+        if (dto.getPlaceOfBirthRegionCode() != null) {
+            Region region = regionRepository.findById(dto.getPlaceOfBirthRegionCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Region not found with code: " + dto.getPlaceOfBirthRegionCode()));
+            student.setPlaceOfBirthRegion(region);
+        }
+        if (dto.getCurrentAddressWoredaCode() != null) {
+            Woreda woreda = woredaRepository.findById(dto.getCurrentAddressWoredaCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Woreda not found with code: " + dto.getCurrentAddressWoredaCode()));
+            student.setCurrentAddressWoreda(woreda);
+        }
+        if (dto.getCurrentAddressZoneCode() != null) {
+            Zone zone = zoneRepository.findById(dto.getCurrentAddressZoneCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Zone not found with code: " + dto.getCurrentAddressZoneCode()));
+            student.setCurrentAddressZone(zone);
+        }
+        if (dto.getCurrentAddressRegionCode() != null) {
+            Region region = regionRepository.findById(dto.getCurrentAddressRegionCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Region not found with code: " + dto.getCurrentAddressRegionCode()));
+            student.setCurrentAddressRegion(region);
+        }
+        if (dto.getEmail() != null) {
+            student.setEmail(dto.getEmail());
+        }
+        if (dto.getMaritalStatus() != null) {
+            student.setMaritalStatus(dto.getMaritalStatus());
+        }
+        if (dto.getImpairmentCode() != null) {
+            Impairment impairment = impairmentRepository.findById(dto.getImpairmentCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Impairment not found with code: " + dto.getImpairmentCode()));
+            student.setImpairment(impairment);
+        }
+        if (dto.getSchoolBackgroundId() != null) {
+            SchoolBackground background = schoolBackgroundRepository.findById(dto.getSchoolBackgroundId())
+                    .orElseThrow(() -> new ResourceNotFoundException("School background not found with id: " + dto.getSchoolBackgroundId()));
+            student.setSchoolBackground(background);
+        }
+        if (studentPhoto != null && !studentPhoto.isEmpty()) {
+            student.setStudentPhoto(studentPhoto.getBytes());
+        }
+        if (dto.getContactPersonFirstNameAMH() != null && !dto.getContactPersonFirstNameAMH().isEmpty()) {
+            student.setContactPersonFirstNameAMH(dto.getContactPersonFirstNameAMH());
+        }
+        if (dto.getContactPersonFirstNameENG() != null && !dto.getContactPersonFirstNameENG().isEmpty()) {
+            student.setContactPersonFirstNameENG(dto.getContactPersonFirstNameENG());
+        }
+        if (dto.getContactPersonLastNameAMH() != null && !dto.getContactPersonLastNameAMH().isEmpty()) {
+            student.setContactPersonLastNameAMH(dto.getContactPersonLastNameAMH());
+        }
+        if (dto.getContactPersonLastNameENG() != null && !dto.getContactPersonLastNameENG().isEmpty()) {
+            student.setContactPersonLastNameENG(dto.getContactPersonLastNameENG());
+        }
+        if (dto.getContactPersonPhoneNumber() != null && !dto.getContactPersonPhoneNumber().isEmpty()) {
+            student.setContactPersonPhoneNumber(dto.getContactPersonPhoneNumber());
+        }
+        if (dto.getContactPersonRelation() != null) {
+            student.setContactPersonRelation(dto.getContactPersonRelation());
+        }
+        if (dto.getDateEnrolledEC() != null && !dto.getDateEnrolledEC().isEmpty()) {
+            student.setDateEnrolledEC(dto.getDateEnrolledEC());
+        }
+        if (dto.getDateEnrolledGC() != null) {
+            student.setDateEnrolledGC(dto.getDateEnrolledGC());
+        }
+        if (dto.getBatchClassYearSemesterId() != null) {
+            BatchClassYearSemester bcys = batchClassYearSemesterRepository.findById(dto.getBatchClassYearSemesterId())
+                    .orElseThrow(() -> new ResourceNotFoundException("BatchClassYearSemester not found with id: " + dto.getBatchClassYearSemesterId()));
+            student.setBatchClassYearSemester(bcys);
+            student.setStudentRecentBatch(bcys);
+        }
+        if (dto.getStudentRecentStatusId() != null) {
+            StudentStatus status = studentStatusRepository.findById(dto.getStudentRecentStatusId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Student status not found with id: " + dto.getStudentRecentStatusId()));
+            student.setStudentRecentStatus(status);
+        }
+        if (dto.getDepartmentEnrolledId() != null) {
+            Department dept = departmentRepository.findById(dto.getDepartmentEnrolledId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + dto.getDepartmentEnrolledId()));
+            student.setDepartmentEnrolled(dept);
+            student.setStudentRecentDepartment(dept);
+        }
+        if (dto.getProgramModalityCode() != null) {
+            ProgramModality modality = programModalityRepository.findById(dto.getProgramModalityCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Program modality not found with code: " + dto.getProgramModalityCode()));
+            student.setProgramModality(modality);
+        }
+        if (document != null && !document.isEmpty()) {
+            student.setDocument(document.getBytes());
+        }
+        if (dto.getDocumentStatus() != null) {
+            student.setDocumentStatus(dto.getDocumentStatus());
+        }
+        if (dto.getRemark() != null) {
+            student.setRemark(dto.getRemark());
+        }
+        if (dto.getIsTransfer() != null) {
+            student.setTransfer(dto.getIsTransfer());
+        }
+        if (dto.getExitExamUserID() != null) {
+            student.setExitExamUserID(dto.getExitExamUserID());
+        }
+        if (dto.getExitExamScore() != null) {
+            student.setExitExamScore(dto.getExitExamScore());
+        }
+        if (dto.getIsStudentPassExitExam() != null) {
+            student.setStudentPassExitExam(dto.getIsStudentPassExitExam());
+        }
+        if (dto.getGrade12Result() != null) {
+            student.setGrade12Result(dto.getGrade12Result());
+        }
+    }
 
-        // Validate and fetch related entities
-        Woreda placeOfBirthWoreda = woredaRepository.findById(request.getPlaceOfBirthWoredaCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Woreda not found with code: " + request.getPlaceOfBirthWoredaCode()));
-        Zone placeOfBirthZone = zoneRepository.findById(request.getPlaceOfBirthZoneCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Zone not found with code: " + request.getPlaceOfBirthZoneCode()));
-        Region placeOfBirthRegion = regionRepository.findById(request.getPlaceOfBirthRegionCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Region not found with code: " + request.getPlaceOfBirthRegionCode()));
-        Woreda currentAddressWoreda = woredaRepository.findById(request.getCurrentAddressWoredaCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Woreda not found with code: " + request.getCurrentAddressWoredaCode()));
-        Zone currentAddressZone = zoneRepository.findById(request.getCurrentAddressZoneCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Zone not found with code: " + request.getCurrentAddressZoneCode()));
-        Region currentAddressRegion = regionRepository.findById(request.getCurrentAddressRegionCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Region not found with code: " + request.getCurrentAddressRegionCode()));
-        Department departmentEnrolled = departmentRepository.findById(request.getDepartmentEnrolledId())
-                .orElseThrow(() -> new ResourceNotFoundException("Department not found with ID: " + request.getDepartmentEnrolledId()));
-        ProgramModality programModality = programModalityRepository.findById(request.getProgramModalityCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Program modality not found with code: " + request.getProgramModalityCode()));
-        BatchClassYearSemester batchClassYearSemester = batchClassYearSemesterRepository.findById(request.getBatchClassYearSemesterId())
-                .orElseThrow(() -> new ResourceNotFoundException("Batch class year semester not found with ID: " + request.getBatchClassYearSemesterId()));
-        SchoolBackground schoolBackground = schoolBackgroundRepository.findById(request.getSchoolBackgroundId())
-                .orElseThrow(() -> new ResourceNotFoundException("School background not found with ID: " + request.getSchoolBackgroundId()));
-        StudentStatus studentStatus = studentStatusRepository.findById(request.getStudentRecentStatusId())
-                .orElseThrow(() -> new ResourceNotFoundException("Student status not found with ID: " + request.getStudentRecentStatusId()));
-        Impairment impairment = request.getImpairmentCode() != null ?
-                impairmentRepository.findById(request.getImpairmentCode())
-                        .orElseThrow(() -> new ResourceNotFoundException("Impairment not found with code: " + request.getImpairmentCode())) :
-                null;
-
-        // Create StudentDetails
-        StudentDetails studentDetails = new StudentDetails();
-        studentDetails.setUser(user);
-        studentDetails.setFirstNameAMH(request.getFirstNameAMH());
-        studentDetails.setFirstNameENG(request.getFirstNameENG());
-        studentDetails.setFatherNameAMH(request.getFatherNameAMH());
-        studentDetails.setFatherNameENG(request.getFatherNameENG());
-        studentDetails.setGrandfatherNameAMH(request.getGrandfatherNameAMH());
-        studentDetails.setGrandfatherNameENG(request.getGrandfatherNameENG());
-        studentDetails.setMotherNameAMH(request.getMotherNameAMH());
-        studentDetails.setMotherNameENG(request.getMotherNameENG());
-        studentDetails.setMotherFatherNameAMH(request.getMotherFatherNameAMH());
-        studentDetails.setMotherFatherNameENG(request.getMotherFatherNameENG());
-        studentDetails.setGender(request.getGender());
-        studentDetails.setAge(request.getAge());
-        studentDetails.setPhoneNumber(request.getPhoneNumber());
-        studentDetails.setDateOfBirthEC(request.getDateOfBirthEC());
-        studentDetails.setDateOfBirthGC(request.getDateOfBirthGC());
-        studentDetails.setPlaceOfBirthWoreda(placeOfBirthWoreda);
-        studentDetails.setPlaceOfBirthZone(placeOfBirthZone);
-        studentDetails.setPlaceOfBirthRegion(placeOfBirthRegion);
-        studentDetails.setCurrentAddressWoreda(currentAddressWoreda);
-        studentDetails.setCurrentAddressZone(currentAddressZone);
-        studentDetails.setCurrentAddressRegion(currentAddressRegion);
-        studentDetails.setEmail(request.getEmail());
-        studentDetails.setMaritalStatus(request.getMaritalStatus());
-        studentDetails.setImpairment(impairment);
-        studentDetails.setSchoolBackground(schoolBackground);
-        studentDetails.setStudentPhoto(request.getStudentPhoto());
-        studentDetails.setContactPersonFirstNameAMH(request.getContactPersonFirstNameAMH());
-        studentDetails.setContactPersonFirstNameENG(request.getContactPersonFirstNameENG());
-        studentDetails.setContactPersonLastNameAMH(request.getContactPersonLastNameAMH());
-        studentDetails.setContactPersonLastNameENG(request.getContactPersonLastNameENG());
-        studentDetails.setContactPersonPhoneNumber(request.getContactPersonPhoneNumber());
-        studentDetails.setContactPersonRelation(request.getContactPersonRelation());
-        studentDetails.setDateEnrolledEC(request.getDateEnrolledEC());
-        studentDetails.setDateEnrolledGC(request.getDateEnrolledGC());
-        studentDetails.setBatchClassYearSemester(batchClassYearSemester);
-        studentDetails.setStudentRecentBatch(batchClassYearSemester);
-        studentDetails.setDepartmentEnrolled(departmentEnrolled);
-        studentDetails.setStudentRecentDepartment(departmentEnrolled);
-        studentDetails.setProgramModality(programModality);
-        studentDetails.setStudentRecentStatus(studentStatus);
-        studentDetails.setDocument(request.getDocument());
-        studentDetails.setDocumentStatus(request.getDocument() != null ? DocumentStatus.COMPLETE : DocumentStatus.INCOMPLETE);
-        studentDetails.setRemark(request.getDocument() != null ? null : "Document not provided");
-        studentDetails.setTransfer(request.isTransfer());
-        studentDetails.setExitExamUserID(request.getExitExamUserID());
-        studentDetails.setExitExamScore(request.getExitExamScore());
-        studentDetails.setStudentPassExitExam(request.isStudentPassExitExam());
-
-        return studentDetailsRepository.save(studentDetails);
+    // Maps registration request to StudentDetails entity with file uploads
+    // Why: Centralizes mapping logic, handles file conversion and relationships
+    private StudentDetails mapRequestToEntity(StudentRegisterRequest request, User user, MultipartFile studentPhoto, MultipartFile document) throws IOException {
+        StudentDetails student = new StudentDetails();
+        student.setUser(user);
+        student.setFirstNameAMH(request.getFirstNameAMH());
+        student.setFirstNameENG(request.getFirstNameENG());
+        student.setFatherNameAMH(request.getFatherNameAMH());
+        student.setFatherNameENG(request.getFatherNameENG());
+        student.setGrandfatherNameAMH(request.getGrandfatherNameAMH());
+        student.setGrandfatherNameENG(request.getGrandfatherNameENG());
+        student.setMotherNameAMH(request.getMotherNameAMH());
+        student.setMotherNameENG(request.getMotherNameENG());
+        student.setMotherFatherNameAMH(request.getMotherFatherNameAMH());
+        student.setMotherFatherNameENG(request.getMotherFatherNameENG());
+        student.setGender(request.getGender());
+        student.setAge(request.getAge());
+        student.setPhoneNumber(request.getPhoneNumber());
+        student.setDateOfBirthEC(request.getDateOfBirthEC());
+        student.setDateOfBirthGC(request.getDateOfBirthGC());
+        student.setPlaceOfBirthWoreda(woredaRepository.findById(request.getPlaceOfBirthWoredaCode())
+                .orElseThrow(() -> new ResourceNotFoundException("Woreda not found with code: " + request.getPlaceOfBirthWoredaCode())));
+        student.setPlaceOfBirthZone(zoneRepository.findById(request.getPlaceOfBirthZoneCode())
+                .orElseThrow(() -> new ResourceNotFoundException("Zone not found with code: " + request.getPlaceOfBirthZoneCode())));
+        student.setPlaceOfBirthRegion(regionRepository.findById(request.getPlaceOfBirthRegionCode())
+                .orElseThrow(() -> new ResourceNotFoundException("Region not found with code: " + request.getPlaceOfBirthRegionCode())));
+        student.setCurrentAddressWoreda(woredaRepository.findById(request.getCurrentAddressWoredaCode())
+                .orElseThrow(() -> new ResourceNotFoundException("Woreda not found with code: " + request.getCurrentAddressWoredaCode())));
+        student.setCurrentAddressZone(zoneRepository.findById(request.getCurrentAddressZoneCode())
+                .orElseThrow(() -> new ResourceNotFoundException("Zone not found with code: " + request.getCurrentAddressZoneCode())));
+        student.setCurrentAddressRegion(regionRepository.findById(request.getCurrentAddressRegionCode())
+                .orElseThrow(() -> new ResourceNotFoundException("Region not found with code: " + request.getCurrentAddressRegionCode())));
+        student.setEmail(request.getEmail());
+        student.setMaritalStatus(request.getMaritalStatus());
+        if (request.getImpairmentCode() != null) {
+            student.setImpairment(impairmentRepository.findById(request.getImpairmentCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Impairment not found with code: " + request.getImpairmentCode())));
+        }
+        student.setSchoolBackground(schoolBackgroundRepository.findById(request.getSchoolBackgroundId())
+                .orElseThrow(() -> new ResourceNotFoundException("School background not found with id: " + request.getSchoolBackgroundId())));
+        if (studentPhoto != null && !studentPhoto.isEmpty()) {
+            student.setStudentPhoto(studentPhoto.getBytes());
+        }
+        student.setContactPersonFirstNameAMH(request.getContactPersonFirstNameAMH());
+        student.setContactPersonFirstNameENG(request.getContactPersonFirstNameENG());
+        student.setContactPersonLastNameAMH(request.getContactPersonLastNameAMH());
+        student.setContactPersonLastNameENG(request.getContactPersonLastNameENG());
+        student.setContactPersonPhoneNumber(request.getContactPersonPhoneNumber());
+        student.setContactPersonRelation(request.getContactPersonRelation());
+        student.setDateEnrolledEC(request.getDateEnrolledEC());
+        student.setDateEnrolledGC(request.getDateEnrolledGC());
+        BatchClassYearSemester bcys = batchClassYearSemesterRepository.findById(request.getBatchClassYearSemesterId())
+                .orElseThrow(() -> new ResourceNotFoundException("BatchClassYearSemester not found with id: " + request.getBatchClassYearSemesterId()));
+        student.setBatchClassYearSemester(bcys);
+        student.setStudentRecentBatch(bcys);
+        student.setStudentRecentStatus(studentStatusRepository.findById(request.getStudentRecentStatusId())
+                .orElseThrow(() -> new ResourceNotFoundException("Student status not found with id: " + request.getStudentRecentStatusId())));
+        Department dept = departmentRepository.findById(request.getDepartmentEnrolledId())
+                .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + request.getDepartmentEnrolledId()));
+        student.setDepartmentEnrolled(dept);
+        student.setStudentRecentDepartment(dept);
+        student.setProgramModality(programModalityRepository.findById(request.getProgramModalityCode())
+                .orElseThrow(() -> new ResourceNotFoundException("Program modality not found with code: " + request.getProgramModalityCode())));
+        if (document != null && !document.isEmpty()) {
+            student.setDocument(document.getBytes());
+        }
+        student.setDocumentStatus(request.getDocumentStatus() != null ? request.getDocumentStatus() : DocumentStatus.INCOMPLETE);
+        student.setRemark(request.getRemark());
+        student.setTransfer(request.getIsTransfer() != null ? request.getIsTransfer() : false);
+        student.setExitExamUserID(request.getExitExamUserID());
+        student.setExitExamScore(request.getExitExamScore());
+        student.setStudentPassExitExam(request.getIsStudentPassExitExam() != null ? request.getIsStudentPassExitExam() : false);
+        student.setGrade12Result(request.getGrade12Result());
+        return student;
     }
 }

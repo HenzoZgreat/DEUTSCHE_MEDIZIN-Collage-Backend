@@ -13,6 +13,7 @@ import Henok.example.DeutscheCollageBack_endAPI.Service.RegistrarService;
 import Henok.example.DeutscheCollageBack_endAPI.Service.StudentDetailService;
 import Henok.example.DeutscheCollageBack_endAPI.Service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +26,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -42,7 +44,7 @@ public class AuthController {
     private UserService userService;
 
     @Autowired
-    private StudentDetailService studentDetailService;
+    private StudentDetailService studentDetailsService;
 
     @Autowired
     private GeneralManagerService generalManagerService;
@@ -50,8 +52,10 @@ public class AuthController {
     @Autowired
     private RegistrarService registrarService;
 
+    // Authenticates a user and generates a JWT token
+    // Why: Provides secure login with username/password, returns JWT for subsequent requests
     @PostMapping("/login")
-    public ResponseEntity<?> createAuthenticationToken(@RequestBody AuthRequest authRequest) throws Exception {
+    public ResponseEntity<?> createAuthenticationToken(@RequestBody AuthRequest authRequest) {
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(authRequest.getUsername(), authRequest.getPassword())
@@ -59,42 +63,75 @@ public class AuthController {
             SecurityContextHolder.getContext().setAuthentication(authentication);
             UserDetails userDetails = userService.loadUserByUsername(authRequest.getUsername());
             final String jwt = jwtUtil.generateToken(userDetails);
-            return ResponseEntity.ok(new AuthResponse(jwt));
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Login successful");
+            response.put("jwt", jwt);
+            response.put("userId", ((User) userDetails).getId().toString());
+            return ResponseEntity.ok(response);
         } catch (BadCredentialsException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse("Invalid username or password"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ErrorResponse("Invalid username or password"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Authentication failed: " + e.getMessage()));
         }
     }
 
+    // Registers a general user with specified role
+    // Why: Allows creation of non-student users (e.g., staff)
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody UserRegisterRequest request) {
         try {
             User user = userService.registerUser(request);
             Map<String, Object> response = new HashMap<>();
             response.put("message", "User registered successfully with username: " + user.getUsername());
-            response.put("userID", user.getId().toString());
+            response.put("userId", user.getId().toString());
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
-        }
-    }
-
-    @PostMapping("/register/student")
-    public ResponseEntity<?> registerStudent(@RequestBody StudentRegisterRequest request) {
-        try {
-            StudentDetails studentDetails = studentDetailService.registerStudent(request);
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Student registered successfully with username: " + studentDetails.getUser().getUsername());
-            response.put("userID", studentDetails.getUser().getId().toString());
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
-        } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ErrorResponse("User registration failed due to duplicate entry: " + e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("An error occurred while registering the student"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An error occurred while registering the user: " + e.getMessage()));
         }
     }
 
+    // Registers a student with full details and user account
+    // Why: Creates StudentDetails and associated User with STUDENT role, returns username/password
+    @PostMapping(value = "/register/student", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> registerStudent(
+            @RequestPart(name = "data") StudentRegisterRequest request,
+            @RequestPart(name = "studentPhoto", required = false) MultipartFile studentPhoto,
+            @RequestPart(name = "document", required = false) MultipartFile document) {
+        try {
+            StudentDetails studentDetails = studentDetailsService.registerStudent(request, studentPhoto, document);
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Student registered successfully");
+            response.put("studentId", studentDetails.getId().toString());
+            response.put("userId", studentDetails.getUser().getId().toString());
+            response.put("username", studentDetails.getUser().getUsername());
+            response.put("password", request.getPassword()); // Note: In production, avoid returning plain password
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ErrorResponse("Student registration failed due to duplicate entry: " + e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An error occurred while registering the student: " + e.getMessage()));
+        }
+    }
+
+    // Registers a general manager with optional file uploads
+    // Why: Handles multipart form data for general manager registration
     @PostMapping(value = "/register/general-manager", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> registerGeneralManager(
             @RequestPart(name = "data") GeneralManagerRegisterRequest request,
@@ -104,15 +141,22 @@ public class AuthController {
             GeneralManagerDetail generalManagerDetail = generalManagerService.registerGeneralManager(request, nationalIdImage, photograph);
             Map<String, Object> response = new HashMap<>();
             response.put("message", "General Manager registered successfully with username: " + generalManagerDetail.getUser().getUsername());
-            response.put("userID", generalManagerDetail.getUser().getId().toString());
+            response.put("userId", generalManagerDetail.getUser().getId().toString());
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ErrorResponse("General Manager registration failed due to duplicate entry: " + e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("An error occurred while registering the general manager"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An error occurred while registering the general manager: " + e.getMessage()));
         }
     }
 
+    // Registers a registrar with optional file uploads
+    // Why: Handles multipart form data for registrar registration
     @PostMapping(value = "/register/registrar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> registerRegistrar(
             @RequestPart(name = "data") RegistrarRegisterRequest request,
@@ -122,12 +166,17 @@ public class AuthController {
             RegistrarDetail registrarDetail = registrarService.registerRegistrar(request, nationalIdImage, photograph);
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Registrar registered successfully with username: " + registrarDetail.getUser().getUsername());
-            response.put("userID", registrarDetail.getUser().getId().toString());
+            response.put("userId", registrarDetail.getUser().getId().toString());
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ErrorResponse("Registrar registration failed due to duplicate entry: " + e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("An error occurred while registering the registrar"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An error occurred while registering the registrar: " + e.getMessage()));
         }
     }
 }

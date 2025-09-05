@@ -2,6 +2,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Service;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
+import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -50,6 +51,28 @@ public class UserService implements UserDetailsService {
                 .build();
 
         return userRepository.save(user);
+    }
+
+    // Enables a user account by setting the enabled flag to true.
+    // Why: Allows reactivation of disabled accounts.
+    // Also sets other flags to active state for completeness.
+    public void enableUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+        user.setEnabled(true);
+        user.setAccountNonExpired(true);
+        user.setAccountNonLocked(true);
+        user.setCredentialsNonExpired(true);
+        userRepository.save(user);
+    }
+
+    // Disables a user account by setting the enabled flag to false.
+    // Why: For temporary suspension without deleting the record.
+    public void disableUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+        user.setEnabled(false);
+        userRepository.save(user);
     }
 }
 

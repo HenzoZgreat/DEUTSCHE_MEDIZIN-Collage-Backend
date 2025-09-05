@@ -184,6 +184,9 @@ public class StudentDetails {
     @Enumerated(EnumType.STRING)
     private DocumentStatus documentStatus = DocumentStatus.INCOMPLETE; // Default to INCOMPLETE
 
+    @Column
+    private Double grade12Result;
+
     // Remark for incomplete documents
     private String remark;
 
