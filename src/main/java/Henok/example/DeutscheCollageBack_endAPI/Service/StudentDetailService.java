@@ -62,6 +62,7 @@ public class StudentDetailService {
     // Why: Handles student registration with multipart form data, validates inputs, and ensures data integrity
     public StudentDetails registerStudent(StudentRegisterRequest request, MultipartFile studentPhoto, MultipartFile document) {
         // Validate required fields
+
         validateRegistrationRequest(request);
 
         // Register user with STUDENT role
@@ -88,6 +89,7 @@ public class StudentDetailService {
 
         // Save student
         try {
+            System.out.println("Passed Mapping, but before Saving to DB");
             return studentDetailsRepository.save(student);
         } catch (DataIntegrityViolationException e) {
             throw new DataIntegrityViolationException("Failed to register student due to database constraint: " + e.getMessage());
@@ -226,8 +228,8 @@ public class StudentDetailService {
         if (request.getGender() == null) {
             throw new IllegalArgumentException("Gender cannot be null");
         }
-        if (request.getAge() == null || request.getAge() < 0) {
-            throw new IllegalArgumentException("Age must be a non-negative integer");
+        if (request.getAge() == null || request.getAge() < 16 || request.getAge() > 100) {
+            throw new IllegalArgumentException("Insert a valid Age between 16 and 100");
         }
         if (request.getPhoneNumber() == null || request.getPhoneNumber().isEmpty()) {
             throw new IllegalArgumentException("Phone number cannot be empty");
@@ -425,7 +427,7 @@ public class StudentDetailService {
             BatchClassYearSemester bcys = batchClassYearSemesterRepository.findById(dto.getBatchClassYearSemesterId())
                     .orElseThrow(() -> new ResourceNotFoundException("BatchClassYearSemester not found with id: " + dto.getBatchClassYearSemesterId()));
             student.setBatchClassYearSemester(bcys);
-            student.setStudentRecentBatch(bcys);
+//            student.setStudentRecentBatch(bcys);
         }
         if (dto.getStudentRecentStatusId() != null) {
             StudentStatus status = studentStatusRepository.findById(dto.getStudentRecentStatusId())
@@ -436,7 +438,7 @@ public class StudentDetailService {
             Department dept = departmentRepository.findById(dto.getDepartmentEnrolledId())
                     .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + dto.getDepartmentEnrolledId()));
             student.setDepartmentEnrolled(dept);
-            student.setStudentRecentDepartment(dept);
+//            student.setStudentRecentDepartment(dept);
         }
         if (dto.getProgramModalityCode() != null) {
             ProgramModality modality = programModalityRepository.findById(dto.getProgramModalityCode())
@@ -503,13 +505,16 @@ public class StudentDetailService {
                 .orElseThrow(() -> new ResourceNotFoundException("Region not found with code: " + request.getCurrentAddressRegionCode())));
         student.setEmail(request.getEmail());
         student.setMaritalStatus(request.getMaritalStatus());
-        if (request.getImpairmentCode() != null) {
+        if (request.getImpairmentCode() != null && !request.getImpairmentCode().equals("")) {
             student.setImpairment(impairmentRepository.findById(request.getImpairmentCode())
                     .orElseThrow(() -> new ResourceNotFoundException("Impairment not found with code: " + request.getImpairmentCode())));
         }
         student.setSchoolBackground(schoolBackgroundRepository.findById(request.getSchoolBackgroundId())
                 .orElseThrow(() -> new ResourceNotFoundException("School background not found with id: " + request.getSchoolBackgroundId())));
         if (studentPhoto != null && !studentPhoto.isEmpty()) {
+            if (studentPhoto.getSize() > 2_000_000) {
+                throw new IllegalArgumentException("Photo size exceeds 2MB limit");
+            }
             student.setStudentPhoto(studentPhoto.getBytes());
         }
         student.setContactPersonFirstNameAMH(request.getContactPersonFirstNameAMH());
@@ -523,13 +528,13 @@ public class StudentDetailService {
         BatchClassYearSemester bcys = batchClassYearSemesterRepository.findById(request.getBatchClassYearSemesterId())
                 .orElseThrow(() -> new ResourceNotFoundException("BatchClassYearSemester not found with id: " + request.getBatchClassYearSemesterId()));
         student.setBatchClassYearSemester(bcys);
-        student.setStudentRecentBatch(bcys);
+//        student.setStudentRecentBatch(bcys);
         student.setStudentRecentStatus(studentStatusRepository.findById(request.getStudentRecentStatusId())
                 .orElseThrow(() -> new ResourceNotFoundException("Student status not found with id: " + request.getStudentRecentStatusId())));
         Department dept = departmentRepository.findById(request.getDepartmentEnrolledId())
                 .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + request.getDepartmentEnrolledId()));
         student.setDepartmentEnrolled(dept);
-        student.setStudentRecentDepartment(dept);
+//        student.setStudentRecentDepartment(dept);
         student.setProgramModality(programModalityRepository.findById(request.getProgramModalityCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Program modality not found with code: " + request.getProgramModalityCode())));
         if (document != null && !document.isEmpty()) {

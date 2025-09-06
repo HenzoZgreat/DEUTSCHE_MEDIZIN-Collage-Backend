@@ -157,20 +157,12 @@ public class StudentDetails {
     private BatchClassYearSemester batchClassYearSemester;
 
     @ManyToOne
-    @JoinColumn(name = "student_recent_batch", nullable = false)
-    private BatchClassYearSemester studentRecentBatch;
-
-    @ManyToOne
     @JoinColumn(name = "student_recent_status", nullable = false)
     private StudentStatus studentRecentStatus;
 
     @ManyToOne
     @JoinColumn(name = "department_enrolled", nullable = false)
     private Department departmentEnrolled;
-
-    @ManyToOne
-    @JoinColumn(name = "student_recent_department", nullable = false)
-    private Department studentRecentDepartment;
 
     @ManyToOne
     @JoinColumn(name = "program_modality", nullable = false)

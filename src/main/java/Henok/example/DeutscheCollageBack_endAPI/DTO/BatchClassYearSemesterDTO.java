@@ -21,7 +21,8 @@ public class BatchClassYearSemesterDTO {
     private LocalDate classEndGC;
     private String classEndEC;
     private Long gradingSystemId;
+    private String name; // Constructed as [batchName]-[classYear]-[semesterCode] for GET requests
 
-    // Explanation: DTO for BatchClassYearSemester to expose fields in API requests/responses.
-    // Why: Maps entity fields for RESTful operations; avoids exposing entity internals.
+    // Explanation: DTO for BatchClassYearSemester with name field for user-friendly display.
+    // Why: Name field (batchName-classYear-semesterCode) added for GET responses only.
 }

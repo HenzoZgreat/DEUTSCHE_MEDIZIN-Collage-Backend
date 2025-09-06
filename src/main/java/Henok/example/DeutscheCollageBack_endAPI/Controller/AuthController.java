@@ -1,12 +1,10 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.*;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.GeneralManagerDetail;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.RegistrarDetail;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentDetails;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.BatchClassYearSemesterRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Security.JwtUtil;
 import Henok.example.DeutscheCollageBack_endAPI.Service.GeneralManagerService;
 import Henok.example.DeutscheCollageBack_endAPI.Service.RegistrarService;
@@ -51,6 +49,8 @@ public class AuthController {
 
     @Autowired
     private RegistrarService registrarService;
+    @Autowired
+    private BatchClassYearSemesterRepo batchClassYearSemesterRepository;
 
     // Authenticates a user and generates a JWT token
     // Why: Provides secure login with username/password, returns JWT for subsequent requests
@@ -67,6 +67,7 @@ public class AuthController {
             response.put("message", "Login successful");
             response.put("jwt", jwt);
             response.put("userId", ((User) userDetails).getId().toString());
+            response.put("role", ((User) userDetails).getRole().toString());
             return ResponseEntity.ok(response);
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -106,6 +107,7 @@ public class AuthController {
             @RequestPart(name = "data") StudentRegisterRequest request,
             @RequestPart(name = "studentPhoto", required = false) MultipartFile studentPhoto,
             @RequestPart(name = "document", required = false) MultipartFile document) {
+
         try {
             StudentDetails studentDetails = studentDetailsService.registerStudent(request, studentPhoto, document);
             Map<String, Object> response = new HashMap<>();

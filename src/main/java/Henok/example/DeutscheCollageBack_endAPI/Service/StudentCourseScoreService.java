@@ -122,7 +122,7 @@ public class StudentCourseScoreService {
         StudentDetails studentDetails = studentDetailsRepository.findByUser(score.getStudent())
                 .orElseThrow(() -> new ResourceNotFoundException("Student details not found for student id: " + score.getStudent().getId()));
 
-        Department department = studentDetails.getStudentRecentDepartment();
+        Department department = studentDetails.getDepartmentEnrolled();
 
         // Resolve latest applicable grading system (department-specific or global fallback)
         GradingSystem gs = gradingSystemService.findApplicableGradingSystem(department);

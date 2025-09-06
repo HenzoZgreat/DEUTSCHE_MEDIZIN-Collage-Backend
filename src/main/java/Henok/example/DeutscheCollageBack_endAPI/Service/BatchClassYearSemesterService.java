@@ -226,9 +226,15 @@ public class BatchClassYearSemesterService {
         dto.setClassEndGC(entity.getClassEnd_GC());
         dto.setClassEndEC(entity.getClassEnd_EC());
         dto.setGradingSystemId(entity.getGradingSystem().getId());
+        // Construct name: batchName-classYear-semesterCode
+        String name = String.format("%s-%s-%s",
+                entity.getBatch().getBatchName(),
+                entity.getClassYear().getClassYear(),
+                entity.getSemester().getAcademicPeriodCode());
+        dto.setName(name);
         return dto;
     }
 
-    // Explanation: Service handles CRUD for BatchClassYearSemester with validation and error handling.
-    // Why: Uses latest grading system by effective date; supports all operations; ensures data integrity.
+    // Explanation: Updated to include name field in DTO for GET requests.
+    // Why: Constructs name as batchName-classYear-semesterCode; supports all CRUD operations.
 }
