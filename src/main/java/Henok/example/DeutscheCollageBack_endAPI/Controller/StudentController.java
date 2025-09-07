@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentDetailsDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentDetails;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
@@ -24,13 +25,12 @@ public class StudentController {
     @Autowired
     private StudentDetailService studentDetailsService;
 
-
-    // Retrieves all active students
-    // Why: For admin/registrar to view all active student records
+    // Retrieves all active students as DTOs
+    // Why: For admin/registrar to view all active student records as DTOs
     @GetMapping
     public ResponseEntity<?> getAllStudents() {
         try {
-            List<StudentDetails> students = studentDetailsService.getAllStudents();
+            List<StudentDetailsDTO> students = studentDetailsService.getAllStudents();
             return ResponseEntity.ok(students);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -41,12 +41,12 @@ public class StudentController {
         }
     }
 
-    // Retrieves a student by ID
+    // Retrieves a student by ID as a DTO
     // Why: For detailed view of a specific student
     @GetMapping("/{id}")
     public ResponseEntity<?> getStudentById(@PathVariable Long id) {
         try {
-            StudentDetails student = studentDetailsService.getStudentById(id);
+            StudentDetailsDTO student = studentDetailsService.getStudentById(id);
             return ResponseEntity.ok(student);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -57,8 +57,8 @@ public class StudentController {
         }
     }
 
-    // Updates a student's details with optional file uploads
-    // Why: Allows modification of student information and files
+    // Updates a student's details with optional file uploads and returns DTO
+    // Why: Allows modification of student information and files, returns updated DTO
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> updateStudent(
             @PathVariable Long id,
@@ -66,11 +66,12 @@ public class StudentController {
             @RequestPart(name = "studentPhoto", required = false) MultipartFile studentPhoto,
             @RequestPart(name = "document", required = false) MultipartFile document) {
         try {
-            StudentDetails updated = studentDetailsService.updateStudent(id, dto, studentPhoto, document);
+            StudentDetailsDTO updated = studentDetailsService.updateStudent(id, dto, studentPhoto, document);
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Student updated successfully");
             response.put("studentId", updated.getId().toString());
-            response.put("userId", updated.getUser().getId().toString());
+            response.put("userId", updated.getUserId().toString());
+            response.put("student", updated);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)

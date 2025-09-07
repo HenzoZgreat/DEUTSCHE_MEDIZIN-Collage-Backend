@@ -123,7 +123,7 @@ public class StudentDetails {
     @JoinColumn(name = "school_background", nullable = false)
     private SchoolBackground schoolBackground;
 
-    @Column
+    @Column(columnDefinition = "MEDIUMBLOB")
     private byte[] studentPhoto;
 
     // Emergency Contact Information
@@ -194,4 +194,12 @@ public class StudentDetails {
 
     @Column(nullable = false)
     private boolean isStudentPassExitExam;
+
+    public boolean isStudentPassExitExam() {
+        return isStudentPassExitExam;
+    }
+
+    public boolean isTransfer() {
+        return isTransfer;
+    }
 }

@@ -27,4 +27,8 @@ public interface StudentDetailsRepository extends JpaRepository<StudentDetails, 
     // Finds a student by associated user ID
     // Why: Useful for linking user authentication to student details
     Optional<StudentDetails> findByUserId(Long userId);
+
+    boolean existsByPhoneNumber(String phoneNumber);
+
+    boolean existsByExitExamUserID(String exitExamUserID);
 }

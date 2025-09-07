@@ -2,6 +2,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Service;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.StudentRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentDetailsDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.*;
@@ -10,14 +11,15 @@ import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.*;
-import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class StudentDetailService {
@@ -60,10 +62,28 @@ public class StudentDetailService {
 
     // Registers a new student with the provided details and files
     // Why: Handles student registration with multipart form data, validates inputs, and ensures data integrity
+    @Transactional(rollbackFor = Exception.class)
     public StudentDetails registerStudent(StudentRegisterRequest request, MultipartFile studentPhoto, MultipartFile document) {
         // Validate required fields
-
         validateRegistrationRequest(request);
+
+        // Check for duplicate phone number
+        if (studentDetailsRepository.existsByPhoneNumber(request.getPhoneNumber())) {
+            throw new IllegalArgumentException("Phone number already in use");
+        }
+        // Check for duplicate exitExamUserID if provided
+        if (request.getExitExamUserID() != null && !request.getExitExamUserID().isEmpty()
+                && studentDetailsRepository.existsByExitExamUserID(request.getExitExamUserID())) {
+            throw new IllegalArgumentException("Exit exam user ID already in use");
+        }
+
+        // Validate file sizes
+        if (studentPhoto != null && !studentPhoto.isEmpty() && studentPhoto.getSize() > 2_000_000) { // 2MB limit
+            throw new IllegalArgumentException("Student photo size exceeds 2MB limit");
+        }
+        if (document != null && !document.isEmpty() && document.getSize() > 10_000_000) { // 10MB limit
+            throw new IllegalArgumentException("Document size exceeds 10MB limit");
+        }
 
         // Register user with STUDENT role
         UserRegisterRequest userRequest = new UserRegisterRequest();
@@ -84,40 +104,38 @@ public class StudentDetailService {
         } catch (ResourceNotFoundException e) {
             throw new ResourceNotFoundException("Failed to map request: " + e.getMessage());
         } catch (IOException e) {
-            throw new RuntimeException("Failed to process file uploads: " + e.getMessage());
+            throw new IllegalArgumentException("Failed to process file uploads: " + e.getMessage());
         }
 
         // Save student
         try {
-            System.out.println("Passed Mapping, but before Saving to DB");
             return studentDetailsRepository.save(student);
         } catch (DataIntegrityViolationException e) {
-            throw new DataIntegrityViolationException("Failed to register student due to database constraint: " + e.getMessage());
-        } catch (Exception e) {
-            throw new RuntimeException("Unexpected error during student registration: " + e.getMessage());
+            throw new IllegalArgumentException("Failed to register student due to duplicate entry or constraint violation: " + e.getMessage());
         }
     }
 
-    // Retrieves all active students (enabled users)
-    // Why: For admin/registrar views, filters out disabled accounts
-    public List<StudentDetails> getAllStudents() {
+    // Retrieves all active students as DTOs
+// Why: Returns DTOs for admin/registrar views, includes all fields, filters out disabled accounts
+    public List<StudentDetailsDTO> getAllStudents() {
         try {
             List<StudentDetails> students = studentDetailsRepository.findAllByUserEnabledTrue();
             if (students.isEmpty()) {
                 throw new ResourceNotFoundException("No active students found");
             }
-            return students;
+            return students.stream().map(this::mapToDTO).collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to retrieve students: " + e.getMessage());
         }
     }
 
-    // Retrieves a student by ID, ensuring they are active
-    // Why: For detailed views or updates, respects enabled flag
-    public StudentDetails getStudentById(Long id) {
+    // Retrieves a student by ID as a DTO, ensuring they are active
+// Why: Returns DTO for detailed views, includes all fields, respects enabled flag
+    public StudentDetailsDTO getStudentById(Long id) {
         try {
-            return studentDetailsRepository.findByIdAndUserEnabledTrue(id)
+            StudentDetails student = studentDetailsRepository.findByIdAndUserEnabledTrue(id)
                     .orElseThrow(() -> new ResourceNotFoundException("Active student not found with id: " + id));
+            return mapToDTO(student);
         } catch (ResourceNotFoundException e) {
             throw e;
         } catch (Exception e) {
@@ -125,9 +143,13 @@ public class StudentDetailService {
         }
     }
 
+
     // Updates a student's details with optional file uploads
     // Why: Allows modification with multipart form data, respects enabled status
-    public StudentDetails updateStudent(Long id, StudentUpdateDTO dto, MultipartFile studentPhoto, MultipartFile document) {
+    // Updates a student's details with optional file uploads and returns DTO
+// Why: Allows modification with multipart form data, returns updated DTO
+    @Transactional(rollbackFor = Exception.class)
+    public StudentDetailsDTO updateStudent(Long id, StudentUpdateDTO dto, MultipartFile studentPhoto, MultipartFile document) {
         // Validate DTO
         if (dto == null) {
             throw new IllegalArgumentException("Update request cannot be null");
@@ -136,25 +158,46 @@ public class StudentDetailService {
         // Fetch existing student
         StudentDetails existing;
         try {
-            existing = getStudentById(id);
+            existing = studentDetailsRepository.findByIdAndUserEnabledTrue(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Active student not found with id: " + id));
         } catch (ResourceNotFoundException e) {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException("Failed to fetch student for update: " + e.getMessage());
         }
 
+        // Check for duplicate phone number
+        if (dto.getPhoneNumber() != null && !dto.getPhoneNumber().isEmpty()
+                && !dto.getPhoneNumber().equals(existing.getPhoneNumber())
+                && studentDetailsRepository.existsByPhoneNumber(dto.getPhoneNumber())) {
+            throw new IllegalArgumentException("Phone number already in use");
+        }
+        // Check for duplicate exitExamUserID if provided
+        if (dto.getExitExamUserID() != null && !dto.getExitExamUserID().isEmpty()
+                && !dto.getExitExamUserID().equals(existing.getExitExamUserID())
+                && studentDetailsRepository.existsByExitExamUserID(dto.getExitExamUserID())) {
+            throw new IllegalArgumentException("Exit exam user ID already in use");
+        }
+
+        // Validate file sizes
+        if (studentPhoto != null && !studentPhoto.isEmpty() && studentPhoto.getSize() > 2_000_000) { // 2MB limit
+            throw new IllegalArgumentException("Student photo size exceeds 2MB limit");
+        }
+        if (document != null && !document.isEmpty() && document.getSize() > 10_000_000) { // 10MB limit
+            throw new IllegalArgumentException("Document size exceeds 10MB limit");
+        }
+
         // Update fields if provided
         try {
             updateStudentFields(existing, dto, studentPhoto, document);
-            return studentDetailsRepository.save(existing);
+            StudentDetails updated = studentDetailsRepository.save(existing);
+            return mapToDTO(updated);
         } catch (ResourceNotFoundException e) {
             throw e;
         } catch (DataIntegrityViolationException e) {
-            throw new DataIntegrityViolationException("Failed to update student due to database constraint: " + e.getMessage());
+            throw new IllegalArgumentException("Failed to update student due to duplicate entry or constraint violation: " + e.getMessage());
         } catch (IOException e) {
-            throw new RuntimeException("Failed to process file uploads: " + e.getMessage());
-        } catch (Exception e) {
-            throw new RuntimeException("Unexpected error during student update: " + e.getMessage());
+            throw new IllegalArgumentException("Failed to process file uploads: " + e.getMessage());
         }
     }
 
@@ -228,8 +271,8 @@ public class StudentDetailService {
         if (request.getGender() == null) {
             throw new IllegalArgumentException("Gender cannot be null");
         }
-        if (request.getAge() == null || request.getAge() < 16 || request.getAge() > 100) {
-            throw new IllegalArgumentException("Insert a valid Age between 16 and 100");
+        if (request.getAge() == null || request.getAge() < 0) {
+            throw new IllegalArgumentException("Age must be a non-negative integer");
         }
         if (request.getPhoneNumber() == null || request.getPhoneNumber().isEmpty()) {
             throw new IllegalArgumentException("Phone number cannot be empty");
@@ -339,9 +382,6 @@ public class StudentDetailService {
             student.setAge(dto.getAge());
         }
         if (dto.getPhoneNumber() != null && !dto.getPhoneNumber().isEmpty()) {
-            if (studentDetailsRepository.existsByPhoneNumberAndIdNot(dto.getPhoneNumber(), student.getId())) {
-                throw new IllegalArgumentException("Phone number already in use");
-            }
             student.setPhoneNumber(dto.getPhoneNumber());
         }
         if (dto.getDateOfBirthEC() != null && !dto.getDateOfBirthEC().isEmpty()) {
@@ -505,16 +545,13 @@ public class StudentDetailService {
                 .orElseThrow(() -> new ResourceNotFoundException("Region not found with code: " + request.getCurrentAddressRegionCode())));
         student.setEmail(request.getEmail());
         student.setMaritalStatus(request.getMaritalStatus());
-        if (request.getImpairmentCode() != null && !request.getImpairmentCode().equals("")) {
+        if (request.getImpairmentCode() != null && !request.getImpairmentCode().isEmpty()) {
             student.setImpairment(impairmentRepository.findById(request.getImpairmentCode())
                     .orElseThrow(() -> new ResourceNotFoundException("Impairment not found with code: " + request.getImpairmentCode())));
         }
         student.setSchoolBackground(schoolBackgroundRepository.findById(request.getSchoolBackgroundId())
                 .orElseThrow(() -> new ResourceNotFoundException("School background not found with id: " + request.getSchoolBackgroundId())));
         if (studentPhoto != null && !studentPhoto.isEmpty()) {
-            if (studentPhoto.getSize() > 2_000_000) {
-                throw new IllegalArgumentException("Photo size exceeds 2MB limit");
-            }
             student.setStudentPhoto(studentPhoto.getBytes());
         }
         student.setContactPersonFirstNameAMH(request.getContactPersonFirstNameAMH());
@@ -548,5 +585,60 @@ public class StudentDetailService {
         student.setStudentPassExitExam(request.getIsStudentPassExitExam() != null ? request.getIsStudentPassExitExam() : false);
         student.setGrade12Result(request.getGrade12Result());
         return student;
+    }
+
+    // Maps StudentDetails entity to StudentDetailsDTO
+    // Why: Converts entity to DTO to include all fields safely
+    private StudentDetailsDTO mapToDTO(StudentDetails student) {
+        StudentDetailsDTO dto = new StudentDetailsDTO();
+        dto.setId(student.getId());
+        dto.setUserId(student.getUser().getId());
+        dto.setFirstNameAMH(student.getFirstNameAMH());
+        dto.setFirstNameENG(student.getFirstNameENG());
+        dto.setFatherNameAMH(student.getFatherNameAMH());
+        dto.setFatherNameENG(student.getFatherNameENG());
+        dto.setGrandfatherNameAMH(student.getGrandfatherNameAMH());
+        dto.setGrandfatherNameENG(student.getGrandfatherNameENG());
+        dto.setMotherNameAMH(student.getMotherNameAMH());
+        dto.setMotherNameENG(student.getMotherNameENG());
+        dto.setMotherFatherNameAMH(student.getMotherFatherNameAMH());
+        dto.setMotherFatherNameENG(student.getMotherFatherNameENG());
+        dto.setGender(student.getGender().name());
+        dto.setAge(student.getAge());
+        dto.setPhoneNumber(student.getPhoneNumber());
+        dto.setDateOfBirthEC(student.getDateOfBirthEC());
+        dto.setDateOfBirthGC(student.getDateOfBirthGC());
+        dto.setPlaceOfBirthWoredaCode(student.getPlaceOfBirthWoreda().getWoredaCode());
+        dto.setPlaceOfBirthZoneCode(student.getPlaceOfBirthZone().getZoneCode());
+        dto.setPlaceOfBirthRegionCode(student.getPlaceOfBirthRegion().getRegionCode());
+        dto.setCurrentAddressWoredaCode(student.getCurrentAddressWoreda().getWoredaCode());
+        dto.setCurrentAddressZoneCode(student.getCurrentAddressZone().getZoneCode());
+        dto.setCurrentAddressRegionCode(student.getCurrentAddressRegion().getRegionCode());
+        dto.setEmail(student.getEmail());
+        dto.setMaritalStatus(student.getMaritalStatus().name());
+        dto.setImpairmentCode(student.getImpairment() != null ? student.getImpairment().getImpairmentCode() : null);
+        dto.setSchoolBackgroundId(student.getSchoolBackground().getId());
+        dto.setStudentPhoto(student.getStudentPhoto());
+        dto.setContactPersonFirstNameAMH(student.getContactPersonFirstNameAMH());
+        dto.setContactPersonFirstNameENG(student.getContactPersonFirstNameENG());
+        dto.setContactPersonLastNameAMH(student.getContactPersonLastNameAMH());
+        dto.setContactPersonLastNameENG(student.getContactPersonLastNameENG());
+        dto.setContactPersonPhoneNumber(student.getContactPersonPhoneNumber());
+        dto.setContactPersonRelation(student.getContactPersonRelation());
+        dto.setDateEnrolledEC(student.getDateEnrolledEC());
+        dto.setDateEnrolledGC(student.getDateEnrolledGC());
+        dto.setBatchClassYearSemesterId(student.getBatchClassYearSemester().getBcysID());
+        dto.setStudentRecentStatusId(student.getStudentRecentStatus().getId());
+        dto.setDepartmentEnrolledId(student.getDepartmentEnrolled().getDptID());
+        dto.setProgramModalityCode(student.getProgramModality().getModalityCode());
+        dto.setDocument(student.getDocument());
+        dto.setDocumentStatus(student.getDocumentStatus().name());
+        dto.setRemark(student.getRemark());
+        dto.setIsTransfer(student.isTransfer());
+        dto.setExitExamUserID(student.getExitExamUserID());
+        dto.setExitExamScore(student.getExitExamScore());
+        dto.setIsStudentPassExitExam(student.isStudentPassExitExam());
+        dto.setGrade12Result(student.getGrade12Result());
+        return dto;
     }
 }
