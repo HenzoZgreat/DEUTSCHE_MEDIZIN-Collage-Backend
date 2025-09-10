@@ -33,4 +33,9 @@ public class CourseDTO {
     @JsonProperty("prerequisiteIds")
     private List<Long> prerequisiteIds;
 
+    @JsonProperty("classYearID")
+    private Long classYearID;
+
+    @JsonProperty("semesterID")
+    private String semesterID;
 }

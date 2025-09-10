@@ -26,10 +26,11 @@ public class AppliedStudentController {
     private AppliedStudentService appliedStudentService;
 
     /**
-     * Registers a new applicant with the provided details and optional document.
+     * Registers a new applicant with the provided details, optional document, and optional student photo.
      * Accessible to all (permitAll in SecurityConfig).
      * @param request The applicant details in DTO form.
      * @param document The uploaded document file (optional).
+     * @param studentPhoto The uploaded student photo file (optional).
      * @return A response with the applicant ID and success message.
      * @throws IllegalArgumentException for invalid input.
      * @throws ResourceNotFoundException for missing referenced entities.
@@ -37,9 +38,10 @@ public class AppliedStudentController {
     @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> registerApplicant(
             @RequestPart(name = "data") AppliedStudentRegisterRequest request,
-            @RequestPart(name = "document", required = false) MultipartFile document) {
+            @RequestPart(name = "document", required = false) MultipartFile document,
+            @RequestPart(name = "studentPhoto", required = false) MultipartFile studentPhoto) {
         try {
-            AppliedStudent applicant = appliedStudentService.registerApplicant(request, document);
+            AppliedStudent applicant = appliedStudentService.registerApplicant(request, document, studentPhoto);
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Applicant registered successfully");
             response.put("applicantId", applicant.getId());
@@ -118,6 +120,58 @@ public class AppliedStudentController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("An error occurred while retrieving applicant: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Retrieves the student photo for an applicant.
+     * Restricted to REGISTRAR role.
+     * @param id The ID of the applicant.
+     * @return The student photo as a byte array.
+     * @throws ResourceNotFoundException if the applicant or photo is not found.
+     */
+    @GetMapping("/{id}/photo")
+    public ResponseEntity<?> getStudentPhoto(@PathVariable Long id) {
+        try {
+            AppliedStudent applicant = appliedStudentService.getApplicantByIdForFile(id);
+            if (applicant.getStudentPhoto() == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ErrorResponse("No student photo found for applicant with id: " + id));
+            }
+            return ResponseEntity.ok()
+                    .contentType(MediaType.IMAGE_JPEG) // Adjust based on actual photo type if needed
+                    .body(applicant.getStudentPhoto());
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An error occurred while retrieving student photo: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Retrieves the document for an applicant.
+     * Restricted to REGISTRAR role.
+     * @param id The ID of the applicant.
+     * @return The document as a byte array.
+     * @throws ResourceNotFoundException if the applicant or document is not found.
+     */
+    @GetMapping("/{id}/document")
+    public ResponseEntity<?> getStudentDocument(@PathVariable Long id) {
+        try {
+            AppliedStudent applicant = appliedStudentService.getApplicantByIdForFile(id);
+            if (applicant.getDocument() == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ErrorResponse("No document found for applicant with id: " + id));
+            }
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .body(applicant.getDocument());
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An error occurred while retrieving document: " + e.getMessage()));
         }
     }
 }

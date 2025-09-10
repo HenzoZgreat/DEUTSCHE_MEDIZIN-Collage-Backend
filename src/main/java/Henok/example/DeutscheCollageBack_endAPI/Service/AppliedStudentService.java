@@ -52,22 +52,40 @@ public class AppliedStudentService {
     @Autowired
     private ImpairmentRepository impairmentRepository;
 
+
     /**
-     * Registers a new applicant with the provided details and uploaded document.
+     * Registers a new applicant with the provided details, optional document, and optional student photo.
      * @param request The DTO containing applicant details.
-     * @param document The uploaded document (optional).
+     * @param document The uploaded document (optional, max 10MB).
+     * @param studentPhoto The uploaded student photo (optional, max 2MB).
      * @return The saved AppliedStudent entity.
-     * @throws IllegalArgumentException if input validation fails.
+     * @throws IllegalArgumentException if input validation fails or file size exceeds limits.
      * @throws ResourceNotFoundException if referenced entities are not found.
      */
     @Transactional
-    public AppliedStudent registerApplicant(AppliedStudentRegisterRequest request, MultipartFile document) {
+    public AppliedStudent registerApplicant(AppliedStudentRegisterRequest request, MultipartFile document, MultipartFile studentPhoto) {
         // Validate required fields
         validateRequest(request);
 
         // Check for unique phone number
         if (appliedStudentRepository.existsByPhoneNumber(request.getPhoneNumber())) {
             throw new IllegalArgumentException("Phone number already exists: " + request.getPhoneNumber());
+        }
+
+        // Validate file sizes
+        if (document != null && !document.isEmpty()) {
+            if (document.getSize() > 10 * 1024 * 1024) { // 10MB limit for document
+                throw new IllegalArgumentException("Document file size exceeds 10MB limit");
+            }
+        }
+        if (studentPhoto != null && !studentPhoto.isEmpty()) {
+            if (studentPhoto.getSize() > 2 * 1024 * 1024) { // 2MB limit for student photo
+                throw new IllegalArgumentException("Student photo file size exceeds 2MB limit");
+            }
+            String contentType = studentPhoto.getContentType();
+            if (contentType == null || !contentType.startsWith("image/")) {
+                throw new IllegalArgumentException("Student photo must be an image file (e.g., JPEG, PNG)");
+            }
         }
 
         // Map DTO to entity
@@ -97,32 +115,32 @@ public class AppliedStudentService {
         applicant.setContactPersonRelation(request.getContactPersonRelation());
 
         // Set foreign key references
-        applicant.setPlaceOfBirthWoreda(woredaRepository.findById(request.getPlaceOfBirthWoredaCode())
+        applicant.setPlaceOfBirthWoreda(woredaRepository.findByWoredaCode(request.getPlaceOfBirthWoredaCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Woreda not found with code: " + request.getPlaceOfBirthWoredaCode())));
-        applicant.setPlaceOfBirthZone(zoneRepository.findById(request.getPlaceOfBirthZoneCode())
+        applicant.setPlaceOfBirthZone(zoneRepository.findByZoneCode(request.getPlaceOfBirthZoneCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Zone not found with code: " + request.getPlaceOfBirthZoneCode())));
-        applicant.setPlaceOfBirthRegion(regionRepository.findById(request.getPlaceOfBirthRegionCode())
+        applicant.setPlaceOfBirthRegion(regionRepository.findByRegionCode(request.getPlaceOfBirthRegionCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Region not found with code: " + request.getPlaceOfBirthRegionCode())));
-        applicant.setCurrentAddressWoreda(woredaRepository.findById(request.getCurrentAddressWoredaCode())
+        applicant.setCurrentAddressWoreda(woredaRepository.findByWoredaCode(request.getCurrentAddressWoredaCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Woreda not found with code: " + request.getCurrentAddressWoredaCode())));
-        applicant.setCurrentAddressZone(zoneRepository.findById(request.getCurrentAddressZoneCode())
+        applicant.setCurrentAddressZone(zoneRepository.findByZoneCode(request.getCurrentAddressZoneCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Zone not found with code: " + request.getCurrentAddressZoneCode())));
-        applicant.setCurrentAddressRegion(regionRepository.findById(request.getCurrentAddressRegionCode())
+        applicant.setCurrentAddressRegion(regionRepository.findByRegionCode(request.getCurrentAddressRegionCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Region not found with code: " + request.getCurrentAddressRegionCode())));
         applicant.setSchoolBackground(schoolBackgroundRepository.findById(request.getSchoolBackgroundId())
                 .orElseThrow(() -> new ResourceNotFoundException("SchoolBackground not found with id: " + request.getSchoolBackgroundId())));
         applicant.setDepartmentEnrolled(departmentRepository.findById(request.getDepartmentEnrolledId())
                 .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + request.getDepartmentEnrolledId())));
-        applicant.setProgramModality(programModalityRepository.findById(request.getProgramModalityCode())
+        applicant.setProgramModality(programModalityRepository.findByModalityCode(request.getProgramModalityCode())
                 .orElseThrow(() -> new ResourceNotFoundException("ProgramModality not found with code: " + request.getProgramModalityCode())));
         applicant.setClassYear(classYearRepository.findById(request.getClassYearId())
                 .orElseThrow(() -> new ResourceNotFoundException("ClassYear not found with id: " + request.getClassYearId())));
-        applicant.setSemester(semesterRepository.findById(request.getSemesterCode())
+        applicant.setSemester(semesterRepository.findByAcademicPeriodCode(request.getSemesterCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Semester not found with code: " + request.getSemesterCode())));
 
         // Set optional impairment
         if (request.getImpairmentCode() != null && !request.getImpairmentCode().isEmpty()) {
-            applicant.setImpairment(impairmentRepository.findById(request.getImpairmentCode())
+            applicant.setImpairment(impairmentRepository.findByImpairmentCode(request.getImpairmentCode())
                     .orElseThrow(() -> new ResourceNotFoundException("Impairment not found with code: " + request.getImpairmentCode())));
         }
 
@@ -135,10 +153,18 @@ public class AppliedStudentService {
             }
         }
 
+        // Set student photo if provided
+        if (studentPhoto != null && !studentPhoto.isEmpty()) {
+            try {
+                applicant.setStudentPhoto(studentPhoto.getBytes());
+            } catch (IOException e) {
+                throw new IllegalArgumentException("Failed to process student photo: " + e.getMessage());
+            }
+        }
+
         // Default status is PENDING (set in entity)
         return appliedStudentRepository.save(applicant);
     }
-
     /**
      * Updates the application status of an applicant.
      * @param applicantId The ID of the applicant.
@@ -188,6 +214,18 @@ public class AppliedStudentService {
     }
 
     /**
+     * Retrieves an applicant by ID for file retrieval.
+     * @param id The ID of the applicant.
+     * @return The AppliedStudent entity.
+     * @throws ResourceNotFoundException if the applicant is not found.
+     */
+    public AppliedStudent getApplicantByIdForFile(Long id) {
+        return appliedStudentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Applicant not found with id: " + id));
+    }
+
+
+    /**
      * Maps an AppliedStudent entity to its response DTO.
      * @param applicant The AppliedStudent entity.
      * @return The corresponding AppliedStudentResponseDTO.
@@ -232,6 +270,7 @@ public class AppliedStudentService {
         dto.setSemesterCode(applicant.getSemester().getAcademicPeriodCode());
         dto.setApplicationStatus(applicant.getApplicationStatus());
         dto.setHasDocument(applicant.getDocument() != null);
+        dto.setHasPhoto(applicant.getStudentPhoto() != null);
         return dto;
     }
 

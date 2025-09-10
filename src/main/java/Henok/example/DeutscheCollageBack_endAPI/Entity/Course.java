@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Entity;
 
+import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Semester;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -45,4 +46,12 @@ public class Course {
             inverseJoinColumns = @JoinColumn(name = "prerequisite_id")
     )
     private Set<Course> prerequisites = new HashSet<>();
+
+    @ManyToOne
+    @JoinColumn(name = "class_year_id", nullable = false)
+    private ClassYear classYear;
+
+    @ManyToOne
+    @JoinColumn(name = "semester_id", nullable = false)
+    private Semester semester;
 }

@@ -113,7 +113,7 @@ public class AppliedStudent {
     @JoinColumn(name = "school_background", nullable = false)
     private SchoolBackground schoolBackground;
 
-    @Column
+    @Column(columnDefinition = "MEDIUMBLOB")
     private byte[] studentPhoto;
 
     // Emergency Contact Information

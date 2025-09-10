@@ -1,13 +1,17 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.CourseDTO;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.ClassYear;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Course;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.CourseCategory;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Department;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Semester;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.ClassYearRepository;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.CourseCategoryRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.CourseRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.DepartmentRepo;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.SemesterRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -28,6 +32,12 @@ public class CourseService {
 
     @Autowired
     private DepartmentRepo departmentRepository;
+
+    @Autowired
+    private ClassYearRepository classYearRepository;
+
+    @Autowired
+    private SemesterRepo semesterRepository;
 
     public void addCourses(List<CourseDTO> courseDTOs) {
         if (courseDTOs == null || courseDTOs.isEmpty()) {
@@ -96,33 +106,59 @@ public class CourseService {
         }
 
         Course existingCourse = getCourseById(id);
-        String newCCode = courseDTO.getCCode();
 
-        if (!existingCourse.getCCode().equals(newCCode) && courseRepository.existsBycCode(newCCode)) {
-            throw new IllegalArgumentException("Course code already exists: " + newCCode);
+        if (courseDTO.getCTitle() != null) {
+            existingCourse.setCTitle(courseDTO.getCTitle());
         }
 
-        existingCourse.setCTitle(courseDTO.getCTitle());
-        existingCourse.setCCode(newCCode);
-        existingCourse.setTheoryHrs(courseDTO.getTheoryHrs());
-        existingCourse.setLabHrs(courseDTO.getLabHrs());
+        String newCCode = courseDTO.getCCode();
+        if (newCCode != null && !existingCourse.getCCode().equals(newCCode) && courseRepository.existsBycCode(newCCode)) {
+            throw new IllegalArgumentException("Course code already exists: " + newCCode);
+        }
+        if (newCCode != null && !newCCode.isEmpty()) {
+            existingCourse.setCCode(newCCode);
+        }
 
-        CourseCategory category = courseCategoryRepository.findById(courseDTO.getCCatagoryID())
-                .orElseThrow(() -> new ResourceNotFoundException("Course category not found with id: " + courseDTO.getCCatagoryID()));
-        existingCourse.setCategory(category);
+        if (courseDTO.getTheoryHrs() != null) {
+            existingCourse.setTheoryHrs(courseDTO.getTheoryHrs());
+        }
 
-        Department department = departmentRepository.findById(courseDTO.getDepartmentID())
-                .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + courseDTO.getDepartmentID()));
-        existingCourse.setDepartment(department);
+        if (courseDTO.getLabHrs() != null) {
+            existingCourse.setLabHrs(courseDTO.getLabHrs());
+        }
 
-        Set<Course> prerequisites = courseDTO.getPrerequisiteIds() != null
-                ? courseDTO.getPrerequisiteIds().stream()
-                .map(prereqId -> courseRepository.findById(prereqId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Prerequisite course not found with id: " + prereqId)))
-                .collect(Collectors.toSet())
-                : new HashSet<>();
-        validatePrerequisites(id, prerequisites);
-        existingCourse.setPrerequisites(prerequisites);
+        if (courseDTO.getCCatagoryID() != null) {
+            CourseCategory category = courseCategoryRepository.findById(courseDTO.getCCatagoryID())
+                    .orElseThrow(() -> new ResourceNotFoundException("Course category not found with id: " + courseDTO.getCCatagoryID()));
+            existingCourse.setCategory(category);
+        }
+
+        if (courseDTO.getDepartmentID() != null) {
+            Department department = departmentRepository.findById(courseDTO.getDepartmentID())
+                    .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + courseDTO.getDepartmentID()));
+            existingCourse.setDepartment(department);
+        }
+
+        if (courseDTO.getClassYearID() != null) {
+            ClassYear classYear = classYearRepository.findById(courseDTO.getClassYearID())
+                    .orElseThrow(() -> new ResourceNotFoundException("Class year not found with id: " + courseDTO.getClassYearID()));
+            existingCourse.setClassYear(classYear);
+        }
+
+        if (courseDTO.getSemesterID() != null && !courseDTO.getSemesterID().isEmpty()) {
+            Semester semester = semesterRepository.findById(courseDTO.getSemesterID())
+                    .orElseThrow(() -> new ResourceNotFoundException("Semester not found with id: " + courseDTO.getSemesterID()));
+            existingCourse.setSemester(semester);
+        }
+
+        if (courseDTO.getPrerequisiteIds() != null) {
+            Set<Course> prerequisites = courseDTO.getPrerequisiteIds().stream()
+                    .map(prereqId -> courseRepository.findById(prereqId)
+                            .orElseThrow(() -> new ResourceNotFoundException("Prerequisite course not found with id: " + prereqId)))
+                    .collect(Collectors.toSet());
+            validatePrerequisites(id, prerequisites);
+            existingCourse.setPrerequisites(prerequisites);
+        }
 
         courseRepository.save(existingCourse);
     }
@@ -166,6 +202,10 @@ public class CourseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Course category not found with id: " + dto.getCCatagoryID()));
         Department department = departmentRepository.findById(dto.getDepartmentID())
                 .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + dto.getDepartmentID()));
+        ClassYear classYear = classYearRepository.findById(dto.getClassYearID())
+                .orElseThrow(() -> new ResourceNotFoundException("Class year not found with id: " + dto.getClassYearID()));
+        Semester semester = semesterRepository.findById(dto.getSemesterID())
+                .orElseThrow(() -> new ResourceNotFoundException("Semester not found with id: " + dto.getSemesterID()));
 
         Set<Course> prerequisites = dto.getPrerequisiteIds() != null
                 ? dto.getPrerequisiteIds().stream()
@@ -174,8 +214,10 @@ public class CourseService {
                 .collect(Collectors.toSet())
                 : new HashSet<>();
 
-        return new Course(null, dto.getCTitle(), dto.getCCode(), dto.getTheoryHrs() != null ? dto.getTheoryHrs() : 0,
-                dto.getLabHrs() != null ? dto.getLabHrs() : 0, category, department, prerequisites);
+        return new Course(null, dto.getCTitle(), dto.getCCode(),
+                dto.getTheoryHrs() != null ? dto.getTheoryHrs() : 0,
+                dto.getLabHrs() != null ? dto.getLabHrs() : 0,
+                category, department, prerequisites, classYear, semester);
     }
 
     private void validateCourse(Course course) {
@@ -196,6 +238,12 @@ public class CourseService {
         }
         if (course.getDepartment() == null) {
             throw new IllegalArgumentException("Department cannot be null");
+        }
+        if (course.getClassYear() == null) {
+            throw new IllegalArgumentException("Class year cannot be null");
+        }
+        if (course.getSemester() == null) {
+            throw new IllegalArgumentException("Semester cannot be null");
         }
     }
 

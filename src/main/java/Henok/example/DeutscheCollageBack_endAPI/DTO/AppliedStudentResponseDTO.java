@@ -51,5 +51,6 @@ public class AppliedStudentResponseDTO {
     private Long classYearId;
     private String semesterCode;
     private ApplicationStatus applicationStatus;
+    private boolean hasPhoto; // Indicates if a student photo was uploaded
     private boolean hasDocument; // Indicates if a document was uploaded
 }

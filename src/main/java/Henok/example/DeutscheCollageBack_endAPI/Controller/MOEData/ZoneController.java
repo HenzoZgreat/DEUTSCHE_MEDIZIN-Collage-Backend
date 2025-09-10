@@ -1,6 +1,5 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller.MOEData;
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.MOE_DTOs.ZoneDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Zone;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices.ZoneService;
@@ -52,6 +51,20 @@ public class ZoneController {
         try {
             List<Zone> zones = zoneService.findAll();
             return ResponseEntity.ok(zones);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(null);
+        }
+    }
+
+    @GetMapping("/region/{regionCode}")
+    public ResponseEntity<List<Zone>> getZonesByRegionCode(@PathVariable String regionCode) {
+        try {
+            List<Zone> zones = zoneService.findByRegionCode(regionCode);
+            return ResponseEntity.ok(zones);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(null);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(null);
