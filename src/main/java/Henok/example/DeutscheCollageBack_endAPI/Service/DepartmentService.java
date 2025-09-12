@@ -2,11 +2,13 @@ package Henok.example.DeutscheCollageBack_endAPI.Service;
 
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Department;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.DepartmentDTO;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.DepartmentRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -15,6 +17,8 @@ public class DepartmentService {
 
     @Autowired
     private DepartmentRepo departmentRepository;
+    @Autowired
+    private NotificationService notificationService;
 
     public void addDepartments(List<DepartmentDTO> departmentDTOs) {
         if (departmentDTOs == null || departmentDTOs.isEmpty()) {
@@ -48,6 +52,10 @@ public class DepartmentService {
         }
 
         departmentRepository.save(department);
+        notificationService.createNotification(Arrays.asList(
+                Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.FINANCIAL_STAFF),
+                null, Role.REGISTRAR,
+                "Added a new Department : " + department.getDeptName());
     }
 
     public List<Department> getAllDepartments() {

@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -59,6 +60,9 @@ public class StudentDetailService {
 
     @Autowired
     private ProgramModalityRepository programModalityRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
     // Registers a new student with the provided details and files
     // Why: Handles student registration with multipart form data, validates inputs, and ensures data integrity
@@ -109,7 +113,12 @@ public class StudentDetailService {
 
         // Save student
         try {
-            return studentDetailsRepository.save(student);
+            StudentDetails newStudent = studentDetailsRepository.save(student);
+            notificationService.createNotification(Arrays.asList(
+                    Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.FINANCIAL_STAFF),
+                    null, Role.REGISTRAR,
+                    "New Student Registered : " + newStudent.getFirstNameAMH() + " " + newStudent.getFatherNameAMH());
+            return newStudent;
         } catch (DataIntegrityViolationException e) {
             throw new IllegalArgumentException("Failed to register student due to duplicate entry or constraint violation: " + e.getMessage());
         }

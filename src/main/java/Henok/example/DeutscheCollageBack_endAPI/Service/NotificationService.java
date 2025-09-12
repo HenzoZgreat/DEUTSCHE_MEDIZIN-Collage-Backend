@@ -1,0 +1,113 @@
+package Henok.example.DeutscheCollageBack_endAPI.Service;
+
+import Henok.example.DeutscheCollageBack_endAPI.DTO.NotificationDTO;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.Notification;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.NotificationRepository;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Service
+@Transactional
+public class NotificationService {
+
+    @Autowired
+    private NotificationRepository notificationRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    // Create notification for a list of roles or a single user
+    public void createNotification(List<Role> roles, User singleUser, Role senderRole, String message) {
+        // Validate inputs
+        if ((roles == null || roles.isEmpty()) && singleUser == null) {
+            return; // Empty roles and no single user: no-op
+        }
+        if (senderRole == null || message == null || message.trim().isEmpty()) {
+            throw new IllegalArgumentException("Sender role and message are required");
+        }
+
+        // Collect users to notify
+        Set<User> usersToNotify = new HashSet<>();
+        if (roles != null && !roles.isEmpty()) {
+            // Fetch users by roles (assumes UserRepository has findByRole)
+            for (Role role : roles) {
+                List<User> roleUsers = userRepository.findByRole(role);
+                if (roleUsers.isEmpty()) {
+//                    throw new IllegalStateException("No users found for role: " + role);
+                    continue;
+                }
+                usersToNotify.addAll(roleUsers);
+            }
+        }
+        if (singleUser != null) {
+            // Verify single user exists
+            if (!userRepository.existsById(singleUser.getId())) {
+                throw new IllegalStateException("User not found: " + singleUser.getId());
+            }
+            usersToNotify.add(singleUser);
+        }
+
+        // Create notifications
+        for (User user : usersToNotify) {
+            Notification notification = new Notification();
+            notification.setUser(user);
+            notification.setSenderRole(senderRole);
+            notification.setMessage(message);
+            // createdAt/isRead auto-set in entity
+            notificationRepository.save(notification);
+        }
+        // Purpose: Creates notifications for users by roles or a single user.
+        // Why Set: Avoids duplicates if a user has multiple roles or is also singleUser.
+        // Why no-op on empty: Allows flexibility without throwing errors unnecessarily.
+        // Error handling: Throws for invalid inputs or missing users.
+    }
+
+    // Retrieve all notifications for a user
+    public List<NotificationDTO> getUserNotifications(User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("User cannot be null");
+        }
+        List<Notification> notifications = notificationRepository.findByUserOrderByCreatedAtDesc(user);
+        return notifications.stream()
+                .map(n -> new NotificationDTO(
+                        n.getId(),
+                        n.getSenderRole().name(),
+                        n.getMessage(),
+                        n.getCreatedAt(),
+                        n.isRead()
+                ))
+                .collect(Collectors.toList());
+        // Purpose: Fetches user’s notifications, mapped to DTO for safe API exposure.
+        // Why DTO: Prevents leaking entity internals (e.g., User object).
+        // Error handling: Throws for null user.
+    }
+
+    // Mark a notification as read for a user
+    public void markNotificationAsRead(User user, Long notificationId) {
+        if (user == null) {
+            throw new IllegalArgumentException("User cannot be null");
+        }
+        if (notificationId == null) {
+            throw new IllegalArgumentException("Notification ID cannot be null");
+        }
+        Notification notification = notificationRepository.findByIdAndUser(notificationId, user)
+                .orElseThrow(() -> new IllegalStateException("Notification not found or not owned by user: " + notificationId));
+        if (notification.isRead()) {
+            return; // Already read, no action needed
+        }
+        notification.setRead(true);
+        notificationRepository.save(notification);
+        // Purpose: Marks a specific notification as read for the authenticated user.
+        // Why user check: Ensures users can only mark their own notifications.
+        // Error handling: Throws for invalid notification or unauthorized access.
+    }
+}
