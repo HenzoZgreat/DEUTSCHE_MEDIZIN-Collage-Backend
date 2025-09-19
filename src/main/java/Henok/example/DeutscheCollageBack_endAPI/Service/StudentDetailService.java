@@ -217,6 +217,10 @@ public class StudentDetailService {
             StudentDetails student = studentDetailsRepository.findById(studentId)
                     .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
             userService.enableUser(student.getUser().getId());
+            notificationService.createNotification(Arrays.asList(
+                            Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.FINANCIAL_STAFF),
+                    null, Role.REGISTRAR,
+                    "Student " + student.getUser().getUsername() + " Can access his Account");
         } catch (ResourceNotFoundException e) {
             throw e;
         } catch (Exception e) {
@@ -231,6 +235,10 @@ public class StudentDetailService {
             StudentDetails student = studentDetailsRepository.findById(studentId)
                     .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
             userService.disableUser(student.getUser().getId());
+            notificationService.createNotification(Arrays.asList(
+                            Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.FINANCIAL_STAFF),
+                    null, Role.REGISTRAR,
+                    "Student " + student.getUser().getUsername() + " Cannot access his Account any more");
         } catch (ResourceNotFoundException e) {
             throw e;
         } catch (Exception e) {

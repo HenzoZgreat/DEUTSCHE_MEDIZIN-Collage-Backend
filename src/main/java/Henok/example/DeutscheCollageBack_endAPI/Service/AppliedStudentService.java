@@ -4,6 +4,7 @@ import Henok.example.DeutscheCollageBack_endAPI.DTO.AppliedStudentResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.AppliedStudentRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.AppliedStudent;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.ApplicationStatus;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.AppliedStudentRepository;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.ClassYearRepository;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -51,6 +53,9 @@ public class AppliedStudentService {
 
     @Autowired
     private ImpairmentRepository impairmentRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
 
     /**
@@ -163,7 +168,12 @@ public class AppliedStudentService {
         }
 
         // Default status is PENDING (set in entity)
-        return appliedStudentRepository.save(applicant);
+        AppliedStudent newApplicant = appliedStudentRepository.save(applicant);
+        notificationService.createNotification(Arrays.asList(
+                        Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.FINANCIAL_STAFF),
+                null, Role.REGISTRAR,
+                "New Student Applied to this collage : " + newApplicant.getFirstNameAMH() + " " + newApplicant.getFatherNameAMH());
+        return newApplicant;
     }
     /**
      * Updates the application status of an applicant.
@@ -183,7 +193,13 @@ public class AppliedStudentService {
         }
 
         applicant.setApplicationStatus(newStatus);
-        return appliedStudentRepository.save(applicant);
+        AppliedStudent upatedStatusApplicant = appliedStudentRepository.save(applicant);
+        notificationService.createNotification(Arrays.asList(
+                        Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.FINANCIAL_STAFF),
+                null, Role.REGISTRAR,
+                "Applied Student " + applicant.getFirstNameAMH() + " " + applicant.getFatherNameAMH() +
+                        "is " + newStatus);
+        return upatedStatusApplicant;
     }
 
     /**
