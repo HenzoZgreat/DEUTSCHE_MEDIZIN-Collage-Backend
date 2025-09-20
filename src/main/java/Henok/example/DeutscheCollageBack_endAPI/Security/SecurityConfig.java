@@ -35,7 +35,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/auth/login",
-                                "/api/applicants/register", "/api").permitAll()
+                                "/api/applicants/register", "/api", "/").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/enums/**",
                                 "/api/country/**",
