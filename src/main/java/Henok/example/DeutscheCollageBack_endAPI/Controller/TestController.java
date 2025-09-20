@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class TestController {
-    @GetMapping("/api")
+    @GetMapping("/")
     public ResponseEntity<?> test(){
         return ResponseEntity.ok("WellCome to Doutsche Collage Backend API!!");
     }
