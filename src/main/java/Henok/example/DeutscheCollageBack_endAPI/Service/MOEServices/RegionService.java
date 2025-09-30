@@ -41,4 +41,8 @@ public class RegionService {
     public List<Region> findAll() {
         return regionRepository.findAll();
     }
+
+    public void deleteAll() {
+        regionRepository.deleteAll();
+    }
 }

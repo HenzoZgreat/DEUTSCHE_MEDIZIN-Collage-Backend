@@ -106,6 +106,10 @@ public class WoredaService {
                 .collect(Collectors.toList());
     }
 
+    public void deleteAll() {
+        woredaRepository.deleteAll();
+    }
+
     // Map Woreda entity to WoredaDTO
     private WoredaDTO mapToDTO(Woreda woreda) {
         WoredaDTO dto = new WoredaDTO();

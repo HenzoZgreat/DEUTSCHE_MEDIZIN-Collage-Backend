@@ -103,4 +103,15 @@ public class WoredaController {
                     .body(new ErrorResponse("Failed to retrieve woredas by region: " + e.getMessage()));
         }
     }
+
+    @DeleteMapping
+    public ResponseEntity<?> deleteAllWoredas() {
+        try {
+            woredaService.deleteAll();
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to delete all woredas: " + e.getMessage()));
+        }
+    }
 }

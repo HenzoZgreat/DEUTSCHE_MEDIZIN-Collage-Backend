@@ -1,6 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller.MOEData;
 
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Region;
+import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices.RegionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,6 +56,17 @@ public class RegionController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(null);
+        }
+    }
+
+    @DeleteMapping
+    public ResponseEntity<?> deleteAllRegions() {
+        try {
+            regionService.deleteAll();
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to delete all regions: " + e.getMessage()));
         }
     }
 }

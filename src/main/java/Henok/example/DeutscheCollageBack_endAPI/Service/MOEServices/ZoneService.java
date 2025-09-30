@@ -91,6 +91,10 @@ public class ZoneService {
                 .collect(Collectors.toList());
     }
 
+    public void deleteAll() {
+        zoneRepository.deleteAll();
+    }
+
     // Map Zone entity to ZoneDTO
     private ZoneDTO mapToDTO(Zone zone) {
         ZoneDTO dto = new ZoneDTO();

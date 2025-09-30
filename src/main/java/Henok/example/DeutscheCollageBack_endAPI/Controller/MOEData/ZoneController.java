@@ -86,4 +86,15 @@ public class ZoneController {
                     .body(new ErrorResponse("Failed to retrieve zones by region: " + e.getMessage()));
         }
     }
+
+    @DeleteMapping
+    public ResponseEntity<?> deleteAllZones() {
+        try {
+            zoneService.deleteAll();
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to delete all zones: " + e.getMessage()));
+        }
+    }
 }
