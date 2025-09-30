@@ -1,6 +1,8 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller.MOEData;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.MOE_DTOs.ZoneDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Zone;
+import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices.ZoneService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,56 +20,70 @@ public class ZoneController {
     @Autowired
     private ZoneService zoneService;
 
+    // Add multiple zones in bulk using DTO
+    // Handles duplicates and validation errors
     @PostMapping("/bulk")
-    public ResponseEntity<List<Zone>> addMultipleZones(@RequestBody List<Zone> zones) {
+    public ResponseEntity<?> addMultipleZones(@RequestBody List<ZoneDTO> zoneDTOs) {
         try {
-            List<Zone> savedZones = zoneService.addMultipleZones(zones);
-            return ResponseEntity.ok(savedZones);
+            List<ZoneDTO> savedZoneDTOs = zoneService.addMultipleZones(zoneDTOs);
+            return ResponseEntity.ok(savedZoneDTOs);
         } catch (DataIntegrityViolationException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(null);
+                    .body(new ErrorResponse("Failed to add zones: " + e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse("Invalid input: " + e.getMessage()));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(null);
+                    .body(new ErrorResponse("An unexpected error occurred: " + e.getMessage()));
         }
     }
 
+    // Retrieve a zone by its code
+    // Returns 404 if not found
     @GetMapping("/{zoneCode}")
-    public ResponseEntity<Zone> getZoneByCode(@PathVariable String zoneCode) {
+    public ResponseEntity<?> getZoneByCode(@PathVariable String zoneCode) {
         try {
-            Zone zone = zoneService.findByZoneCode(zoneCode);
-            return ResponseEntity.ok(zone);
+            ZoneDTO zoneDTO = zoneService.findByZoneCode(zoneCode);
+            return ResponseEntity.ok(zoneDTO);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(null);
+                    .body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(null);
+                    .body(new ErrorResponse("Failed to retrieve zone: " + e.getMessage()));
         }
     }
 
+    // Retrieve all zones
+    // Returns empty list if none found
     @GetMapping
-    public ResponseEntity<List<Zone>> getAllZones() {
+    public ResponseEntity<?> getAllZones() {
         try {
-            List<Zone> zones = zoneService.findAll();
-            return ResponseEntity.ok(zones);
+            List<ZoneDTO> zoneDTOs = zoneService.findAll();
+            return ResponseEntity.ok(zoneDTOs);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(null);
+                    .body(new ErrorResponse("Failed to retrieve zones: " + e.getMessage()));
         }
     }
 
+    // Filter zones by region code
+    // Returns 404 if no zones found for the region
     @GetMapping("/region/{regionCode}")
-    public ResponseEntity<List<Zone>> getZonesByRegionCode(@PathVariable String regionCode) {
+    public ResponseEntity<?> getZonesByRegionCode(@PathVariable String regionCode) {
         try {
-            List<Zone> zones = zoneService.findByRegionCode(regionCode);
-            return ResponseEntity.ok(zones);
+            List<ZoneDTO> zoneDTOs = zoneService.findByRegionCode(regionCode);
+            return ResponseEntity.ok(zoneDTOs);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(null);
+                    .body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(null);
+                    .body(new ErrorResponse("Failed to retrieve zones by region: " + e.getMessage()));
         }
     }
 }

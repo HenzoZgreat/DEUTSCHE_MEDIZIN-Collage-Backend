@@ -8,6 +8,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class TestController {
     @GetMapping("/")
     public ResponseEntity<?> test(){
-        return ResponseEntity.ok("WellCome to Doutsche Collage Backend API!!");
+        return ResponseEntity.ok("WellCome to Doutsche Collage Backend API !!");
     }
 }

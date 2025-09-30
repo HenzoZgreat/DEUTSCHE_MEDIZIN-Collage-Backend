@@ -1,6 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices;
 
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.MOE_DTOs.WoredaDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Woreda;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Zone;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class WoredaService {
@@ -23,56 +25,60 @@ public class WoredaService {
     @Autowired
     private ZoneRepository zoneRepository;
 
-    // Add multiple woredas with validation
+    // Add multiple woredas with validation using DTO
     // Ensures no duplicates and valid zone references
-    public List<Woreda> addMultipleWoredas(List<Woreda> woredas) {
-        if (woredas == null || woredas.isEmpty()) {
+    public List<WoredaDTO> addMultipleWoredas(List<WoredaDTO> woredaDTOs) {
+        if (woredaDTOs == null || woredaDTOs.isEmpty()) {
             throw new IllegalArgumentException("Woreda list cannot be null or empty");
         }
 
-        List<Woreda> savedWoredas = new ArrayList<>();
+        List<WoredaDTO> savedWoredaDTOs = new ArrayList<>();
 
-        for (Woreda woreda : woredas) {
-            if (woreda.getWoredaCode() == null || woreda.getWoredaCode().isEmpty()) {
+        for (WoredaDTO woredaDTO : woredaDTOs) {
+            if (woredaDTO.getWoredaCode() == null || woredaDTO.getWoredaCode().isEmpty()) {
                 throw new IllegalArgumentException("Woreda code cannot be null or empty");
             }
-            if (woredaRepository.existsByWoredaCode(woreda.getWoredaCode())) {
-                throw new DataIntegrityViolationException("Woreda with code " + woreda.getWoredaCode() + " already exists");
+            if (woredaRepository.existsByWoredaCode(woredaDTO.getWoredaCode())) {
+                throw new DataIntegrityViolationException("Woreda with code " + woredaDTO.getWoredaCode() + " already exists");
             }
 
-            if (woreda.getZone() == null || woreda.getZone().getZoneCode() == null) {
-                throw new IllegalArgumentException("Zone is required for Woreda");
+            if (woredaDTO.getZoneCode() == null || woredaDTO.getZoneCode().isEmpty()) {
+                throw new IllegalArgumentException("Zone code is required for Woreda");
             }
 
-            Zone zone = zoneRepository.findByZoneCode(woreda.getZone().getZoneCode())
-                    .orElseThrow(() -> new ResourceNotFoundException("Zone with code " + woreda.getZone().getZoneCode() + " not found"));
-            woreda.setZone(zone);
+            Zone zone = zoneRepository.findByZoneCode(woredaDTO.getZoneCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Zone with code " + woredaDTO.getZoneCode() + " not found"));
 
-            savedWoredas.add(woredaRepository.save(woreda));
+            Woreda woreda = mapToEntity(woredaDTO, zone);
+            Woreda savedWoreda = woredaRepository.save(woreda);
+            savedWoredaDTOs.add(mapToDTO(savedWoreda));
         }
 
-        return savedWoredas;
+        return savedWoredaDTOs;
     }
 
-    // Find woreda by code
+    // Find woreda by code and return DTO
     // Throws ResourceNotFoundException if not found
-    public Woreda findByWoredaCode(String woredaCode) {
+    public WoredaDTO findByWoredaCode(String woredaCode) {
         if (woredaCode == null || woredaCode.isEmpty()) {
             throw new IllegalArgumentException("Woreda code cannot be null or empty");
         }
-        return woredaRepository.findByWoredaCode(woredaCode)
+        Woreda woreda = woredaRepository.findByWoredaCode(woredaCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Woreda with code " + woredaCode + " not found"));
+        return mapToDTO(woreda);
     }
 
-    // Retrieve all woredas
-    public List<Woreda> findAll() {
+    // Retrieve all woredas as DTOs
+    public List<WoredaDTO> findAll() {
         List<Woreda> woredas = woredaRepository.findAll();
-        return woredas.isEmpty() ? Collections.emptyList() : woredas;
+        return woredas.isEmpty() ? Collections.emptyList() : woredas.stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
     }
 
-    // Find woredas by zone code
+    // Find woredas by zone code and return DTOs
     // Throws ResourceNotFoundException if none found
-    public List<Woreda> findByZoneCode(String zoneCode) {
+    public List<WoredaDTO> findByZoneCode(String zoneCode) {
         if (zoneCode == null || zoneCode.isEmpty()) {
             throw new IllegalArgumentException("Zone code cannot be null or empty");
         }
@@ -80,12 +86,14 @@ public class WoredaService {
         if (woredas.isEmpty()) {
             throw new ResourceNotFoundException("No woredas found for zone code: " + zoneCode);
         }
-        return woredas;
+        return woredas.stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
     }
 
-    // Find woredas by region code
+    // Find woredas by region code and return DTOs
     // Throws ResourceNotFoundException if none found
-    public List<Woreda> findByRegionCode(String regionCode) {
+    public List<WoredaDTO> findByRegionCode(String regionCode) {
         if (regionCode == null || regionCode.isEmpty()) {
             throw new IllegalArgumentException("Region code cannot be null or empty");
         }
@@ -93,6 +101,26 @@ public class WoredaService {
         if (woredas.isEmpty()) {
             throw new ResourceNotFoundException("No woredas found for region code: " + regionCode);
         }
-        return woredas;
+        return woredas.stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+    }
+
+    // Map Woreda entity to WoredaDTO
+    private WoredaDTO mapToDTO(Woreda woreda) {
+        WoredaDTO dto = new WoredaDTO();
+        dto.setWoredaCode(woreda.getWoredaCode());
+        dto.setWoreda(woreda.getWoreda());
+        dto.setZoneCode(woreda.getZone().getZoneCode());
+        return dto;
+    }
+
+    // Map WoredaDTO to Woreda entity
+    private Woreda mapToEntity(WoredaDTO dto, Zone zone) {
+        Woreda woreda = new Woreda();
+        woreda.setWoredaCode(dto.getWoredaCode());
+        woreda.setWoreda(dto.getWoreda());
+        woreda.setZone(zone);
+        return woreda;
     }
 }

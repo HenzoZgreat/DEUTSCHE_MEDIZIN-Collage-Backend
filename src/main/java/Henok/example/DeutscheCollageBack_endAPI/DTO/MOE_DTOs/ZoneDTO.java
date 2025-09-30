@@ -1,16 +1,16 @@
 package Henok.example.DeutscheCollageBack_endAPI.DTO.MOE_DTOs;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class ZoneDTO {
-    @JsonProperty("Zone Code")
-    private String zoneCode;
 
-    @JsonProperty("Zone")
-    private String zone;
-
-    @JsonProperty("Region Code")
-    private String regionCode;
+    private String zoneCode; // Unique code for the zone
+    private String zone; // Name of the zone
+    private String regionCode; // Code of the associated region
 }

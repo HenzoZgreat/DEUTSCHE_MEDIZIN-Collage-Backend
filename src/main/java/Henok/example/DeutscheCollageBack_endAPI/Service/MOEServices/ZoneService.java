@@ -1,6 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices;
 
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.MOE_DTOs.ZoneDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Region;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Zone;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class ZoneService {
@@ -23,47 +25,60 @@ public class ZoneService {
     @Autowired
     private RegionRepository regionRepository;
 
-    public List<Zone> addMultipleZones(List<Zone> zones) {
-        List<Zone> savedZones = new ArrayList<>();
-
-        for (Zone zone : zones) {
-            if (zoneRepository.existsByZoneCode(zone.getZoneCode())) {
-                throw new DataIntegrityViolationException("Zone with code " + zone.getZoneCode() + " already exists");
-            }
-
-            if (zone.getRegion() == null || zone.getRegion().getRegionCode() == null) {
-                throw new IllegalArgumentException("Region is required for Zone");
-            }
-
-            Region region = regionRepository.findByRegionCode(zone.getRegion().getRegionCode())
-                    .orElseThrow(() -> new ResourceNotFoundException("Region with code " + zone.getRegion().getRegionCode() + " not found"));
-            zone.setRegion(region);
-
-            savedZones.add(zoneRepository.save(zone));
+    // Add multiple zones with validation using DTO
+    // Ensures no duplicates and valid region references
+    public List<ZoneDTO> addMultipleZones(List<ZoneDTO> zoneDTOs) {
+        if (zoneDTOs == null || zoneDTOs.isEmpty()) {
+            throw new IllegalArgumentException("Zone list cannot be null or empty");
         }
 
-        return savedZones;
+        List<ZoneDTO> savedZoneDTOs = new ArrayList<>();
+
+        for (ZoneDTO zoneDTO : zoneDTOs) {
+            if (zoneDTO.getZoneCode() == null || zoneDTO.getZoneCode().isEmpty()) {
+                throw new IllegalArgumentException("Zone code cannot be null or empty");
+            }
+            if (zoneRepository.existsByZoneCode(zoneDTO.getZoneCode())) {
+                throw new DataIntegrityViolationException("Zone with code " + zoneDTO.getZoneCode() + " already exists");
+            }
+
+            if (zoneDTO.getRegionCode() == null || zoneDTO.getRegionCode().isEmpty()) {
+                throw new IllegalArgumentException("Region code is required for Zone");
+            }
+
+            Region region = regionRepository.findByRegionCode(zoneDTO.getRegionCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Region with code " + zoneDTO.getRegionCode() + " not found"));
+
+            Zone zone = mapToEntity(zoneDTO, region);
+            Zone savedZone = zoneRepository.save(zone);
+            savedZoneDTOs.add(mapToDTO(savedZone));
+        }
+
+        return savedZoneDTOs;
     }
 
-    // Find zone by code
+    // Find zone by code and return DTO
     // Throws ResourceNotFoundException if not found
-    public Zone findByZoneCode(String zoneCode) {
+    public ZoneDTO findByZoneCode(String zoneCode) {
         if (zoneCode == null || zoneCode.isEmpty()) {
             throw new IllegalArgumentException("Zone code cannot be null or empty");
         }
-        return zoneRepository.findByZoneCode(zoneCode)
+        Zone zone = zoneRepository.findByZoneCode(zoneCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Zone with code " + zoneCode + " not found"));
+        return mapToDTO(zone);
     }
 
-    // Retrieve all zones
-    public List<Zone> findAll() {
+    // Retrieve all zones as DTOs
+    public List<ZoneDTO> findAll() {
         List<Zone> zones = zoneRepository.findAll();
-        return zones.isEmpty() ? Collections.emptyList() : zones;
+        return zones.isEmpty() ? Collections.emptyList() : zones.stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
     }
 
-    // Find zones by region code
+    // Find zones by region code and return DTOs
     // Throws ResourceNotFoundException if none found
-    public List<Zone> findByRegionCode(String regionCode) {
+    public List<ZoneDTO> findByRegionCode(String regionCode) {
         if (regionCode == null || regionCode.isEmpty()) {
             throw new IllegalArgumentException("Region code cannot be null or empty");
         }
@@ -71,6 +86,26 @@ public class ZoneService {
         if (zones.isEmpty()) {
             throw new ResourceNotFoundException("No zones found for region code: " + regionCode);
         }
-        return zones;
+        return zones.stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+    }
+
+    // Map Zone entity to ZoneDTO
+    private ZoneDTO mapToDTO(Zone zone) {
+        ZoneDTO dto = new ZoneDTO();
+        dto.setZoneCode(zone.getZoneCode());
+        dto.setZone(zone.getZone());
+        dto.setRegionCode(zone.getRegion().getRegionCode());
+        return dto;
+    }
+
+    // Map ZoneDTO to Zone entity
+    private Zone mapToEntity(ZoneDTO dto, Region region) {
+        Zone zone = new Zone();
+        zone.setZoneCode(dto.getZoneCode());
+        zone.setZone(dto.getZone());
+        zone.setRegion(region);
+        return zone;
     }
 }

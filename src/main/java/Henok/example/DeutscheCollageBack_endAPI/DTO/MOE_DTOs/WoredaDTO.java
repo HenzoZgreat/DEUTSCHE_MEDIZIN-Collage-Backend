@@ -1,17 +1,16 @@
 package Henok.example.DeutscheCollageBack_endAPI.DTO.MOE_DTOs;
 
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class WoredaDTO {
-    @JsonProperty("Woreda Code")
-    private String woredaCode;
 
-    @JsonProperty("Woreda")
-    private String woreda;
-
-    @JsonProperty("Zone Code")
-    private String zoneCode;
+    private String woredaCode; // Unique code for the woreda
+    private String woreda; // Name of the woreda
+    private String zoneCode; // Code of the associated zone
 }

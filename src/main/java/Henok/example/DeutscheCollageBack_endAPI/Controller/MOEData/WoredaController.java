@@ -1,6 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller.MOEData;
 
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.MOE_DTOs.WoredaDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Woreda;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
@@ -20,13 +21,13 @@ public class WoredaController {
     @Autowired
     private WoredaService woredaService;
 
-    // Add multiple woredas in bulk
+    // Add multiple woredas in bulk using DTO
     // Handles duplicates and validation errors
     @PostMapping("/bulk")
-    public ResponseEntity<?> addMultipleWoredas(@RequestBody List<Woreda> woredas) {
+    public ResponseEntity<?> addMultipleWoredas(@RequestBody List<WoredaDTO> woredaDTOs) {
         try {
-            List<Woreda> savedWoredas = woredaService.addMultipleWoredas(woredas);
-            return ResponseEntity.ok(savedWoredas);
+            List<WoredaDTO> savedWoredaDTOs = woredaService.addMultipleWoredas(woredaDTOs);
+            return ResponseEntity.ok(savedWoredaDTOs);
         } catch (DataIntegrityViolationException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(new ErrorResponse("Failed to add woredas: " + e.getMessage()));
@@ -47,8 +48,8 @@ public class WoredaController {
     @GetMapping("/{woredaCode}")
     public ResponseEntity<?> getWoredaByCode(@PathVariable String woredaCode) {
         try {
-            Woreda woreda = woredaService.findByWoredaCode(woredaCode);
-            return ResponseEntity.ok(woreda);
+            WoredaDTO woredaDTO = woredaService.findByWoredaCode(woredaCode);
+            return ResponseEntity.ok(woredaDTO);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ErrorResponse(e.getMessage()));
@@ -63,8 +64,8 @@ public class WoredaController {
     @GetMapping
     public ResponseEntity<?> getAllWoredas() {
         try {
-            List<Woreda> woredas = woredaService.findAll();
-            return ResponseEntity.ok(woredas);
+            List<WoredaDTO> woredaDTOs = woredaService.findAll();
+            return ResponseEntity.ok(woredaDTOs);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Failed to retrieve woredas: " + e.getMessage()));
@@ -76,8 +77,8 @@ public class WoredaController {
     @GetMapping("/zone/{zoneCode}")
     public ResponseEntity<?> getWoredasByZoneCode(@PathVariable String zoneCode) {
         try {
-            List<Woreda> woredas = woredaService.findByZoneCode(zoneCode);
-            return ResponseEntity.ok(woredas);
+            List<WoredaDTO> woredaDTOs = woredaService.findByZoneCode(zoneCode);
+            return ResponseEntity.ok(woredaDTOs);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ErrorResponse(e.getMessage()));
@@ -92,8 +93,8 @@ public class WoredaController {
     @GetMapping("/region/{regionCode}")
     public ResponseEntity<?> getWoredasByRegionCode(@PathVariable String regionCode) {
         try {
-            List<Woreda> woredas = woredaService.findByRegionCode(regionCode);
-            return ResponseEntity.ok(woredas);
+            List<WoredaDTO> woredaDTOs = woredaService.findByRegionCode(regionCode);
+            return ResponseEntity.ok(woredaDTOs);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ErrorResponse(e.getMessage()));
