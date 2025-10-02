@@ -7,6 +7,8 @@ import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.NotificationRepository;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,12 +40,11 @@ public class NotificationService {
         // Collect users to notify
         Set<User> usersToNotify = new HashSet<>();
         if (roles != null && !roles.isEmpty()) {
-            // Fetch users by roles (assumes UserRepository has findByRole)
+            // Fetch users by roles
             for (Role role : roles) {
                 List<User> roleUsers = userRepository.findByRole(role);
                 if (roleUsers.isEmpty()) {
-//                    throw new IllegalStateException("No users found for role: " + role);
-                    continue;
+                    throw new IllegalStateException("No users found for role: " + role);
                 }
                 usersToNotify.addAll(roleUsers);
             }
@@ -109,5 +110,42 @@ public class NotificationService {
         // Purpose: Marks a specific notification as read for the authenticated user.
         // Why user check: Ensures users can only mark their own notifications.
         // Error handling: Throws for invalid notification or unauthorized access.
+    }
+
+    // Add to existing NotificationService class
+    public List<NotificationDTO> getLatestFiveNotifications(User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("User cannot be null");
+        }
+        Pageable pageable = PageRequest.of(0, 5); // Limit to 5 records
+        List<Notification> notifications = notificationRepository.findTop5ByUserOrderByCreatedAtDesc(user, pageable);
+        return notifications.stream()
+                .map(n -> new NotificationDTO(
+                        n.getId(),
+                        n.getSenderRole().name(),
+                        n.getMessage(),
+                        n.getCreatedAt(),
+                        n.isRead()
+                ))
+                .collect(Collectors.toList());
+        // Purpose: Fetches the 5 most recent notifications for a user, sorted by createdAt descending.
+        // Why Pageable: Efficiently limits to 5 at DB level, avoiding overfetching.
+        // Error handling: Throws for null user.
+    }
+
+    public void markAllNotificationsAsRead(User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("User cannot be null");
+        }
+        List<Notification> notifications = notificationRepository.findByUserOrderByCreatedAtDesc(user);
+        for (Notification notification : notifications) {
+            if (!notification.isRead()) {
+                notification.setRead(true);
+                notificationRepository.save(notification);
+            }
+        }
+        // Purpose: Marks all unread notifications for a user as read.
+        // Why loop: Ensures only unread notifications are updated, saving DB operations.
+        // Error handling: Throws for null user; no-op if no notifications.
     }
 }

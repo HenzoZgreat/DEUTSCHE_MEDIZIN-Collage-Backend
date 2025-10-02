@@ -26,7 +26,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(request -> {
                     CorsConfiguration config = new CorsConfiguration();
                     config.setAllowedOrigins(Arrays.asList("*")); // Allow all origins
-                    config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS")); // Allowed HTTP methods
+                    config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")); // Allowed HTTP methods
                     config.setAllowedHeaders(Arrays.asList("*")); // Allow all headers
                     config.setAllowCredentials(false); // Credentials not needed for public APIs
                     return config;

@@ -115,7 +115,7 @@ public class StudentDetailService {
         try {
             StudentDetails newStudent = studentDetailsRepository.save(student);
             notificationService.createNotification(Arrays.asList(
-                    Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.FINANCIAL_STAFF),
+                    Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.FINANCIAL_STAFF, Role.REGISTRAR),
                     null, Role.REGISTRAR,
                     "New Student Registered : " + newStudent.getFirstNameAMH() + " " + newStudent.getFatherNameAMH());
             return newStudent;
@@ -124,13 +124,13 @@ public class StudentDetailService {
         }
     }
 
-    // Retrieves all active students as DTOs
-// Why: Returns DTOs for admin/registrar views, includes all fields, filters out disabled accounts
+    // Retrieves all students as DTOs, including disabled ones
+    // Why: For admin/registrar to view all student records, regardless of enabled status
     public List<StudentDetailsDTO> getAllStudents() {
         try {
-            List<StudentDetails> students = studentDetailsRepository.findAllByUserEnabledTrue();
+            List<StudentDetails> students = studentDetailsRepository.findAll();
             if (students.isEmpty()) {
-                throw new ResourceNotFoundException("No active students found");
+                throw new ResourceNotFoundException("No students found");
             }
             return students.stream().map(this::mapToDTO).collect(Collectors.toList());
         } catch (Exception e) {

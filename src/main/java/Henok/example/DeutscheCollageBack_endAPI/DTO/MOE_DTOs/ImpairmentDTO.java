@@ -5,9 +5,6 @@ import lombok.Data;
 
 @Data
 public class ImpairmentDTO {
-    @JsonProperty("Disability Code")
     private String disabilityCode;
-
-    @JsonProperty("Disability")
     private String disability;
 }

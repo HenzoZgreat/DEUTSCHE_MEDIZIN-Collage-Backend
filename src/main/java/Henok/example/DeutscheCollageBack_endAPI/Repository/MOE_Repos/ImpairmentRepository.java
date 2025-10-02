@@ -8,4 +8,5 @@ import java.util.Optional;
 
 public interface ImpairmentRepository extends JpaRepository<Impairment, String> {
     Optional<Impairment> findByImpairmentCode(String impairmentCode);
+    boolean existsByImpairmentCode(String impairmentCode);
 }

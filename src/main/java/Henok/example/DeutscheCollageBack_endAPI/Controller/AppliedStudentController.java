@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.AppliedStudentListResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.AppliedStudentResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.AppliedStudentRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.AppliedStudent;
@@ -85,15 +86,15 @@ public class AppliedStudentController {
     }
 
     /**
-     * Retrieves all applicants.
+     * Retrieves all applicants with limited fields.
      * Restricted to REGISTRAR role.
-     * @return A list of all applicants as DTOs.
+     * @return A list of applicants as AppliedStudentListResponseDTOs.
      * @throws ResourceNotFoundException if no applicants are found.
      */
     @GetMapping
     public ResponseEntity<?> getAllApplicants() {
         try {
-            List<AppliedStudentResponseDTO> applicants = appliedStudentService.getAllApplicants();
+            List<AppliedStudentListResponseDTO> applicants = appliedStudentService.getAllApplicants();
             return ResponseEntity.ok(applicants);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));

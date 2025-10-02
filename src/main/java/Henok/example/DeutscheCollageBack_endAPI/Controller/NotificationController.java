@@ -56,4 +56,39 @@ public class NotificationController {
         // Error handling: Returns 400 for invalid input, 404 for not found, 500 for server errors.
         // Path: /api/notifications/{id}/read follows RESTful conventions for updating a resource.
     }
+
+    // Add to existing NotificationController class
+    @GetMapping("/me/latest")
+    public ResponseEntity<?> getLatestFiveNotifications(@AuthenticationPrincipal User user) {
+        try {
+            List<NotificationDTO> notifications = notificationService.getLatestFiveNotifications(user);
+            return ResponseEntity.ok(notifications);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to fetch latest notifications: " + e.getMessage()));
+        }
+        // Purpose: Exposes REST endpoint for users to fetch their 5 most recent notifications.
+        // Why @PreAuthorize: Ensures only authenticated users access their own notifications.
+        // Error handling: Returns structured JSON errors using ErrorResponse.
+        // Path: /api/notifications/me/latest follows RESTful conventions.
+    }
+
+    @PatchMapping("/me/read-all")
+    public ResponseEntity<?> markAllNotificationsAsRead(@AuthenticationPrincipal User user) {
+        try {
+            notificationService.markAllNotificationsAsRead(user);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to mark all notifications as read: " + e.getMessage()));
+        }
+        // Purpose: Allows authenticated user to mark all their notifications as read.
+        // Why @PreAuthorize: Ensures only the user can mark their own notifications.
+        // Error handling: Returns 400 for invalid input, 500 for server errors.
+        // Path: /api/notifications/me/read-all follows RESTful conventions for bulk updates.
+    }
 }

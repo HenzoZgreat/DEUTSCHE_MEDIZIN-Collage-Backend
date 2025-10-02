@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.AppliedStudentListResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.AppliedStudentResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.AppliedStudentRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.AppliedStudent;
@@ -170,7 +171,7 @@ public class AppliedStudentService {
         // Default status is PENDING (set in entity)
         AppliedStudent newApplicant = appliedStudentRepository.save(applicant);
         notificationService.createNotification(Arrays.asList(
-                        Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.FINANCIAL_STAFF),
+                        Role.REGISTRAR),
                 null, Role.REGISTRAR,
                 "New Student Applied to this collage : " + newApplicant.getFirstNameAMH() + " " + newApplicant.getFatherNameAMH());
         return newApplicant;
@@ -195,26 +196,48 @@ public class AppliedStudentService {
         applicant.setApplicationStatus(newStatus);
         AppliedStudent upatedStatusApplicant = appliedStudentRepository.save(applicant);
         notificationService.createNotification(Arrays.asList(
-                        Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.FINANCIAL_STAFF),
+                        Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.FINANCIAL_STAFF, Role.REGISTRAR),
                 null, Role.REGISTRAR,
                 "Applied Student " + applicant.getFirstNameAMH() + " " + applicant.getFatherNameAMH() +
-                        "is " + newStatus);
+                        " is " + newStatus);
         return upatedStatusApplicant;
     }
 
     /**
-     * Retrieves all applicants.
-     * @return A list of AppliedStudentResponseDTOs.
+     * Retrieves all applicants with limited fields for listing purposes.
+     * @return A list of AppliedStudentListResponseDTOs.
      * @throws ResourceNotFoundException if no applicants are found.
      */
-    public List<AppliedStudentResponseDTO> getAllApplicants() {
+    public List<AppliedStudentListResponseDTO> getAllApplicants() {
         List<AppliedStudent> applicants = appliedStudentRepository.findAll();
         if (applicants.isEmpty()) {
             throw new ResourceNotFoundException("No applicants found");
         }
         return applicants.stream()
-                .map(this::mapToResponseDTO)
+                .map(this::mapToListResponseDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Maps an AppliedStudent entity to its list response DTO.
+     * @param applicant The AppliedStudent entity.
+     * @return The corresponding AppliedStudentListResponseDTO.
+     */
+    private AppliedStudentListResponseDTO mapToListResponseDTO(AppliedStudent applicant) {
+        AppliedStudentListResponseDTO dto = new AppliedStudentListResponseDTO();
+        dto.setId(applicant.getId());
+        dto.setStudentPhoto(applicant.getStudentPhoto());
+        dto.setFirstNameAMH(applicant.getFirstNameAMH());
+        dto.setFirstNameENG(applicant.getFirstNameENG());
+        dto.setFatherNameAMH(applicant.getFatherNameAMH());
+        dto.setFatherNameENG(applicant.getFatherNameENG());
+        dto.setGrandfatherNameAMH(applicant.getGrandfatherNameAMH());
+        dto.setGrandfatherNameENG(applicant.getGrandfatherNameENG());
+        dto.setGender(applicant.getGender());
+        dto.setDepartmentEnrolledName(applicant.getDepartmentEnrolled().getDeptName());
+        dto.setClassYearName(applicant.getClassYear().getClassYear());
+        dto.setSemesterName(applicant.getSemester().getAcademicPeriod());
+        return dto;
     }
 
     /**
