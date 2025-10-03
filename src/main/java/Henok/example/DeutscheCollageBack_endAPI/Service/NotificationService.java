@@ -43,10 +43,9 @@ public class NotificationService {
             // Fetch users by roles
             for (Role role : roles) {
                 List<User> roleUsers = userRepository.findByRole(role);
-                if (roleUsers.isEmpty()) {
-                    throw new IllegalStateException("No users found for role: " + role);
+                if (!roleUsers.isEmpty()) {
+                    usersToNotify.addAll(roleUsers);
                 }
-                usersToNotify.addAll(roleUsers);
             }
         }
         if (singleUser != null) {

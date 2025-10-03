@@ -115,7 +115,7 @@ public class StudentDetailService {
         try {
             StudentDetails newStudent = studentDetailsRepository.save(student);
             notificationService.createNotification(Arrays.asList(
-                    Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.FINANCIAL_STAFF, Role.REGISTRAR),
+                    Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.REGISTRAR),
                     null, Role.REGISTRAR,
                     "New Student Registered : " + newStudent.getFirstNameAMH() + " " + newStudent.getFatherNameAMH());
             return newStudent;

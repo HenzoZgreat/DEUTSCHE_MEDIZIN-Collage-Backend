@@ -146,7 +146,7 @@ public class StudentDetails {
     private String contactPersonRelation;
 
     // Academic Information
-    @Column(name = "date_enrolled_ec", nullable = false)
+    @Column(name = "date_enrolled_ec", nullable = true)
     private String dateEnrolledEC;
 
     @Column(name = "date_enrolled_gc", nullable = false)
