@@ -40,6 +40,7 @@ public class BatchClassYearSemesterController {
      * @param id The batch-class-year-semester ID.
      * @return The BatchClassYearSemesterDTO.
      */
+    //git
     @GetMapping("/{id}")
     public ResponseEntity<?> get(@PathVariable Long id) {
         try {
