@@ -21,6 +21,7 @@ public class BatchController {
     @Autowired
     private BatchService batchService;
 
+    // Adding a new Batch
     @PostMapping
     public ResponseEntity<?> addBatches(@RequestBody List<BatchDTO> batchDTOs) {
         try {
