@@ -21,7 +21,7 @@ public class BatchController {
     @Autowired
     private BatchService batchService;
 
-    // Adding a new Batch
+    // Adding multiple new Batches
     @PostMapping
     public ResponseEntity<?> addBatches(@RequestBody List<BatchDTO> batchDTOs) {
         try {
@@ -35,7 +35,7 @@ public class BatchController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
         }
     }
-
+    // Getting all batches
     @GetMapping
     public ResponseEntity<?> getAllBatches() {
         try {
@@ -44,7 +44,7 @@ public class BatchController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
         }
     }
-
+    // Adding a single Batch
     @PostMapping("/single")
     public ResponseEntity<?> addBatch(@RequestBody BatchDTO batchDTO) {
         try {
