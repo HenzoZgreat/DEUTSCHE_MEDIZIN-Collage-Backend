@@ -20,6 +20,7 @@ public class ClassYearController {
     @Autowired
     private ClassYearService classYearService;
 
+    //Creates a new Classyear
     @PostMapping
     public ResponseEntity<?> createClassYear(@RequestBody ClassYearDTO classYearDTO) {
         try {
@@ -32,6 +33,7 @@ public class ClassYearController {
         }
     }
 
+    //Retrieves all Classyears
     @GetMapping
     public ResponseEntity<?> getAllClassYears() {
         try {
