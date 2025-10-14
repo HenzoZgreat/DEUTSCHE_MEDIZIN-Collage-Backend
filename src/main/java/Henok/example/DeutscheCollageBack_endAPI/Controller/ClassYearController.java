@@ -53,6 +53,7 @@ public class ClassYearController {
         }
     }
 
+    //Update a class year by using ID
     @PutMapping("/{id}")
     public ResponseEntity<?> updateClassYear(@PathVariable Long id, @RequestBody ClassYearDTO classYearDTO) {
         try {
@@ -66,6 +67,7 @@ public class ClassYearController {
         }
     }
 
+    //Delete a class year by using ID
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteClassYear(@PathVariable Long id) {
         try {
