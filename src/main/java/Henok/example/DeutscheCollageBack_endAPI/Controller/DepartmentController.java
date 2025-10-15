@@ -33,6 +33,7 @@ public class DepartmentController {
         }
     }
 
+    // Adding a single Department
     @PostMapping("/single")
     public ResponseEntity<?> addDepartment(@RequestBody DepartmentDTO departmentDTO) {
         try {
