@@ -19,6 +19,7 @@ public class DepartmentController {
     @Autowired
     private DepartmentService departmentService;
 
+    //Add multiple Departments
     @PostMapping
     public ResponseEntity<?> addDepartments(@RequestBody List<DepartmentDTO> departmentDTOs) {
         try {
