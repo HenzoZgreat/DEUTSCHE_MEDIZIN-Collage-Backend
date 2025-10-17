@@ -47,6 +47,7 @@ public class DepartmentController {
         }
     }
 
+    //Get all Departments
     @GetMapping
     public ResponseEntity<?> getAllDepartments() {
         try {
@@ -58,6 +59,7 @@ public class DepartmentController {
         }
     }
 
+    // Get A department using ID
     @GetMapping("/{id}")
     public ResponseEntity<?> getDepartmentById(@PathVariable Long id) {
         try {
