@@ -74,6 +74,7 @@ public class DepartmentController {
         }
     }
 
+    //Update any parameter from a Department
     @PutMapping("/{id}")
     public ResponseEntity<?> updateDepartment(@PathVariable Long id, @RequestBody DepartmentDTO departmentDTO) {
         try {
