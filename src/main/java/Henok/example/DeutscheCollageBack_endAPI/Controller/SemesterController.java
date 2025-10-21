@@ -20,6 +20,7 @@ public class SemesterController {
     @Autowired
     private SemesterService semesterService;
 
+    // Receives a list of Semesters and add them all
     @PostMapping
     public ResponseEntity<?> addSemesters(@RequestBody List<SemesterDTO> semesterDTOs) {
         try {
