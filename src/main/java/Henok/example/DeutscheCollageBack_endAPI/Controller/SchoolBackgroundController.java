@@ -17,6 +17,7 @@ public class SchoolBackgroundController {
     @Autowired
     private SchoolBackgroundService schoolBackgroundService;
 
+    // Creating a single School Background
     @PostMapping
     public ResponseEntity<?> createSchoolBackground(@RequestBody SchoolBackgroundDTO schoolBackgroundDTO) {
         try {
