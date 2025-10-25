@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Entity;
 
+import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramModality;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -23,4 +24,8 @@ public class Department {
 
     @Column(nullable = false)
     private String departmentCode;
+
+    @ManyToOne
+    @JoinColumn(name = "modality_code", nullable = true)
+    private ProgramModality programModality;
 }
