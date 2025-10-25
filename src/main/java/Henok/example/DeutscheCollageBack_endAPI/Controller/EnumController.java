@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/enums")
 public class EnumController {
 
+    // Retrieves all genders from an enum Value
     @GetMapping("/genders")
     public ResponseEntity<?> getAllGenders() {
         try {

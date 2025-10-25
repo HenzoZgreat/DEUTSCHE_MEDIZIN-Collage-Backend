@@ -20,6 +20,7 @@ public class ClassYearController {
     @Autowired
     private ClassYearService classYearService;
 
+    //Creates a new Classyear
     @PostMapping
     public ResponseEntity<?> createClassYear(@RequestBody ClassYearDTO classYearDTO) {
         try {
@@ -32,6 +33,7 @@ public class ClassYearController {
         }
     }
 
+    //Retrieves all Classyears
     @GetMapping
     public ResponseEntity<?> getAllClassYears() {
         try {
@@ -41,6 +43,7 @@ public class ClassYearController {
         }
     }
 
+    //Get a Class year by ID
     @GetMapping("/{id}")
     public ResponseEntity<?> getClassYearById(@PathVariable Long id) {
         try {
@@ -50,6 +53,7 @@ public class ClassYearController {
         }
     }
 
+    //Update a class year by using ID
     @PutMapping("/{id}")
     public ResponseEntity<?> updateClassYear(@PathVariable Long id, @RequestBody ClassYearDTO classYearDTO) {
         try {
@@ -63,6 +67,7 @@ public class ClassYearController {
         }
     }
 
+    //Delete a class year by using ID
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteClassYear(@PathVariable Long id) {
         try {

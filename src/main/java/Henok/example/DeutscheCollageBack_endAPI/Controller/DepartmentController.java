@@ -19,6 +19,7 @@ public class DepartmentController {
     @Autowired
     private DepartmentService departmentService;
 
+    //Add multiple Departments
     @PostMapping
     public ResponseEntity<?> addDepartments(@RequestBody List<DepartmentDTO> departmentDTOs) {
         try {
@@ -32,6 +33,7 @@ public class DepartmentController {
         }
     }
 
+    // Adding a single Department
     @PostMapping("/single")
     public ResponseEntity<?> addDepartment(@RequestBody DepartmentDTO departmentDTO) {
         try {
@@ -45,6 +47,7 @@ public class DepartmentController {
         }
     }
 
+    //Get all Departments
     @GetMapping
     public ResponseEntity<?> getAllDepartments() {
         try {
@@ -56,6 +59,7 @@ public class DepartmentController {
         }
     }
 
+    // Get A department using ID
     @GetMapping("/{id}")
     public ResponseEntity<?> getDepartmentById(@PathVariable Long id) {
         try {
@@ -70,6 +74,7 @@ public class DepartmentController {
         }
     }
 
+    //Update any parameter from a Department
     @PutMapping("/{id}")
     public ResponseEntity<?> updateDepartment(@PathVariable Long id, @RequestBody DepartmentDTO departmentDTO) {
         try {
