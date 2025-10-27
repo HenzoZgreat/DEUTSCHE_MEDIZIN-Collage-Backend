@@ -12,4 +12,5 @@ public class DepartmentDTO {
     private String deptName;
     private Integer totalCrHr;
     private String departmentCode;
+    private String modalityCode;
 }

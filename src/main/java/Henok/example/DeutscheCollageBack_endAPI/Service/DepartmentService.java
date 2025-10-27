@@ -2,9 +2,11 @@ package Henok.example.DeutscheCollageBack_endAPI.Service;
 
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Department;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.DepartmentDTO;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramModality;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.DepartmentRepo;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.ProgramModalityRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +19,10 @@ public class DepartmentService {
 
     @Autowired
     private DepartmentRepo departmentRepository;
+
+    @Autowired
+    private ProgramModalityRepository programModalityRepository;
+
     @Autowired
     private NotificationService notificationService;
 
@@ -53,7 +59,7 @@ public class DepartmentService {
 
         departmentRepository.save(department);
         notificationService.createNotification(Arrays.asList(
-                Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.FINANCIAL_STAFF),
+                        Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.FINANCIAL_STAFF),
                 null, Role.REGISTRAR,
                 "Added a new Department : " + department.getDeptName());
     }
@@ -79,16 +85,29 @@ public class DepartmentService {
         Department existingDepartment = getDepartmentById(id);
         String newDeptCode = departmentDTO.getDepartmentCode();
 
-        if (!existingDepartment.getDepartmentCode().equals(newDeptCode) &&
+        if (newDeptCode != null && !existingDepartment.getDepartmentCode().equals(newDeptCode) &&
                 departmentRepository.existsByDepartmentCode(newDeptCode)) {
             throw new IllegalArgumentException("Department code already exists: " + newDeptCode);
         }
 
-        existingDepartment.setDeptName(departmentDTO.getDeptName());
-        existingDepartment.setTotalCrHr(departmentDTO.getTotalCrHr());
-        existingDepartment.setDepartmentCode(newDeptCode);
-        validateDepartment(existingDepartment);
+        if (departmentDTO.getDeptName() != null) {
+            existingDepartment.setDeptName(departmentDTO.getDeptName());
+        }
+        if (departmentDTO.getTotalCrHr() != null) {
+            existingDepartment.setTotalCrHr(departmentDTO.getTotalCrHr());
+        }
+        if (newDeptCode != null) {
+            existingDepartment.setDepartmentCode(newDeptCode);
+        }
+        if (departmentDTO.getModalityCode() != null) {
+            ProgramModality programModality = programModalityRepository.findByModalityCode(departmentDTO.getModalityCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Program modality not found with code: " + departmentDTO.getModalityCode()));
+            existingDepartment.setProgramModality(programModality);
+        } else {
+            existingDepartment.setProgramModality(null);
+        }
 
+        validateDepartment(existingDepartment);
         departmentRepository.save(existingDepartment);
     }
 
@@ -100,7 +119,12 @@ public class DepartmentService {
     }
 
     private Department mapToEntity(DepartmentDTO dto) {
-        return new Department(null, dto.getDeptName(), dto.getTotalCrHr(), dto.getDepartmentCode());
+        ProgramModality programModality = null;
+        if (dto.getModalityCode() != null) {
+            programModality = programModalityRepository.findById(dto.getModalityCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Program modality not found with code: " + dto.getModalityCode()));
+        }
+        return new Department(null, dto.getDeptName(), dto.getTotalCrHr(), dto.getDepartmentCode(), programModality);
     }
 
     private void validateDepartment(Department department) {

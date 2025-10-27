@@ -11,7 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
 @RestController
 @RequestMapping("/api/departments")
 public class DepartmentController {
@@ -25,7 +24,7 @@ public class DepartmentController {
         try {
             departmentService.addDepartments(departmentDTOs);
             return ResponseEntity.ok("Departments added successfully");
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | ResourceNotFoundException e) {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -39,7 +38,7 @@ public class DepartmentController {
         try {
             departmentService.addDepartment(departmentDTO);
             return ResponseEntity.ok("Department added successfully");
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | ResourceNotFoundException e) {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
