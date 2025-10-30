@@ -1,5 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Repository;
 
+import Henok.example.DeutscheCollageBack_endAPI.Entity.BatchClassYearSemester;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.Course;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.TeacherCourseAssignment;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.TeacherDetail;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,4 +12,6 @@ import java.util.List;
 @Repository
 public interface TeacherCourseAssignmentRepository extends JpaRepository<TeacherCourseAssignment, Long> {
     List<TeacherCourseAssignment> findByTeacher(TeacherDetail teacher);
+
+    boolean existsByTeacherAndCourseAndBcys(TeacherDetail teacher, Course course, BatchClassYearSemester bcys);
 }

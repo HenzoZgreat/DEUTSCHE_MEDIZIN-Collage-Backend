@@ -228,8 +228,8 @@ public class BatchClassYearSemesterService {
         dto.setGradingSystemId(entity.getGradingSystem().getId());
         // Construct name: batchName-classYear-semesterCode
         String name = String.format("%s-%s-%s",
-                entity.getBatch().getBatchName(),
-                entity.getClassYear().getClassYear(),
+                        entity.getBatch().getBatchName(),
+                        entity.getClassYear().getClassYear(),
                 entity.getSemester().getAcademicPeriodCode());
         dto.setName(name);
         return dto;

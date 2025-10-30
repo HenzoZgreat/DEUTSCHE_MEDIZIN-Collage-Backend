@@ -56,4 +56,11 @@ public class BatchClassYearSemester {
     // Explanation: This association preserves grades by using the historical version for calculations.
     // Why nullable=false: Ensures every batch has a grading system; set default in service layer.
     // Database: Add foreign key constraint; index for performance on queries.
+
+    public String getDisplayName() {
+        return String.format("%s-%s-%s",
+                batch.getBatchName(),
+                classYear.getClassYear(),
+                semester.getAcademicPeriodCode());
+    }
 }
