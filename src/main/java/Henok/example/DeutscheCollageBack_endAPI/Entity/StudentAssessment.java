@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Data
 @NoArgsConstructor
@@ -26,4 +28,8 @@ public class StudentAssessment {
 
     @Column(nullable = false)
     private Double score;
+
+    // Optional: when was it graded?
+    @Column(name = "graded_at")
+    private LocalDateTime gradedAt;
 }
