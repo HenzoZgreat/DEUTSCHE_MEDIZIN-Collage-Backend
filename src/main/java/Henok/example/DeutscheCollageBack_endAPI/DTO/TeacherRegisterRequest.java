@@ -7,6 +7,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -40,4 +42,7 @@ public class TeacherRegisterRequest {
     private String currentAddressWoredaCode;
     private String currentAddressZoneCode;
     private String currentAddressRegionCode;
+
+    // New: List of course + BCYS assignments
+    private List<AssignCoursesRequest> courseAssignments = new ArrayList<>();
 }

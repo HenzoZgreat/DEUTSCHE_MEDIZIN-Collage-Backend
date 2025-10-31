@@ -31,4 +31,5 @@ public interface StudentDetailsRepository extends JpaRepository<StudentDetails, 
     boolean existsByPhoneNumber(String phoneNumber);
 
     boolean existsByExitExamUserID(String exitExamUserID);
+
 }

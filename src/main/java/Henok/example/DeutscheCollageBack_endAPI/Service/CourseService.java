@@ -100,6 +100,16 @@ public class CourseService {
         return new ArrayList<>(prerequisites);
     }
 
+    public List<Course> getCoursesByDepartment(Long departmentId) {
+        Department department = departmentRepository.findById(departmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + departmentId));
+        List<Course> courses = courseRepository.findByDepartment(department);
+        if (courses.isEmpty()) {
+            throw new ResourceNotFoundException("No courses found for department with id: " + departmentId);
+        }
+        return courses;
+    }
+
     public void updateCourse(Long id, CourseDTO courseDTO) {
         if (courseDTO == null) {
             throw new IllegalArgumentException("Course DTO cannot be null");
@@ -197,6 +207,7 @@ public class CourseService {
         courseRepository.save(course);
     }
 
+    // ==================== Helper Functions ==========================================================================================
     private Course mapToEntity(CourseDTO dto) {
         CourseCategory category = courseCategoryRepository.findById(dto.getCCatagoryID())
                 .orElseThrow(() -> new ResourceNotFoundException("Course category not found with id: " + dto.getCCatagoryID()));

@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.TeacherCourseResponse;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.TeacherRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.TeacherResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.TeacherDetail;
@@ -67,5 +68,11 @@ public class TeacherController {
     // Helper to avoid duplication
     private TeacherResponseDTO toResponseDto(TeacherDetail t) {
         return teacherService.toResponseDto(t);
+    }
+
+    // Returns all courses a Teacher teaches
+    @GetMapping("/{teacherId}/courses")
+    public ResponseEntity<List<TeacherCourseResponse>> getTeacherCourses(@PathVariable Long teacherId) {
+        return ResponseEntity.ok(teacherService.getTeacherCourses(teacherId));
     }
 }

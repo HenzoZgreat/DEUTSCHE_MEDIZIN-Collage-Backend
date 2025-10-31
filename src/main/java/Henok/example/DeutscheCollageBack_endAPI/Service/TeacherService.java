@@ -1,24 +1,21 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.AssignCoursesRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.TeacherCourseResponse;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.TeacherRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.TeacherResponseDTO;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.Department;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Impairment;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Region;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Woreda;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Zone;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.TeacherDetail;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
-import Henok.example.DeutscheCollageBack_endAPI.Repository.DepartmentRepo;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.ImpairmentRepository;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.RegionRepository;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.WoredaRepository;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.ZoneRepository;
-import Henok.example.DeutscheCollageBack_endAPI.Repository.TeacherCourseAssignmentRepository;
-import Henok.example.DeutscheCollageBack_endAPI.Repository.TeacherRepository;
-import Henok.example.DeutscheCollageBack_endAPI.Repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,7 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.List;
 
 import static java.util.Optional.ofNullable;
@@ -45,15 +44,75 @@ public class TeacherService {
     private final RegionRepository regionRepository;
     private final ImpairmentRepository impairmentRepository;
 
+    private final CourseRepo courseRepository;
+    private final BatchClassYearSemesterRepo bcysRepository;
+
     private final EntityManager entityManager;
 
-    // ==================== REGISTER TEACHER ====================
+    // ==================== REGISTER TEACHER + ASSIGN COURSES ====================
     @Transactional
     public TeacherDetail registerTeacher(TeacherRegisterRequest request,
                                          MultipartFile photograph,
                                          MultipartFile document) {
 
-        // --- VALIDATION ---
+        // --- VALIDATION (same as before) ---
+        validateRegistrationRequest(request);
+
+        // --- CREATE USER ---
+        UserRegisterRequest userReq = new UserRegisterRequest();
+        userReq.setUsername(request.getUsername());
+        userReq.setPassword(request.getPassword());
+        userReq.setRole(Role.TEACHER);
+        User user = userService.registerUser(userReq);
+        entityManager.flush();
+
+        if (teacherRepository.findByUser(user).isPresent())
+            throw new IllegalArgumentException("Teacher detail already exists for user: " + user.getUsername());
+
+        // --- BUILD TEACHER DETAIL ---
+        TeacherDetail teacher = buildTeacherDetail(request, user, photograph, document);
+        teacher = teacherRepository.save(teacher);
+        entityManager.flush();
+
+        // --- ASSIGN COURSES (if any) ---
+        if (request.getCourseAssignments() != null && !request.getCourseAssignments().isEmpty()) {
+            assignCoursesToTeacher(teacher.getId(), request.getCourseAssignments());
+        }
+
+        entityManager.clear();
+        return teacher;
+    }
+
+    // Reusable method for assigning courses
+    private void assignCoursesToTeacher(Long teacherId, List<AssignCoursesRequest> requests) {
+        TeacherDetail teacher = teacherRepository.findById(teacherId)
+                .orElseThrow(() -> new IllegalStateException("Teacher not found after save"));
+
+        for (AssignCoursesRequest req : requests) {
+            Course course = courseRepository.findById(req.getCourseId())
+                    .orElseThrow(() -> new IllegalArgumentException("Course not found: " + req.getCourseId()));
+
+            BatchClassYearSemester bcys = bcysRepository.findById(req.getBcysId())
+                    .orElseThrow(() -> new IllegalArgumentException("BCYS not found: " + req.getBcysId()));
+
+            if (assignmentRepository.existsByTeacherAndCourseAndBcys(teacher, course, bcys)) {
+                throw new IllegalArgumentException(
+                        "Teacher already assigned to course " + course.getCTitle() +
+                                " in " + bcys.getDisplayName());
+            }
+
+            TeacherCourseAssignment assignment = new TeacherCourseAssignment();
+            assignment.setTeacher(teacher);
+            assignment.setCourse(course);
+            assignment.setBcys(bcys);
+            assignment.setAssignedAt(LocalDateTime.now());
+
+            assignmentRepository.save(assignment);
+        }
+    }
+
+    // Extracted validation
+    private void validateRegistrationRequest(TeacherRegisterRequest request) {
         if (request.getUsername() == null || request.getUsername().isEmpty())
             throw new IllegalArgumentException("Username cannot be empty");
         if (request.getPassword() == null || request.getPassword().isEmpty())
@@ -75,19 +134,11 @@ public class TeacherService {
 
         if (teacherRepository.findByPhoneNumber(request.getPhoneNumber()).isPresent())
             throw new IllegalArgumentException("Phone number already exists");
+    }
 
-        // --- CREATE USER ---
-        UserRegisterRequest userReq = new UserRegisterRequest();
-        userReq.setUsername(request.getUsername());
-        userReq.setPassword(request.getPassword());
-        userReq.setRole(Role.TEACHER);
-        User user = userService.registerUser(userReq);
-        entityManager.flush();
-
-        if (teacherRepository.findByUser(user).isPresent())
-            throw new IllegalArgumentException("Teacher detail already exists for user: " + user.getUsername());
-
-        // --- BUILD TEACHER ---
+    // Extracted teacher building
+    private TeacherDetail buildTeacherDetail(TeacherRegisterRequest request, User user,
+                                             MultipartFile photograph, MultipartFile document) {
         TeacherDetail teacher = new TeacherDetail();
         teacher.setUser(user);
 
@@ -133,7 +184,6 @@ public class TeacherService {
             teacher.setCurrentAddressRegion(r);
         }
 
-        // --- FILES ---
         try {
             if (photograph != null && !photograph.isEmpty())
                 teacher.setPhotograph(photograph.getBytes());
@@ -143,8 +193,7 @@ public class TeacherService {
             throw new IllegalArgumentException("Failed to process files: " + e.getMessage());
         }
 
-        entityManager.clear();
-        return teacherRepository.save(teacher);
+        return teacher;
     }
 
     // ==================== GET ALL ====================
@@ -295,5 +344,35 @@ public class TeacherService {
             dto.setPhotographBase64(Base64.getEncoder().encodeToString(t.getPhotograph()));
 
         return dto;
+    }
+
+    // ====================  ====================
+    // Inside TeacherService class
+
+    @Transactional(readOnly = true)
+    public List<TeacherCourseResponse> getTeacherCourses(Long teacherId) {
+        TeacherDetail teacher = teacherRepository.findById(teacherId)
+                .orElseThrow(() -> new IllegalArgumentException("Teacher not found with ID: " + teacherId));
+
+        List<TeacherCourseAssignment> assignments = assignmentRepository.findByTeacher(teacher);
+
+        return assignments.stream()
+                .map(assignment -> {
+                    Course course = assignment.getCourse();
+                    BatchClassYearSemester bcys = assignment.getBcys();
+
+                    // Count all students in this BCYS (for now)
+                    Long studentCount = assignmentRepository.countStudentsInBcys(bcys);
+
+                    return new TeacherCourseResponse(
+                            course.getCTitle(),
+                            course.getCCode(),
+                            course.getTheoryHrs() + course.getLabHrs(),
+                            studentCount,
+                            bcys.getDisplayName()
+                    );
+                })
+                .sorted(Comparator.comparing(TeacherCourseResponse::getCourseCode))
+                .toList();
     }
 }

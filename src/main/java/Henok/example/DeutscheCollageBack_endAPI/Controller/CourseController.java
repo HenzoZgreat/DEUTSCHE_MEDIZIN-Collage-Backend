@@ -76,6 +76,19 @@ public class CourseController {
         }
     }
 
+    @GetMapping("/department/{departmentId}")
+    public ResponseEntity<?> getCoursesByDepartment(@PathVariable Long departmentId) {
+        try {
+            List<Course> courses = courseService.getCoursesByDepartment(departmentId);
+            return ResponseEntity.ok(courses);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to retrieve courses for department: " + e.getMessage()));
+        }
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<?> updateCourse(@PathVariable Long id, @RequestBody CourseDTO courseDTO) {
         try {
