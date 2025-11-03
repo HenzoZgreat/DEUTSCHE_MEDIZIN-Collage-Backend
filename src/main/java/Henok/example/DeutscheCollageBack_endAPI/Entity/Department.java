@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Entity;
 
+import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramLevel;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramModality;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -28,4 +29,8 @@ public class Department {
     @ManyToOne
     @JoinColumn(name = "modality_code", nullable = true)
     private ProgramModality programModality;
+
+    @ManyToOne
+    @JoinColumn(name = "program_level_code", nullable = true)
+    private ProgramLevel programLevel;
 }

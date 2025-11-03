@@ -1,5 +1,6 @@
-package Henok.example.DeutscheCollageBack_endAPI.DTO;
+package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentScoreRequest;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentAssessment;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;

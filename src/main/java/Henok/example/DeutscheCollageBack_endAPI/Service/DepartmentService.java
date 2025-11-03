@@ -2,10 +2,12 @@ package Henok.example.DeutscheCollageBack_endAPI.Service;
 
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Department;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.DepartmentDTO;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramLevel;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramModality;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.DepartmentRepo;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.ProgramLevelRepository;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.ProgramModalityRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,9 @@ public class DepartmentService {
 
     @Autowired
     private NotificationService notificationService;
+
+    @Autowired
+    private ProgramLevelRepository programLevelRepository;
 
     public void addDepartments(List<DepartmentDTO> departmentDTOs) {
         if (departmentDTOs == null || departmentDTOs.isEmpty()) {
@@ -106,6 +111,14 @@ public class DepartmentService {
         } else {
             existingDepartment.setProgramModality(null);
         }
+        if (departmentDTO.getProgramLevelCode() != null) {
+            ProgramLevel programLevel = programLevelRepository.findById(departmentDTO.getProgramLevelCode())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Program level not found with code: " + departmentDTO.getProgramLevelCode()));
+            existingDepartment.setProgramLevel(programLevel);
+        } else {
+            existingDepartment.setProgramLevel(null);
+        }
 
         validateDepartment(existingDepartment);
         departmentRepository.save(existingDepartment);
@@ -119,12 +132,14 @@ public class DepartmentService {
     }
 
     private Department mapToEntity(DepartmentDTO dto) {
-        ProgramModality programModality = null;
-        if (dto.getModalityCode() != null) {
-            programModality = programModalityRepository.findById(dto.getModalityCode())
-                    .orElseThrow(() -> new ResourceNotFoundException("Program modality not found with code: " + dto.getModalityCode()));
+        ProgramLevel programLevel = null;
+        if (dto.getProgramLevelCode() != null) {
+            programLevel = programLevelRepository.findById(dto.getProgramLevelCode())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Program level not found with code: " + dto.getProgramLevelCode()));
         }
-        return new Department(null, dto.getDeptName(), dto.getTotalCrHr(), dto.getDepartmentCode(), programModality);
+        return new Department(null, dto.getDeptName(), dto.getTotalCrHr(),
+                dto.getDepartmentCode(), null, programLevel);   // null = programModality (keep existing)
     }
 
     private void validateDepartment(Department department) {
