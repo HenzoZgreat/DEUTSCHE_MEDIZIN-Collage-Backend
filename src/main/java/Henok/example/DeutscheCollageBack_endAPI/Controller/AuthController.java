@@ -1,15 +1,13 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.*;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.TeacherRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.BatchClassYearSemesterRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Security.JwtUtil;
-import Henok.example.DeutscheCollageBack_endAPI.Service.GeneralManagerService;
-import Henok.example.DeutscheCollageBack_endAPI.Service.RegistrarService;
-import Henok.example.DeutscheCollageBack_endAPI.Service.StudentDetailService;
-import Henok.example.DeutscheCollageBack_endAPI.Service.UserService;
+import Henok.example.DeutscheCollageBack_endAPI.Service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -43,6 +41,9 @@ public class AuthController {
 
     @Autowired
     private StudentDetailService studentDetailsService;
+
+    @Autowired
+    private TeacherService teacherService;
 
     @Autowired
     private GeneralManagerService generalManagerService;
@@ -129,6 +130,21 @@ public class AuthController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("An error occurred while registering the student: " + e.getMessage()));
+        }
+    }
+
+    // Registers a Teacher with full details and user account
+    // Why: Creates TeacherDetails and associated User with TEACHER role, returns teacher Details
+    @PostMapping(value = "/register/teacher", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> register(
+            @RequestPart("data") TeacherRegisterRequest request,
+            @RequestPart(name = "photograph", required = false) MultipartFile photograph,
+            @RequestPart(name = "document", required = false) MultipartFile document) {
+        try {
+            TeacherDetail saved = teacherService.registerTeacher(request, photograph, document);
+            return ResponseEntity.status(HttpStatus.CREATED).body(saved.getId());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }
     }
 

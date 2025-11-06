@@ -32,20 +32,7 @@ public class TeacherController {
         return ResponseEntity.ok(teacherService.getTeacherById(id));
     }
 
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> register(
-            @RequestPart("data") TeacherRegisterRequest request,
-            @RequestPart(name = "photograph", required = false) MultipartFile photograph,
-            @RequestPart(name = "document", required = false) MultipartFile document) {
-        try {
-            TeacherDetail saved = teacherService.registerTeacher(request, photograph, document);
-            return ResponseEntity.status(HttpStatus.CREATED).body(saved.getId());
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
-        }
-    }
-
-    @PatchMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> update(
             @PathVariable Long id,
             @RequestPart("data") TeacherRegisterRequest request,
