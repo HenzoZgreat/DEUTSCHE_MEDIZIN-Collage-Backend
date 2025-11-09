@@ -18,6 +18,12 @@ public interface TeacherCourseAssignmentRepository extends JpaRepository<Teacher
     boolean existsByTeacherAndCourseAndBcys(TeacherDetail teacher, Course course, BatchClassYearSemester bcys);
 
     // Count students in the same BCYS (since no StudentEnrollment yet)
-    @Query("SELECT COUNT(s) FROM StudentDetails s WHERE s.batchClassYearSemester = :bcys")
-    Long countStudentsInBcys(@Param("bcys") BatchClassYearSemester bcys);
+    // In TeacherCourseAssignmentRepository.java
+    @Query("""
+    SELECT COUNT(DISTINCT scs.student)
+    FROM StudentCourseScore scs
+    WHERE scs.course = :course
+      AND scs.batchClassYearSemester = :bcys
+    """)
+    Long countEnrolledStudents(@Param("course") Course course, @Param("bcys") BatchClassYearSemester bcys);
 }

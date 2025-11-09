@@ -362,7 +362,7 @@ public class TeacherService {
                     BatchClassYearSemester bcys = assignment.getBcys();
 
                     // Count all students in this BCYS (for now)
-                    Long studentCount = assignmentRepository.countStudentsInBcys(bcys);
+                    Long studentCount = assignmentRepository.countEnrolledStudents(course, bcys);
 
                     return new TeacherCourseResponse(
                             course.getCTitle(),
