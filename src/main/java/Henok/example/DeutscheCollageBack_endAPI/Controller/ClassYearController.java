@@ -80,6 +80,7 @@ public class ClassYearController {
         }
     }
 
+    //Helper Function
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleAllExceptions(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
