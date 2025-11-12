@@ -1,8 +1,11 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller.MOEData;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.MOE_DTOs.ProgramModalityDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramModality;
+import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices.ProgramModalityService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -13,81 +16,91 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/program-modality")
+@RequiredArgsConstructor
 public class ProgramModalityController {
 
     @Autowired
     private ProgramModalityService programModalityService;
 
     @PostMapping
-    public ResponseEntity<ProgramModality> createProgramModality(@RequestBody ProgramModality programModality) {
+    public ResponseEntity<?> create(@RequestBody ProgramModalityDTO dto) {
         try {
-            if (programModalityService.existsByModalityCode(programModality.getModalityCode())) {
-                throw new DataIntegrityViolationException("ProgramModality with code " + programModality.getModalityCode() + " already exists");
-            }
-            ProgramModality savedProgramModality = programModalityService.save(programModality);
-            return ResponseEntity.status(HttpStatus.CREATED).body(savedProgramModality);
+            ProgramModalityDTO saved = programModalityService.save(dto);
+            return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         } catch (DataIntegrityViolationException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(null);
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(e.getMessage()));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to create program modality: " + e.getMessage()));
         }
     }
 
     @PostMapping("/bulk")
-    public ResponseEntity<List<ProgramModality>> createMultipleProgramModalities(@RequestBody List<ProgramModality> programModalities) {
+    public ResponseEntity<?> createMultiple(@RequestBody List<ProgramModalityDTO> dtos) {
         try {
-            List<ProgramModality> savedProgramModalities = programModalityService.saveMultiple(programModalities);
-            return ResponseEntity.status(HttpStatus.CREATED).body(savedProgramModalities);
+            List<ProgramModalityDTO> saved = programModalityService.saveMultiple(dtos);
+            return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         } catch (DataIntegrityViolationException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(null);
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(e.getMessage()));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to create program modalities: " + e.getMessage()));
         }
     }
 
     @GetMapping("/{modalityCode}")
-    public ResponseEntity<ProgramModality> getProgramModalityByCode(@PathVariable String modalityCode) {
+    public ResponseEntity<?> getByCode(@PathVariable String modalityCode) {
         try {
-            ProgramModality programModality = programModalityService.findByModalityCode(modalityCode);
-            return ResponseEntity.ok(programModality);
+            ProgramModalityDTO dto = programModalityService.findByModalityCode(modalityCode);
+            return ResponseEntity.ok(dto);
         } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to retrieve program modality: " + e.getMessage()));
         }
     }
 
     @GetMapping
-    public ResponseEntity<List<ProgramModality>> getAllProgramModalities() {
-        try {
-            List<ProgramModality> programModalities = programModalityService.findAll();
-            return ResponseEntity.ok(programModalities);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
+    public ResponseEntity<List<ProgramModalityDTO>> getAll() {
+        return ResponseEntity.ok(programModalityService.findAll());
     }
 
     @PutMapping("/{modalityCode}")
-    public ResponseEntity<ProgramModality> updateProgramModality(@PathVariable String modalityCode, @RequestBody ProgramModality programModality) {
+    public ResponseEntity<?> update(@PathVariable String modalityCode, @RequestBody ProgramModalityDTO dto) {
         try {
-            ProgramModality updatedProgramModality = programModalityService.update(modalityCode, programModality);
-            return ResponseEntity.ok(updatedProgramModality);
+            ProgramModalityDTO updated = programModalityService.update(modalityCode, dto);
+            return ResponseEntity.ok(updated);
         } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to update program modality: " + e.getMessage()));
         }
     }
 
     @DeleteMapping("/{modalityCode}")
-    public ResponseEntity<Void> deleteProgramModality(@PathVariable String modalityCode) {
+    public ResponseEntity<?> delete(@PathVariable String modalityCode) {
         try {
             programModalityService.delete(modalityCode);
             return ResponseEntity.noContent().build();
         } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to delete program modality: " + e.getMessage()));
         }
     }
 }
