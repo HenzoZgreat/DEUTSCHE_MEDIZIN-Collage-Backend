@@ -34,6 +34,7 @@ public class SemesterController {
         }
     }
 
+    // Adds a single Semester Record
     @PostMapping("/single")
     public ResponseEntity<?> addSemester(@RequestBody SemesterDTO semesterDTO) {
         try {
