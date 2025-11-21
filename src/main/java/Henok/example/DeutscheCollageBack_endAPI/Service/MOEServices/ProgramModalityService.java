@@ -19,7 +19,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ProgramModalityService {
 
+    @Autowired
     private ProgramModalityRepository programModalityRepository;
+    @Autowired
     private ProgramLevelRepository programLevelRepository;
 
     // Save single
