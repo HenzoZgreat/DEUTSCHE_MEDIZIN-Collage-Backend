@@ -63,6 +63,18 @@ public class ProgramModalityService {
                 .collect(Collectors.toList());
     }
 
+    public List<ProgramModalityDTO> findByProgramLevelCode(String programLevelCode) {
+    // First validate that the ProgramLevel exists and is active
+    ProgramLevel programLevel = programLevelRepository.findById(programLevelCode)
+            .filter(ProgramLevel::getActive)
+            .orElseThrow(() -> new ResourceNotFoundException(
+                    "Active ProgramLevel with code " + programLevelCode + " not found or is inactive"));
+
+    return programModalityRepository.findByProgramLevel(programLevel).stream()
+            .map(this::toDto)
+            .collect(Collectors.toList());
+}
+
     public ProgramModalityDTO update(String modalityCode, ProgramModalityDTO dto) {
         validateDto(dto);
         ProgramModality existing = programModalityRepository.findByModalityCode(modalityCode)

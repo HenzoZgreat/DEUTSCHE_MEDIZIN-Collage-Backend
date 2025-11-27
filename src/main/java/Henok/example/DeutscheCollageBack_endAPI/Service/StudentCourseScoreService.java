@@ -2,6 +2,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Service;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.GradeDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScoreDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScoreResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
@@ -9,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class StudentCourseScoreService {
@@ -139,5 +141,40 @@ public class StudentCourseScoreService {
     // Explanation: Computes grade dynamically using student's recent department for grading system resolution.
     // Why: Handles department-specific grading with global fallback; uses latest system as per requirement.
     // Additional methods: For score CRUD as per existing system.
+
+    public List<StudentCourseScoreResponseDTO> getAllStudentCourseScores() {
+        List<StudentCourseScore> scores = studentCourseScoreRepo.findAll();
+        return scores.stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    private StudentCourseScoreResponseDTO mapToResponseDTO(StudentCourseScore score) {
+        StudentCourseScoreResponseDTO dto = new StudentCourseScoreResponseDTO();
+        dto.setStudentId(score.getStudent().getId());
+        
+        StudentCourseScoreResponseDTO.CourseInfo courseInfo = new StudentCourseScoreResponseDTO.CourseInfo(
+                score.getCourse().getCID(),
+                score.getCourse().getCTitle()
+        );
+        dto.setCourse(courseInfo);
+        
+        StudentCourseScoreResponseDTO.BCYSInfo bcysInfo = new StudentCourseScoreResponseDTO.BCYSInfo(
+                score.getBatchClassYearSemester().getBcysID(),
+                score.getBatchClassYearSemester().getDisplayName()
+        );
+        dto.setBrys(bcysInfo);
+        
+        StudentCourseScoreResponseDTO.CourseSourceInfo courseSourceInfo = new StudentCourseScoreResponseDTO.CourseSourceInfo(
+                score.getCourseSource().getSourceID(),
+                score.getCourseSource().getSourceName()
+        );
+        dto.setCourseSource(courseSourceInfo);
+        
+        dto.setScore(score.getScore());
+        dto.setIsReleased(score.isReleased());
+        
+        return dto;
+    }
 
 }

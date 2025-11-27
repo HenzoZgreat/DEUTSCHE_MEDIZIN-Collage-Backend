@@ -74,6 +74,20 @@ public class ProgramModalityController {
         return ResponseEntity.ok(programModalityService.findAll());
     }
 
+    @GetMapping("/level/{programLevelCode}")
+    public ResponseEntity<?> getByProgramLevel(@PathVariable String programLevelCode) {
+        try {
+            List<ProgramModalityDTO> modalities = programModalityService.findByProgramLevelCode(programLevelCode);
+            return ResponseEntity.ok(modalities);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to retrieve modalities for program level: " + e.getMessage()));
+        }
+    }
+
     @PutMapping("/{modalityCode}")
     public ResponseEntity<?> update(@PathVariable String modalityCode, @RequestBody ProgramModalityDTO dto) {
         try {

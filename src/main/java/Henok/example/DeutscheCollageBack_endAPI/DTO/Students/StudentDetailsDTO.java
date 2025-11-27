@@ -1,4 +1,4 @@
-package Henok.example.DeutscheCollageBack_endAPI.DTO;
+package Henok.example.DeutscheCollageBack_endAPI.DTO.Students;
 
 import lombok.Data;
 

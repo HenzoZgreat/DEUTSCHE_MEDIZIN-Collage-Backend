@@ -2,8 +2,9 @@ package Henok.example.DeutscheCollageBack_endAPI.Service;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.StudentRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentDetailsDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentUpdateDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentDetailsDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentUpdateDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentListDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.*;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.DocumentStatus;
@@ -126,16 +127,30 @@ public class StudentDetailService {
 
     // Retrieves all students as DTOs, including disabled ones
     // Why: For admin/registrar to view all student records, regardless of enabled status
-    public List<StudentDetailsDTO> getAllStudents() {
-        try {
-            List<StudentDetails> students = studentDetailsRepository.findAll();
-            if (students.isEmpty()) {
-                throw new ResourceNotFoundException("No students found");
-            }
-            return students.stream().map(this::mapToDTO).collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to retrieve students: " + e.getMessage());
-        }
+    public List<StudentListDTO> getAllStudents() {
+        return studentDetailsRepository.findAll().stream()
+                .map(student -> {
+                    StudentListDTO dto = new StudentListDTO();
+                    dto.setId(student.getId());
+                    dto.setUsername(student.getUser().getUsername());
+                    dto.setAccountStatus(student.getUser().isEnabled() ? "ENABLED" : "DISABLED");
+
+                    dto.setFirstNameAMH(student.getFirstNameAMH());
+                    dto.setFirstNameENG(student.getFirstNameENG());
+                    dto.setFatherNameAMH(student.getFatherNameAMH());
+                    dto.setFatherNameENG(student.getFatherNameENG());
+                    dto.setGrandfatherNameAMH(student.getGrandfatherNameAMH());
+                    dto.setGrandfatherNameENG(student.getGrandfatherNameENG());
+
+                    dto.setStudentRecentStatus(student.getStudentRecentStatus().getStatusName());
+                    dto.setDepartmentEnrolled(student.getDepartmentEnrolled().getDeptName());
+                    dto.setBatchClassYearSemester(student.getBatchClassYearSemester().getDisplayName());
+
+                    dto.setStudentPhoto(student.getStudentPhoto());
+
+                    return dto;
+                })
+                .collect(Collectors.toList());
     }
 
     // Retrieves a student by ID as a DTO, ensuring they are active

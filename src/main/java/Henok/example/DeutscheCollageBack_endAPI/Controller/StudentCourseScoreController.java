@@ -2,6 +2,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.GradeDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScoreDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScoreResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentCourseScore;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
@@ -89,6 +90,17 @@ public class StudentCourseScoreController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<?> getAllStudentCourseScores() {
+        try {
+            List<StudentCourseScoreResponseDTO> scores = studentCourseScoreService.getAllStudentCourseScores();
+            return ResponseEntity.ok(scores);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to retrieve all student course scores: " + e.getMessage()));
         }
     }
 

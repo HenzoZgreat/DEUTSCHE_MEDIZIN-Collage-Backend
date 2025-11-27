@@ -1,8 +1,8 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentDetailsDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentUpdateDTO;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentDetails;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentDetailsDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentUpdateDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentListDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.StudentDetailService;
@@ -30,7 +30,7 @@ public class StudentController {
     @GetMapping
     public ResponseEntity<?> getAllStudents() {
         try {
-            List<StudentDetailsDTO> students = studentDetailsService.getAllStudents();
+            List<StudentListDTO> students = studentDetailsService.getAllStudents();
             return ResponseEntity.ok(students);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
