@@ -1,8 +1,9 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.GradeDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScoreDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScoreResponseDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCourseScoreDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCourseScoreResponseDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCourseScoreBulkUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
@@ -151,6 +152,7 @@ public class StudentCourseScoreService {
 
     private StudentCourseScoreResponseDTO mapToResponseDTO(StudentCourseScore score) {
         StudentCourseScoreResponseDTO dto = new StudentCourseScoreResponseDTO();
+        dto.setId(score.getId());
         dto.setStudentId(score.getStudent().getId());
         
         StudentCourseScoreResponseDTO.CourseInfo courseInfo = new StudentCourseScoreResponseDTO.CourseInfo(
@@ -163,7 +165,7 @@ public class StudentCourseScoreService {
                 score.getBatchClassYearSemester().getBcysID(),
                 score.getBatchClassYearSemester().getDisplayName()
         );
-        dto.setBrys(bcysInfo);
+        dto.setBcys(bcysInfo);
         
         StudentCourseScoreResponseDTO.CourseSourceInfo courseSourceInfo = new StudentCourseScoreResponseDTO.CourseSourceInfo(
                 score.getCourseSource().getSourceID(),
@@ -175,6 +177,36 @@ public class StudentCourseScoreService {
         dto.setIsReleased(score.isReleased());
         
         return dto;
+    }
+
+    public void bulkUpdateStudentCourseScores(StudentCourseScoreBulkUpdateDTO bulkUpdateDTO) {
+        if (bulkUpdateDTO == null || bulkUpdateDTO.getUpdates() == null || bulkUpdateDTO.getUpdates().isEmpty()) {
+            throw new IllegalArgumentException("Bulk update DTO cannot be null or empty");
+        }
+
+        for (StudentCourseScoreBulkUpdateDTO.StudentCourseScoreUpdateRequest updateRequest : bulkUpdateDTO.getUpdates()) {
+            if (updateRequest.getId() == null) {
+                throw new IllegalArgumentException("ID is required for each update request");
+            }
+
+            StudentCourseScore studentCourseScore = studentCourseScoreRepo.findById(updateRequest.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Student course score not found with id: " + updateRequest.getId()));
+
+            // Update score only if provided (not null)
+            if (updateRequest.getScore() != null) {
+                if (updateRequest.getScore() < 0 || updateRequest.getScore() > 100) {
+                    throw new IllegalArgumentException("Score must be between 0 and 100 for record with id: " + updateRequest.getId());
+                }
+                studentCourseScore.setScore(updateRequest.getScore());
+            }
+
+            // Update isReleased only if provided (not null)
+            if (updateRequest.getIsReleased() != null) {
+                studentCourseScore.setReleased(updateRequest.getIsReleased());
+            }
+
+            studentCourseScoreRepo.save(studentCourseScore);
+        }
     }
 
 }

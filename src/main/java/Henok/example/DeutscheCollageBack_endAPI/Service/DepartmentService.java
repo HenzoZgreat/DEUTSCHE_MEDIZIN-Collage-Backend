@@ -82,6 +82,28 @@ public class DepartmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + id));
     }
 
+    public List<Department> getDepartmentsByModality(String modalityCode) {
+        ProgramModality modality = programModalityRepository.findById(modalityCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Program modality not found with code: " + modalityCode));
+
+        List<Department> departments = departmentRepository.findByProgramModality(modality);
+        if (departments.isEmpty()) {
+            throw new ResourceNotFoundException("No departments found for program modality: " + modalityCode);
+        }
+        return departments;
+    }
+
+    public List<Department> getDepartmentsByLevel(String levelCode) {
+        ProgramLevel level = programLevelRepository.findById(levelCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Program level not found with code: " + levelCode));
+
+        List<Department> departments = departmentRepository.findByProgramLevel(level);
+        if (departments.isEmpty()) {
+            throw new ResourceNotFoundException("No departments found for program level: " + levelCode);
+        }
+        return departments;
+    }
+
     public void updateDepartment(Long id, DepartmentDTO departmentDTO) {
         if (departmentDTO == null) {
             throw new IllegalArgumentException("Department DTO cannot be null");

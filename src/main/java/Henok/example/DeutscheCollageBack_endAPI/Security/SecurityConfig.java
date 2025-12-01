@@ -57,6 +57,7 @@ public class SecurityConfig {
                                 "/api/class-years/**",
                                 "/api/courses/**",
                                 "/api/course-categories/**",
+                                "/api/course-sources/**",
                                 "/api/departments/**",
                                 "/api/program-levels/**",
                                 "/api/student-course-scores/**",

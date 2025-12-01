@@ -1,6 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.AssignCoursesRequest;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.AssignTeacherCoursesRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.TeacherCourseAssignmentResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Service.TeacherCourseAssignmentService;
@@ -23,7 +23,7 @@ public class TeacherCourseAssignmentController {
     @PostMapping
     public ResponseEntity<?> assignCourses(
             @PathVariable Long teacherId,
-            @RequestBody List<AssignCoursesRequest> requests) {
+            @RequestBody List<AssignTeacherCoursesRequest> requests) {
         try {
             if (requests == null || requests.isEmpty()) {
                 return ResponseEntity.badRequest()

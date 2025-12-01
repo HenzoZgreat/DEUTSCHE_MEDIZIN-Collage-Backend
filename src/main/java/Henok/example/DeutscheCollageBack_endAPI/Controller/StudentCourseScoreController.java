@@ -1,8 +1,9 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.GradeDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScoreDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScoreResponseDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCourseScoreDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCourseScoreResponseDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCourseScoreBulkUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentCourseScore;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
@@ -101,6 +102,21 @@ public class StudentCourseScoreController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Failed to retrieve all student course scores: " + e.getMessage()));
+        }
+    }
+
+    @PutMapping("/bulk-update")
+    public ResponseEntity<?> bulkUpdateStudentCourseScores(@RequestBody StudentCourseScoreBulkUpdateDTO bulkUpdateDTO) {
+        try {
+            studentCourseScoreService.bulkUpdateStudentCourseScores(bulkUpdateDTO);
+            return ResponseEntity.ok("Bulk update completed successfully");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to perform bulk update: " + e.getMessage()));
         }
     }
 

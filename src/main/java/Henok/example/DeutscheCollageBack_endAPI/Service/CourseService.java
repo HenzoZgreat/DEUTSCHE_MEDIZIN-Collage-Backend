@@ -15,10 +15,7 @@ import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.SemesterRep
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,28 +36,43 @@ public class CourseService {
     @Autowired
     private SemesterRepo semesterRepository;
 
-    public void addCourses(List<CourseDTO> courseDTOs) {
+    public Set<String> addCoursesSkipDuplicates(List<CourseDTO> courseDTOs) {
         if (courseDTOs == null || courseDTOs.isEmpty()) {
-            throw new IllegalArgumentException("Course list cannot be null or empty");
+            return Collections.emptySet();
         }
 
-        List<Course> courses = courseDTOs.stream()
-                .map(this::mapToEntity)
-                .collect(Collectors.toList());
+        Set<String> skippedCodes = new HashSet<>();
+        List<Course> validCourses = new ArrayList<>();
 
-        for (Course course : courses) {
-            validateCourse(course);
-            if (courseRepository.existsBycCode(course.getCCode())) {
-                throw new IllegalArgumentException("Course code already exists: " + course.getCCode());
+        for (CourseDTO dto : courseDTOs) {
+            if (dto.getCCode() == null || dto.getCCode().trim().isEmpty()) {
+                skippedCodes.add("(empty code)");
+                continue;
             }
-            validatePrerequisites(course);
+
+            if (courseRepository.existsBycCode(dto.getCCode())) {
+                skippedCodes.add(dto.getCCode());
+                continue;
+            }
+
+            try {
+                Course course = mapToEntity(dto);
+                validateCourse(course);
+                validatePrerequisites(course);
+                validCourses.add(course);
+            } catch (Exception e) {
+                skippedCodes.add(dto.getCCode() + " (invalid data)");
+            }
         }
 
-        courseRepository.saveAll(courses);
+        if (!validCourses.isEmpty()) {
+            courseRepository.saveAll(validCourses);
+        }
+
+        return skippedCodes;
     }
 
     public void addCourse(CourseDTO courseDTO) {
-        System.out.println("just after the function call checking DTO : " + courseDTO);
         if (courseDTO == null) {
             throw new IllegalArgumentException("Course DTO cannot be null");
         }

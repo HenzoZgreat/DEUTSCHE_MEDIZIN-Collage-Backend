@@ -7,11 +7,8 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class StudentCourseScoreDTO {
-    private Long studentId;
+public class AssignTeacherCoursesRequest {
+
     private Long courseId;
-    private Long batchClassYearSemesterId;
-    private Long sourceId;
-    private Double score;
-    private Boolean isReleased;
+    private Long bcysId;
 }

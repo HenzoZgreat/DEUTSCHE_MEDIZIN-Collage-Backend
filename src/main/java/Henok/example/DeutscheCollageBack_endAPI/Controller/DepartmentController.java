@@ -73,6 +73,36 @@ public class DepartmentController {
         }
     }
 
+    // Filter departments by Program Modality Code
+    @GetMapping("/modality/{modalityCode}")
+    public ResponseEntity<?> getDepartmentsByModality(@PathVariable String modalityCode) {
+        try {
+            List<Department> departments = departmentService.getDepartmentsByModality(modalityCode);
+            return ResponseEntity.ok(departments);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to retrieve departments by modality: " + e.getMessage()));
+        }
+    }
+
+    // Filter departments by Program Level Code
+    @GetMapping("/level/{levelCode}")
+    public ResponseEntity<?> getDepartmentsByLevel(@PathVariable String levelCode) {
+        try {
+            List<Department> departments = departmentService.getDepartmentsByLevel(levelCode);
+            return ResponseEntity.ok(departments);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to retrieve departments by level: " + e.getMessage()));
+        }
+    }
+
     //Update any parameter from a Department
     @PutMapping("/{id}")
     public ResponseEntity<?> updateDepartment(@PathVariable Long id, @RequestBody DepartmentDTO departmentDTO) {

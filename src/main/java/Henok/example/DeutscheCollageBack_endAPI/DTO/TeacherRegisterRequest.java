@@ -44,5 +44,5 @@ public class TeacherRegisterRequest {
     private String currentAddressRegionCode;
 
     // New: List of course + BCYS assignments
-    private List<AssignCoursesRequest> courseAssignments = new ArrayList<>();
+    private List<AssignTeacherCoursesRequest> courseAssignments = new ArrayList<>();
 }

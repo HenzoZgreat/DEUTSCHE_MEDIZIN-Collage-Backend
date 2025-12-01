@@ -1,6 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.AssignCoursesRequest;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.AssignTeacherCoursesRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.TeacherCourseResponse;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.TeacherRegisterRequest;
@@ -84,11 +84,11 @@ public class TeacherService {
     }
 
     // Reusable method for assigning courses
-    private void assignCoursesToTeacher(Long teacherId, List<AssignCoursesRequest> requests) {
+    private void assignCoursesToTeacher(Long teacherId, List<AssignTeacherCoursesRequest> requests) {
         TeacherDetail teacher = teacherRepository.findById(teacherId)
                 .orElseThrow(() -> new IllegalStateException("Teacher not found after save"));
 
-        for (AssignCoursesRequest req : requests) {
+        for (AssignTeacherCoursesRequest req : requests) {
             Course course = courseRepository.findById(req.getCourseId())
                     .orElseThrow(() -> new IllegalArgumentException("Course not found: " + req.getCourseId()));
 

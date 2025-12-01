@@ -1,6 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.AssignCoursesRequest;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.AssignTeacherCoursesRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.TeacherCourseAssignmentResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.BatchClassYearSemester;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Course;
@@ -33,14 +33,14 @@ public class TeacherCourseAssignmentService {
 
     // Assign multiple courses to a teacher
     public List<TeacherCourseAssignmentResponse> assignCoursesToTeacher(
-            Long teacherId, List<AssignCoursesRequest> requests) {
+            Long teacherId, List<AssignTeacherCoursesRequest> requests) {
 
         TeacherDetail teacher = teacherRepo.findById(teacherId)
                 .orElseThrow(() -> new IllegalArgumentException("Teacher not found with ID: " + teacherId));
 
         List<TeacherCourseAssignment> assignments = new ArrayList<>();
 
-        for (AssignCoursesRequest req : requests) {
+        for (AssignTeacherCoursesRequest req : requests) {
             Course course = courseRepo.findById(req.getCourseId())
                     .orElseThrow(() -> new IllegalArgumentException("Course not found with ID: " + req.getCourseId()));
 

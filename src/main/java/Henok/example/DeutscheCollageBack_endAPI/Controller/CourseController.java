@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/courses")
@@ -22,15 +23,20 @@ public class CourseController {
     @PostMapping
     public ResponseEntity<?> addCourses(@RequestBody List<CourseDTO> courseDTOs) {
         try {
-            courseService.addCourses(courseDTOs);
-            return ResponseEntity.ok("Courses added successfully");
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
-        } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+            Set<String> skippedCodes = courseService.addCoursesSkipDuplicates(courseDTOs);
+
+            if (skippedCodes.isEmpty()) {
+                return ResponseEntity.ok("All courses added successfully");
+            } else if (skippedCodes.size() == courseDTOs.size()) {
+                return ResponseEntity.ok("No courses were added. All had duplicate codes: " + skippedCodes);
+            } else {
+                return ResponseEntity.ok(
+                        "Courses added successfully. Skipped duplicate course codes: " + skippedCodes
+                );
+            }
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ErrorResponse("Failed to add courses: " + e.getMessage()));
+                    .body(new ErrorResponse("Failed to process courses: " + e.getMessage()));
         }
     }
 

@@ -1,4 +1,4 @@
-package Henok.example.DeutscheCollageBack_endAPI.DTO;
+package Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -8,9 +8,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class StudentCourseScoreResponseDTO {
+    private Long id;
     private Long studentId;
     private CourseInfo course;
-    private BCYSInfo brys;
+    private BCYSInfo bcys;
     private CourseSourceInfo courseSource;
     private Double score;
     private Boolean isReleased;
