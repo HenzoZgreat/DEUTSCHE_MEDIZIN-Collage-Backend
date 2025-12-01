@@ -4,11 +4,17 @@ import Henok.example.DeutscheCollageBack_endAPI.DTO.GradeDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCourseScoreDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCourseScoreResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCourseScoreBulkUpdateDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.PaginatedResponseDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentSlipBulkDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentSlipDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -150,6 +156,24 @@ public class StudentCourseScoreService {
                 .collect(Collectors.toList());
     }
 
+    public PaginatedResponseDTO<StudentCourseScoreResponseDTO> getAllStudentCourseScoresPaginated(Pageable pageable) {
+        Page<StudentCourseScore> scorePage = studentCourseScoreRepo.findAll(pageable);
+        List<StudentCourseScoreResponseDTO> content = scorePage.getContent().stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+        
+        PaginatedResponseDTO<StudentCourseScoreResponseDTO> response = new PaginatedResponseDTO<>();
+        response.setContent(content);
+        response.setPage(scorePage.getNumber());
+        response.setSize(scorePage.getSize());
+        response.setTotalElements(scorePage.getTotalElements());
+        response.setTotalPages(scorePage.getTotalPages());
+        response.setFirst(scorePage.isFirst());
+        response.setLast(scorePage.isLast());
+        
+        return response;
+    }
+
     private StudentCourseScoreResponseDTO mapToResponseDTO(StudentCourseScore score) {
         StudentCourseScoreResponseDTO dto = new StudentCourseScoreResponseDTO();
         dto.setId(score.getId());
@@ -207,6 +231,80 @@ public class StudentCourseScoreService {
 
             studentCourseScoreRepo.save(studentCourseScore);
         }
+    }
+
+
+    // ======================= Slip Related ======================
+
+    /**
+     * Enrolls a single student in multiple courses for a specific BCYS (creates the "slip").
+     * Reuses existing addCourse logic to ensure prerequisites & duplicates are checked.
+     */
+    @Transactional
+    public void addCoursesForStudent(StudentSlipDTO dto) {
+        dto.validate();
+
+        User student = userRepo.findById(dto.getStudentId())
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + dto.getStudentId()));
+
+        BatchClassYearSemester bcys = batchClassYearSemesterRepo.findById(dto.getBatchClassYearSemesterId())
+                .orElseThrow(() -> new ResourceNotFoundException("BCYS not found with id: " + dto.getBatchClassYearSemesterId()));
+
+        CourseSource courseSource = courseSourceRepo.findById(dto.getSourceId())
+                .orElseThrow(() -> new ResourceNotFoundException("Course source not found with id: " + dto.getSourceId()));
+
+        for (Long courseId : dto.getCourseIds()) {
+            Course course = courseRepo.findById(courseId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
+
+            // Reuse your existing addCourse logic (duplicate + prerequisite check)
+            StudentCourseScoreDTO singleDto = new StudentCourseScoreDTO();
+            singleDto.setStudentId(dto.getStudentId());
+            singleDto.setCourseId(courseId);
+            singleDto.setBatchClassYearSemesterId(dto.getBatchClassYearSemesterId());
+            singleDto.setSourceId(dto.getSourceId());
+            // score and isReleased remain null/false by default
+
+            addCourse(singleDto);  // This will throw if duplicate or prerequisite fails
+        }
+    }
+
+    /**
+     * Bulk version: Enrolls multiple students in their respective courses for the same BCYS.
+     * Fully transactional — if any enrollment fails, all are rolled back.
+     */
+    @Transactional
+    public int addCoursesForMultipleStudents(StudentSlipBulkDTO bulkDto) {
+        bulkDto.validate();
+
+        BatchClassYearSemester bcys = batchClassYearSemesterRepo.findById(bulkDto.getBatchClassYearSemesterId())
+                .orElseThrow(() -> new ResourceNotFoundException("BCYS not found"));
+
+        CourseSource courseSource = courseSourceRepo.findById(bulkDto.getSourceId())
+                .orElseThrow(() -> new ResourceNotFoundException("Course source not found"));
+
+        int totalEnrollments = 0;
+
+        for (StudentSlipBulkDTO.StudentCourseList item : bulkDto.getStudents()) {
+            User student = userRepo.findById(item.getStudentId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Student not found: " + item.getStudentId()));
+
+            for (Long courseId : item.getCourseIds()) {
+                Course course = courseRepo.findById(courseId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Course not found: " + courseId));
+
+                StudentCourseScoreDTO dto = new StudentCourseScoreDTO();
+                dto.setStudentId(item.getStudentId());
+                dto.setCourseId(courseId);
+                dto.setBatchClassYearSemesterId(bulkDto.getBatchClassYearSemesterId());
+                dto.setSourceId(bulkDto.getSourceId());
+
+                addCourse(dto);  // Reuse existing logic
+                totalEnrollments++;
+            }
+        }
+
+        return totalEnrollments;
     }
 
 }

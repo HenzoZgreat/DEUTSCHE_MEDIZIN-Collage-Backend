@@ -4,11 +4,15 @@ import Henok.example.DeutscheCollageBack_endAPI.DTO.GradeDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCourseScoreDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCourseScoreResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCourseScoreBulkUpdateDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.PaginatedResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentCourseScore;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.StudentCourseScoreService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -95,10 +99,17 @@ public class StudentCourseScoreController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<?> getAllStudentCourseScores() {
+    public ResponseEntity<?> getAllStudentCourseScores(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
         try {
-            List<StudentCourseScoreResponseDTO> scores = studentCourseScoreService.getAllStudentCourseScores();
-            return ResponseEntity.ok(scores);
+            Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+            Pageable pageable = PageRequest.of(page, size, sort);
+            PaginatedResponseDTO<StudentCourseScoreResponseDTO> paginatedResponse = 
+                    studentCourseScoreService.getAllStudentCourseScoresPaginated(pageable);
+            return ResponseEntity.ok(paginatedResponse);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Failed to retrieve all student course scores: " + e.getMessage()));
