@@ -6,5 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface AcademicYearRepo extends JpaRepository<AcademicYear, String> {
+    boolean existsByYearCode(String yearCode);
 }
 
