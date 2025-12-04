@@ -1,7 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentSlipBulkDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentSlipDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentSlipBulkGenerationDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.SingleStudentSlipGenerationDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.StudentCourseScoreService;
@@ -39,7 +39,7 @@ public class StudentSlipController {
      * @return Success message or error.
      */
     @PostMapping("/add-for-student")
-    public ResponseEntity<?> addSlipForStudent(@RequestBody StudentSlipDTO dto) {
+    public ResponseEntity<?> addSlipForStudent(@RequestBody SingleStudentSlipGenerationDTO dto) {
         try {
             studentCourseScoreService.addCoursesForStudent(dto);
             return ResponseEntity.ok("Student slip generated successfully: Enrolled in " + dto.getCourseIds().size() + " courses");
@@ -69,7 +69,7 @@ public class StudentSlipController {
      * @return Success message with count or error.
      */
     @PostMapping("/add-for-multiple")
-    public ResponseEntity<?> addSlipsForMultipleStudents(@RequestBody StudentSlipBulkDTO bulkDto) {
+    public ResponseEntity<?> addSlipsForMultipleStudents(@RequestBody StudentSlipBulkGenerationDTO bulkDto) {
         try {
             int totalEnrollments = studentCourseScoreService.addCoursesForMultipleStudents(bulkDto);
             return ResponseEntity.ok("Bulk student slips generated successfully: " + totalEnrollments + " total enrollments created");

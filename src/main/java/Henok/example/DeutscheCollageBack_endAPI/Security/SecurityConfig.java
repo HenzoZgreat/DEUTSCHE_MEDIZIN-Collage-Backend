@@ -50,7 +50,8 @@ public class SecurityConfig {
                                 "/api/enrollment-type/**",
                                 "/api/school-backgrounds/**",
                                 "/api/class-years/**",
-                                "/api/semesters/**").permitAll()
+                                "/api/semesters/**",
+                                "/api/filters/options").permitAll()
 
                         .requestMatchers("/api/auth/students/me/change-password").hasRole("STUDENT")
 

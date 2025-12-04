@@ -18,6 +18,6 @@ public class EnrollmentType {
     @Id
     private String enrollmentTypeCode; // from MOE Data
 
-    private String enrollmentTypeName; // Example: "Regular", "Extension"
+    private String enrollmentTypeName;
 }
 

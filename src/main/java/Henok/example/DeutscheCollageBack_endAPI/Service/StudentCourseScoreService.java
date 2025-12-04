@@ -5,8 +5,8 @@ import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCo
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCourseScoreResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCourseScoreBulkUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.PaginatedResponseDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentSlipBulkDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentSlipDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentSlipBulkGenerationDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.SingleStudentSlipGenerationDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
@@ -241,7 +241,7 @@ public class StudentCourseScoreService {
      * Reuses existing addCourse logic to ensure prerequisites & duplicates are checked.
      */
     @Transactional
-    public void addCoursesForStudent(StudentSlipDTO dto) {
+    public void addCoursesForStudent(SingleStudentSlipGenerationDTO dto) {
         dto.validate();
 
         User student = userRepo.findById(dto.getStudentId())
@@ -274,7 +274,7 @@ public class StudentCourseScoreService {
      * Fully transactional — if any enrollment fails, all are rolled back.
      */
     @Transactional
-    public int addCoursesForMultipleStudents(StudentSlipBulkDTO bulkDto) {
+    public int addCoursesForMultipleStudents(StudentSlipBulkGenerationDTO bulkDto) {
         bulkDto.validate();
 
         BatchClassYearSemester bcys = batchClassYearSemesterRepo.findById(bulkDto.getBatchClassYearSemesterId())
@@ -285,7 +285,7 @@ public class StudentCourseScoreService {
 
         int totalEnrollments = 0;
 
-        for (StudentSlipBulkDTO.StudentCourseList item : bulkDto.getStudents()) {
+        for (StudentSlipBulkGenerationDTO.StudentCourseList item : bulkDto.getStudents()) {
             User student = userRepo.findById(item.getStudentId())
                     .orElseThrow(() -> new ResourceNotFoundException("Student not found: " + item.getStudentId()));
 

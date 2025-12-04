@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentSlipDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentDetailsDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentListDTO;
@@ -55,6 +56,13 @@ public class StudentController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Failed to retrieve student: " + e.getMessage()));
         }
+    }
+
+    // Get All Students for Slip Production
+    @GetMapping("/slip-production")
+    public ResponseEntity<List<StudentSlipDTO>> getStudentsForSlipProduction() {
+        List<StudentSlipDTO> students = studentDetailsService.getStudentsForSlipProduction();
+        return ResponseEntity.ok(students);
     }
 
     // Updates a student's details with optional file uploads and returns DTO

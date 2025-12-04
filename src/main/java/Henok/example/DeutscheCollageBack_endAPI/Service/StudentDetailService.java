@@ -2,6 +2,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Service;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.StudentRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentSlipDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentDetailsDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentListDTO;
@@ -20,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -168,6 +170,60 @@ public class StudentDetailService {
         } catch (Exception e) {
             throw new RuntimeException("Failed to retrieve student with id " + id + ": " + e.getMessage());
         }
+    }
+
+    public List<StudentSlipDTO> getStudentsForSlipProduction() {
+        return studentDetailsRepository.findAll().stream()
+                .map(student -> {
+                    User user = student.getUser();
+                    Department dept = student.getDepartmentEnrolled(); // or student.getDepartmentEnrolled()
+                    BatchClassYearSemester bcys = student.getBatchClassYearSemester();
+
+                    ProgramModality modality = dept.getProgramModality();
+                    ProgramLevel level = modality != null ? modality.getProgramLevel() : null;
+
+                    StudentSlipDTO dto = new StudentSlipDTO();
+                    dto.setStudentId(student.getId());
+                    dto.setUsername(user.getUsername());
+
+                    // Full Name AMH & ENG
+                    dto.setFullNameAMH(
+                            String.join(" ",
+                                    student.getFirstNameAMH(),
+                                    student.getFatherNameAMH(),
+                                    student.getGrandfatherNameAMH()).trim()
+                    );
+                    dto.setFullNameENG(
+                            String.join(" ",
+                                    student.getFirstNameENG(),
+                                    student.getFatherNameENG(),
+                                    student.getGrandfatherNameENG()).trim()
+                    );
+
+                    // BCYS
+                    dto.setBcysId(bcys.getBcysID());
+                    dto.setBcysDisplayName(bcys.getDisplayName());
+
+                    // Department
+                    dto.setDepartmentId(dept.getDptID());
+                    dto.setDepartmentName(dept.getDeptName());
+
+                    // Program Modality
+                    if (modality != null) {
+                        dto.setProgramModalityCode(modality.getModalityCode());
+                        dto.setProgramModalityName(modality.getModality());
+                    }
+
+                    // Program Level
+                    if (level != null) {
+                        dto.setProgramLevelCode(level.getCode());
+                        dto.setProgramLevelName(level.getName());
+                    }
+
+                    return dto;
+                })
+                .sorted(Comparator.comparing(StudentSlipDTO::getFullNameENG))
+                .collect(Collectors.toList());
     }
 
 

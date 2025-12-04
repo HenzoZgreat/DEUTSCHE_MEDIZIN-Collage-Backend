@@ -10,7 +10,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class StudentSlipBulkDTO {
+public class StudentSlipBulkGenerationDTO {
 
     private Long batchClassYearSemesterId;
 
