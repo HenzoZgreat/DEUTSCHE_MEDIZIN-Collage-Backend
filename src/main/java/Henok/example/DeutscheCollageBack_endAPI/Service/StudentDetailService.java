@@ -160,8 +160,8 @@ public class StudentDetailService {
 // Why: Returns DTO for detailed views, includes all fields, respects enabled flag
     public StudentDetailsDTO getStudentById(Long id) {
         try {
-            StudentDetails student = studentDetailsRepository.findByIdAndUserEnabledTrue(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("Active student not found with id: " + id));
+            StudentDetails student = studentDetailsRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + id));
             return mapToDTO(student);
         } catch (ResourceNotFoundException e) {
             throw e;

@@ -1,5 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Passwords.StudentChangePasswordRequest;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Passwords.RegistrarResetStudentPasswordRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.*;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.TeacherRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
@@ -22,7 +24,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -195,6 +196,51 @@ public class AuthController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("An error occurred while registering the registrar: " + e.getMessage()));
+        }
+    }
+
+    // Allows authenticated students to change their own password
+    // Why: Provides self-service password update for students, requiring old password verification for security
+    // Security measures: Requires JWT authentication, verifies old password using PasswordEncoder, encodes new password
+    @PostMapping("students/me/change-password")
+    public ResponseEntity<?> changePassword(@RequestBody StudentChangePasswordRequest request) {
+        try {
+            String username = SecurityContextHolder.getContext().getAuthentication().getName();
+            userService.changeSelfPassword(username, request.getOldPassword(), request.getNewPassword());
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Password changed successfully");
+            return ResponseEntity.ok(response);
+        } catch (BadCredentialsException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse("Invalid old password"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An error occurred while changing the password: " + e.getMessage()));
+        }
+    }
+
+    // Allows authenticated registrars to reset a student's password without old password
+    // Why: Enables administrative password reset for students, restricted to registrars
+    // Security measures: Requires JWT authentication with REGISTRAR role, verifies target user is a student, encodes new password
+    @PostMapping("/registrar/students/{studentUserId}/reset-password")
+    public ResponseEntity<?> resetStudentPassword(@PathVariable Long studentUserId, @RequestBody RegistrarResetStudentPasswordRequest request) {
+        try {
+            userService.resetStudentPassword(studentUserId, request.getNewPassword());
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Student password reset successfully");
+            return ResponseEntity.ok(response);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse("User not found"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An error occurred while resetting the password: " + e.getMessage()));
         }
     }
 }

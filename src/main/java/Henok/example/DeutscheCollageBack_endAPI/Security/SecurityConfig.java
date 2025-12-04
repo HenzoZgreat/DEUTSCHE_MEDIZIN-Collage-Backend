@@ -52,6 +52,9 @@ public class SecurityConfig {
                                 "/api/class-years/**",
                                 "/api/semesters/**").permitAll()
 
+                        .requestMatchers("/api/auth/students/me/change-password").hasRole("STUDENT")
+
+
                         .requestMatchers("/api/students/**",
                                 "/api/batches/**",
                                 "/api/class-years/**",
@@ -66,7 +69,8 @@ public class SecurityConfig {
                                 "/api/grading-systems/**",
                                 "/api/mark-intervals/**",
                                 "/api/bcsy/**",
-                                "/api/applicants/**").hasRole("REGISTRAR")
+                                "/api/applicants/**",
+                                "/registrar/students/*/reset-password").hasRole("REGISTRAR")
                         .requestMatchers("/api/auth/register/student").hasAnyRole("REGISTRAR")
                         .requestMatchers("/api/auth/register/registrar").hasAnyRole("GENERAL_MANAGER", "VICE_DEAN")
                         .requestMatchers("/api/auth/register/general-manager").hasAnyRole("GENERAL_MANAGER", "STUDENT")
