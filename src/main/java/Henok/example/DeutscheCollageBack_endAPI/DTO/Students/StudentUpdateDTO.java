@@ -55,6 +55,7 @@ public class StudentUpdateDTO {
     // Academic Information
     private String dateEnrolledEC; // Optional: Update enrollment date in Ethiopian Calendar
     private LocalDate dateEnrolledGC; // Optional: Update enrollment date in Gregorian Calendar
+    private String academicYearCode;
     private Long batchClassYearSemesterId; // Optional: Update BatchClassYearSemester ID
     private Long studentRecentStatusId; // Optional: Update current student status ID
     private Long departmentEnrolledId; // Optional: Update department enrolled ID

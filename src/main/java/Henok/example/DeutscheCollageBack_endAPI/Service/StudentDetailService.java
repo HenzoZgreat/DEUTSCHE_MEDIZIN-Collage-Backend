@@ -65,6 +65,9 @@ public class StudentDetailService {
     @Autowired
     private NotificationService notificationService;
 
+    @Autowired
+    private AcademicYearRepo academicYearRepository;
+
     // Registers a new student with the provided details and files
     // Why: Handles student registration with multipart form data, validates inputs, and ensures data integrity
     @Transactional(rollbackFor = Exception.class)
@@ -182,8 +185,8 @@ public class StudentDetailService {
         // Fetch existing student
         StudentDetails existing;
         try {
-            existing = studentDetailsRepository.findByIdAndUserEnabledTrue(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("Active student not found with id: " + id));
+            existing = studentDetailsRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + id));
         } catch (ResourceNotFoundException e) {
             throw e;
         } catch (Exception e) {
@@ -309,9 +312,9 @@ public class StudentDetailService {
         if (request.getPhoneNumber() == null || request.getPhoneNumber().isEmpty()) {
             throw new IllegalArgumentException("Phone number cannot be empty");
         }
-        if (request.getDateOfBirthEC() == null || request.getDateOfBirthEC().isEmpty()) {
-            throw new IllegalArgumentException("Date of birth (EC) cannot be empty");
-        }
+//        if (request.getDateOfBirthEC() == null || request.getDateOfBirthEC().isEmpty()) {
+//            throw new IllegalArgumentException("Date of birth (EC) cannot be empty");
+//        }
         if (request.getDateOfBirthGC() == null) {
             throw new IllegalArgumentException("Date of birth (GC) cannot be null");
         }
@@ -354,12 +357,15 @@ public class StudentDetailService {
         if (request.getContactPersonPhoneNumber() == null || request.getContactPersonPhoneNumber().isEmpty()) {
             throw new IllegalArgumentException("Contact person phone number cannot be empty");
         }
-        if (request.getDateEnrolledEC() == null || request.getDateEnrolledEC().isEmpty()) {
-            throw new IllegalArgumentException("Date enrolled (EC) cannot be empty");
-        }
+//        if (request.getDateEnrolledEC() == null || request.getDateEnrolledEC().isEmpty()) {
+//            throw new IllegalArgumentException("Date enrolled (EC) cannot be empty");
+//        }
         if (request.getDateEnrolledGC() == null) {
             throw new IllegalArgumentException("Date enrolled (GC) cannot be null");
         }
+//        if (request.getAcademicYearCode() == null || request.getAcademicYearCode().isEmpty()) {
+//            throw new IllegalArgumentException("Academic year code cannot be null or empty");
+//        }
         if (request.getBatchClassYearSemesterId() == null) {
             throw new IllegalArgumentException("Batch class year semester cannot be null");
         }
@@ -463,6 +469,8 @@ public class StudentDetailService {
                     .orElseThrow(() -> new ResourceNotFoundException("Impairment not found with code: " + dto.getImpairmentCode()));
             student.setImpairment(impairment);
         }
+
+
         if (dto.getSchoolBackgroundId() != null) {
             SchoolBackground background = schoolBackgroundRepository.findById(dto.getSchoolBackgroundId())
                     .orElseThrow(() -> new ResourceNotFoundException("School background not found with id: " + dto.getSchoolBackgroundId()));
@@ -494,6 +502,12 @@ public class StudentDetailService {
         }
         if (dto.getDateEnrolledGC() != null) {
             student.setDateEnrolledGC(dto.getDateEnrolledGC());
+        }
+
+        if (dto.getAcademicYearCode() != null && !dto.getAcademicYearCode().isEmpty()) {
+            AcademicYear academicYear = academicYearRepository.findById(dto.getAcademicYearCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Academic year not found with code: " + dto.getAcademicYearCode()));
+            student.setAcademicYear(academicYear);
         }
         if (dto.getBatchClassYearSemesterId() != null) {
             BatchClassYearSemester bcys = batchClassYearSemesterRepository.findById(dto.getBatchClassYearSemesterId())
@@ -581,6 +595,8 @@ public class StudentDetailService {
             student.setImpairment(impairmentRepository.findById(request.getImpairmentCode())
                     .orElseThrow(() -> new ResourceNotFoundException("Impairment not found with code: " + request.getImpairmentCode())));
         }
+        student.setAcademicYear(academicYearRepository.findById(request.getAcademicYearCode())
+                .orElseThrow(() -> new ResourceNotFoundException("Academic year not found with code: " + request.getAcademicYearCode())));
         student.setSchoolBackground(schoolBackgroundRepository.findById(request.getSchoolBackgroundId())
                 .orElseThrow(() -> new ResourceNotFoundException("School background not found with id: " + request.getSchoolBackgroundId())));
         if (studentPhoto != null && !studentPhoto.isEmpty()) {
@@ -623,8 +639,12 @@ public class StudentDetailService {
     // Why: Converts entity to DTO to include all fields safely
     private StudentDetailsDTO mapToDTO(StudentDetails student) {
         StudentDetailsDTO dto = new StudentDetailsDTO();
+
         dto.setId(student.getId());
         dto.setUserId(student.getUser().getId());
+        dto.setUsername(student.getUser().getUsername());
+
+        // Personal Info
         dto.setFirstNameAMH(student.getFirstNameAMH());
         dto.setFirstNameENG(student.getFirstNameENG());
         dto.setFatherNameAMH(student.getFatherNameAMH());
@@ -635,34 +655,74 @@ public class StudentDetailService {
         dto.setMotherNameENG(student.getMotherNameENG());
         dto.setMotherFatherNameAMH(student.getMotherFatherNameAMH());
         dto.setMotherFatherNameENG(student.getMotherFatherNameENG());
+
         dto.setGender(student.getGender().name());
         dto.setAge(student.getAge());
         dto.setPhoneNumber(student.getPhoneNumber());
         dto.setDateOfBirthEC(student.getDateOfBirthEC());
         dto.setDateOfBirthGC(student.getDateOfBirthGC());
+
+        // Place of Birth - ID + Name
         dto.setPlaceOfBirthWoredaCode(student.getPlaceOfBirthWoreda().getWoredaCode());
+        dto.setPlaceOfBirthWoredaName(student.getPlaceOfBirthWoreda().getWoreda());
         dto.setPlaceOfBirthZoneCode(student.getPlaceOfBirthZone().getZoneCode());
+        dto.setPlaceOfBirthZoneName(student.getPlaceOfBirthZone().getZone());
         dto.setPlaceOfBirthRegionCode(student.getPlaceOfBirthRegion().getRegionCode());
+        dto.setPlaceOfBirthRegionName(student.getPlaceOfBirthRegion().getRegion());
+
+        // Current Address - ID + Name
         dto.setCurrentAddressWoredaCode(student.getCurrentAddressWoreda().getWoredaCode());
+        dto.setCurrentAddressWoredaName(student.getCurrentAddressWoreda().getWoreda());
         dto.setCurrentAddressZoneCode(student.getCurrentAddressZone().getZoneCode());
+        dto.setCurrentAddressZoneName(student.getCurrentAddressZone().getZone());
         dto.setCurrentAddressRegionCode(student.getCurrentAddressRegion().getRegionCode());
+        dto.setCurrentAddressRegionName(student.getCurrentAddressRegion().getRegion());
+
         dto.setEmail(student.getEmail());
         dto.setMaritalStatus(student.getMaritalStatus().name());
+
+        // Impairment
         dto.setImpairmentCode(student.getImpairment() != null ? student.getImpairment().getImpairmentCode() : null);
+        dto.setImpairmentDescription(student.getImpairment() != null ? student.getImpairment().getImpairment() : null);
+
+        // School Background
         dto.setSchoolBackgroundId(student.getSchoolBackground().getId());
+        dto.setSchoolBackgroundName(student.getSchoolBackground().getBackground());
+
         dto.setStudentPhoto(student.getStudentPhoto());
+
+        // Emergency Contact
         dto.setContactPersonFirstNameAMH(student.getContactPersonFirstNameAMH());
         dto.setContactPersonFirstNameENG(student.getContactPersonFirstNameENG());
         dto.setContactPersonLastNameAMH(student.getContactPersonLastNameAMH());
         dto.setContactPersonLastNameENG(student.getContactPersonLastNameENG());
         dto.setContactPersonPhoneNumber(student.getContactPersonPhoneNumber());
         dto.setContactPersonRelation(student.getContactPersonRelation());
+
+        // Academic Info
         dto.setDateEnrolledEC(student.getDateEnrolledEC());
         dto.setDateEnrolledGC(student.getDateEnrolledGC());
+
         dto.setBatchClassYearSemesterId(student.getBatchClassYearSemester().getBcysID());
+        dto.setBatchClassYearSemesterName(student.getBatchClassYearSemester().getDisplayName()); // or getFullName()
+
         dto.setStudentRecentStatusId(student.getStudentRecentStatus().getId());
+        dto.setStudentRecentStatusName(student.getStudentRecentStatus().getStatusName());
+
         dto.setDepartmentEnrolledId(student.getDepartmentEnrolled().getDptID());
+        dto.setDepartmentEnrolledName(student.getDepartmentEnrolled().getDeptName());
+
         dto.setProgramModalityCode(student.getProgramModality().getModalityCode());
+        dto.setProgramModalityName(student.getProgramModality().getModality());
+
+        // Academic Year
+        if (student.getAcademicYear() != null) {
+            dto.setAcademicYearCode(student.getAcademicYear().getYearCode());
+            dto.setAcademicYearGC(student.getAcademicYear().getAcademicYearGC());
+            dto.setAcademicYearEC(student.getAcademicYear().getAcademicYearEC());
+        }
+
+        // Document & Others
         dto.setDocument(student.getDocument());
         dto.setDocumentStatus(student.getDocumentStatus().name());
         dto.setRemark(student.getRemark());
@@ -671,6 +731,7 @@ public class StudentDetailService {
         dto.setExitExamScore(student.getExitExamScore());
         dto.setIsStudentPassExitExam(student.isStudentPassExitExam());
         dto.setGrade12Result(student.getGrade12Result());
+
         return dto;
     }
 }

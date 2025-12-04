@@ -61,6 +61,7 @@ public class StudentRegisterRequest {
     // Academic Information
     private String dateEnrolledEC; // Required: Enrollment date in Ethiopian Calendar
     private LocalDate dateEnrolledGC; // Required: Enrollment date in Gregorian Calendar
+    private String academicYearCode;
     private Long batchClassYearSemesterId; // Required: BatchClassYearSemester ID
     private Long studentRecentStatusId; // Required: Current student status ID
     private Long departmentEnrolledId; // Required: Department enrolled ID

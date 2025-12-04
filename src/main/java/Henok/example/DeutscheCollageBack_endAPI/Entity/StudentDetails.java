@@ -152,6 +152,15 @@ public class StudentDetails {
     @Column(name = "date_enrolled_gc", nullable = false)
     private LocalDate dateEnrolledGC;
 
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "academic_year_code",           // column name in student_details table
+            referencedColumnName = "yearCode",     // PK column in academic_year table
+            nullable = true                       // or true if it can be null
+    )
+    private AcademicYear academicYear;
+
     @ManyToOne
     @JoinColumn(name = "batch_class_year_semester", nullable = false)
     private BatchClassYearSemester batchClassYearSemester;

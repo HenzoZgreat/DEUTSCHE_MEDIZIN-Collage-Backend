@@ -10,6 +10,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AttritionCauseDTO {
+
+    private Long id;
+
     @JsonProperty("Attrition Cause")
     private String attritionCause;
 }

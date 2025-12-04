@@ -101,8 +101,9 @@ public class AttritionCauseService {
     }
 
     private AttritionCauseDTO toDto(AttritionCause entity) {
-        AttritionCauseDTO dto = new AttritionCauseDTO();
-        dto.setAttritionCause(entity.getAttritionCause());
-        return dto;
+        return new AttritionCauseDTO(
+                entity.getId(),                    // send the ID
+                entity.getAttritionCause()
+        );
     }
 }
