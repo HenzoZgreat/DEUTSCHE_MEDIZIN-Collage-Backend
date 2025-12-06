@@ -2,7 +2,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Service;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.StudentRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentSlipDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentsListForSlipDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentDetailsDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentListDTO;
@@ -172,7 +172,7 @@ public class StudentDetailService {
         }
     }
 
-    public List<StudentSlipDTO> getStudentsForSlipProduction() {
+    public List<StudentsListForSlipDTO> getStudentsForSlipProduction() {
         return studentDetailsRepository.findAll().stream()
                 .map(student -> {
                     User user = student.getUser();
@@ -182,7 +182,7 @@ public class StudentDetailService {
                     ProgramModality modality = dept.getProgramModality();
                     ProgramLevel level = modality != null ? modality.getProgramLevel() : null;
 
-                    StudentSlipDTO dto = new StudentSlipDTO();
+                    StudentsListForSlipDTO dto = new StudentsListForSlipDTO();
                     dto.setStudentId(student.getId());
                     dto.setUsername(user.getUsername());
 
@@ -222,7 +222,7 @@ public class StudentDetailService {
 
                     return dto;
                 })
-                .sorted(Comparator.comparing(StudentSlipDTO::getFullNameENG))
+                .sorted(Comparator.comparing(StudentsListForSlipDTO::getFullNameENG))
                 .collect(Collectors.toList());
     }
 

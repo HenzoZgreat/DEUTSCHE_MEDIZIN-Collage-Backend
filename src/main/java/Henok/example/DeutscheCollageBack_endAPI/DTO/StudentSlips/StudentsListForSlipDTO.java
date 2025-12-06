@@ -3,7 +3,7 @@ package Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips;
 import lombok.Data;
 
 @Data
-public class StudentSlipDTO {
+public class StudentsListForSlipDTO {
     private Long studentId;
     private String username;
 

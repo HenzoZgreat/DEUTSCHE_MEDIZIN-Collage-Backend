@@ -204,6 +204,7 @@ public class GradingSystemService {
 
     private GradingSystemDTO toDTO(GradingSystem entity) {
         GradingSystemDTO dto = new GradingSystemDTO();
+        dto.setId(entity.getId());
         dto.setVersionName(entity.getVersionName());
         dto.setDepartmentId(entity.getDepartment() != null ? entity.getDepartment().getDptID() : null);
         dto.setRemark(entity.getRemark()); // Include remark in DTO

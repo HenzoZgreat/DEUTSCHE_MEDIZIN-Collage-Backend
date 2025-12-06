@@ -5,8 +5,9 @@ import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCo
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCourseScoreResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.StudentCourseScoreBulkUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCourseScore.PaginatedResponseDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentSlipBulkGenerationDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.SingleStudentSlipGenerationDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentSlipGenerateRequestDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentSlipGenerateResponseDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
@@ -16,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -39,6 +41,9 @@ public class StudentCourseScoreService {
 
     @Autowired
     private GradingSystemService gradingSystemService;
+
+    @Autowired
+    private StudentDetailService studentDetailsService;
 
     @Autowired
     private StudentDetailsRepository studentDetailsRepository; // Assume exists for fetching student details
@@ -236,75 +241,108 @@ public class StudentCourseScoreService {
 
     // ======================= Slip Related ======================
 
-    /**
-     * Enrolls a single student in multiple courses for a specific BCYS (creates the "slip").
-     * Reuses existing addCourse logic to ensure prerequisites & duplicates are checked.
-     */
     @Transactional
-    public void addCoursesForStudent(SingleStudentSlipGenerationDTO dto) {
-        dto.validate();
+    public StudentSlipGenerateResponseDTO generateStudentSlips(StudentSlipGenerateRequestDTO request) {
+        request.validate();
 
-        User student = userRepo.findById(dto.getStudentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + dto.getStudentId()));
-
-        BatchClassYearSemester bcys = batchClassYearSemesterRepo.findById(dto.getBatchClassYearSemesterId())
-                .orElseThrow(() -> new ResourceNotFoundException("BCYS not found with id: " + dto.getBatchClassYearSemesterId()));
-
-        CourseSource courseSource = courseSourceRepo.findById(dto.getSourceId())
-                .orElseThrow(() -> new ResourceNotFoundException("Course source not found with id: " + dto.getSourceId()));
-
-        for (Long courseId : dto.getCourseIds()) {
-            Course course = courseRepo.findById(courseId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
-
-            // Reuse your existing addCourse logic (duplicate + prerequisite check)
-            StudentCourseScoreDTO singleDto = new StudentCourseScoreDTO();
-            singleDto.setStudentId(dto.getStudentId());
-            singleDto.setCourseId(courseId);
-            singleDto.setBatchClassYearSemesterId(dto.getBatchClassYearSemesterId());
-            singleDto.setSourceId(dto.getSourceId());
-            // score and isReleased remain null/false by default
-
-            addCourse(singleDto);  // This will throw if duplicate or prerequisite fails
-        }
-    }
-
-    /**
-     * Bulk version: Enrolls multiple students in their respective courses for the same BCYS.
-     * Fully transactional — if any enrollment fails, all are rolled back.
-     */
-    @Transactional
-    public int addCoursesForMultipleStudents(StudentSlipBulkGenerationDTO bulkDto) {
-        bulkDto.validate();
-
-        BatchClassYearSemester bcys = batchClassYearSemesterRepo.findById(bulkDto.getBatchClassYearSemesterId())
+        BatchClassYearSemester bcys = batchClassYearSemesterRepo.findById(request.getBatchClassYearSemesterId())
                 .orElseThrow(() -> new ResourceNotFoundException("BCYS not found"));
 
-        CourseSource courseSource = courseSourceRepo.findById(bulkDto.getSourceId())
+        CourseSource source = courseSourceRepo.findById(request.getSourceId())
                 .orElseThrow(() -> new ResourceNotFoundException("Course source not found"));
 
-        int totalEnrollments = 0;
+        StudentSlipGenerateResponseDTO response = new StudentSlipGenerateResponseDTO();
+        response.setBatchClassYearSemesterId(request.getBatchClassYearSemesterId());
+        response.setSourceId(request.getSourceId());
+        response.setTotalStudents(request.getStudents().size());
 
-        for (StudentSlipBulkGenerationDTO.StudentCourseList item : bulkDto.getStudents()) {
-            User student = userRepo.findById(item.getStudentId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Student not found: " + item.getStudentId()));
+        for (StudentSlipGenerateRequestDTO.StudentCourseAssignment assignment : request.getStudents()) {
+            try {
+                int enrolled = enrollStudent(
+                        assignment.getStudentId(),
+                        request.getBatchClassYearSemesterId(),
+                        request.getSourceId(),
+                        assignment.getCourseIds()
+                );
+                response.addSuccess(assignment.getStudentId(), enrolled);
 
-            for (Long courseId : item.getCourseIds()) {
-                Course course = courseRepo.findById(courseId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Course not found: " + courseId));
-
-                StudentCourseScoreDTO dto = new StudentCourseScoreDTO();
-                dto.setStudentId(item.getStudentId());
-                dto.setCourseId(courseId);
-                dto.setBatchClassYearSemesterId(bulkDto.getBatchClassYearSemesterId());
-                dto.setSourceId(bulkDto.getSourceId());
-
-                addCourse(dto);  // Reuse existing logic
-                totalEnrollments++;
+            } catch (Exception e) {
+                response.addFailure(assignment.getStudentId(), e.getMessage());
             }
         }
 
-        return totalEnrollments;
+        return response;
+    }
+
+    /**
+     * Enrolls one student using the EXISTING addCourse() method.
+     * If any course fails (duplicate, prerequisite, etc.), rolls back ALL enrollments for this student.
+     */
+    private int enrollStudent(
+            Long studentId,
+            Long bcysId,
+            Long sourceId,
+            List<Long> courseIds) {
+
+        User student = userRepo.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found: " + studentId));
+
+        List<StudentCourseScore> tempRecords = new ArrayList<>();
+
+        try {
+            for (Long courseId : courseIds) {
+                // Build DTO exactly like your current addCourse expects
+                StudentCourseScoreDTO dto = new StudentCourseScoreDTO();
+                dto.setStudentId(studentId);
+                dto.setCourseId(courseId);
+                dto.setBatchClassYearSemesterId(bcysId);
+                dto.setSourceId(sourceId);
+                // score and isReleased remain null/false → perfect for slip
+
+                // This uses your FULLY TESTED addCourse logic!
+                addCourse(dto);
+
+                // Optionally track what was added (for rollback if needed)
+                // Since addCourse saves directly, we query it back if needed
+                StudentCourseScore added = studentCourseScoreRepo
+                        .findByStudentAndCourseAndBatchClassYearSemester(
+                                student,
+                                courseRepo.findById(courseId).get(),
+                                batchClassYearSemesterRepo.findById(bcysId).get()
+                        ).orElseThrow();
+
+                tempRecords.add(added);
+            }
+
+            // After all courses are successfully added → update student's current BCYS
+            try {
+                StudentUpdateDTO updateDTO = new StudentUpdateDTO();
+                updateDTO.setBatchClassYearSemesterId(bcysId);  // This is the only field we care about
+
+                // Call your existing service method
+                studentDetailsService.updateStudent(
+                        studentId,
+                        updateDTO,
+                        null,   // no photo
+                        null    // no document
+                );
+            } catch (Exception updateEx) {
+                // If updating BCYS fails → rollback everything (critical consistency!)
+                if (!tempRecords.isEmpty()) {
+                    studentCourseScoreRepo.deleteAll(tempRecords);
+                }
+                throw new RuntimeException("Failed to update student's current semester after slip generation: " + updateEx.getMessage(), updateEx);
+            }
+
+            return tempRecords.size();
+
+        } catch (Exception e) {
+            // Critical: Rollback everything added so far for this student
+            if (!tempRecords.isEmpty()) {
+                studentCourseScoreRepo.deleteAll(tempRecords);
+            }
+            throw e; // rethrow so outer loop marks student as failed
+        }
     }
 
 }

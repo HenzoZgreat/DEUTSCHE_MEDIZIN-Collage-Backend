@@ -1,6 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentSlipDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentsListForSlipDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentDetailsDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentListDTO;
@@ -60,8 +60,8 @@ public class StudentController {
 
     // Get All Students for Slip Production
     @GetMapping("/slip-production")
-    public ResponseEntity<List<StudentSlipDTO>> getStudentsForSlipProduction() {
-        List<StudentSlipDTO> students = studentDetailsService.getStudentsForSlipProduction();
+    public ResponseEntity<List<StudentsListForSlipDTO>> getStudentsForSlipProduction() {
+        List<StudentsListForSlipDTO> students = studentDetailsService.getStudentsForSlipProduction();
         return ResponseEntity.ok(students);
     }
 

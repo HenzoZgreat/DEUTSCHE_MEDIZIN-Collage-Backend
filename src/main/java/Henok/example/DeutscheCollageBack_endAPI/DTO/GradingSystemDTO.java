@@ -11,6 +11,7 @@ import java.util.List;
 @AllArgsConstructor
 public class GradingSystemDTO {
 
+    private Long id;
     private String versionName;
     private Long departmentId; // Optional: ID of the department for department-specific systems; null for global
     private String remark; // Optional remark or note about the grading system
