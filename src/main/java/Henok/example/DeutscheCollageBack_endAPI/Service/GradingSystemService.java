@@ -165,6 +165,42 @@ public class GradingSystemService {
     }
 
     /**
+     * Updates the isActive status of a grading system.
+     * Ensures only one grading system is active per department (or globally if no department).
+     * - For department-specific systems: only one active per department
+     * - For global systems (no department): only one global system can be active
+     * @param id The grading system ID.
+     * @param isActive The new active status.
+     * @return The updated GradingSystemDTO.
+     * @throws ResourceNotFoundException if grading system not found.
+     */
+    public GradingSystemDTO updateActiveStatus(Long id, boolean isActive) {
+        GradingSystem entity = gradingSystemRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("GradingSystem not found with id: " + id));
+
+        // If setting to active, deactivate all other active grading systems
+        // - If this system has a department: deactivate other active systems in the same department
+        // - If this system is global (no department): deactivate other active global systems
+        if (isActive) {
+            Department department = entity.getDepartment();
+            List<GradingSystem> activeSystems = gradingSystemRepository.findActiveByDepartment(department);
+            
+            // Deactivate all other active systems (same department or global)
+            for (GradingSystem activeSystem : activeSystems) {
+                if (!activeSystem.getId().equals(id)) {
+                    activeSystem.setActive(false);
+                    gradingSystemRepository.save(activeSystem);
+                }
+            }
+        }
+
+        // Update the isActive status
+        entity.setActive(isActive);
+        GradingSystem updated = gradingSystemRepository.save(entity);
+        return toDTO(updated);
+    }
+
+    /**
      * Finds the latest grading system for a department.
      * Prefers department-specific; falls back to global (department=null).
      * @param department The department (can be null).
@@ -208,6 +244,7 @@ public class GradingSystemService {
         dto.setVersionName(entity.getVersionName());
         dto.setDepartmentId(entity.getDepartment() != null ? entity.getDepartment().getDptID() : null);
         dto.setRemark(entity.getRemark()); // Include remark in DTO
+        dto.setActive(entity.isActive()); // Include isActive status
         List<MarkIntervalDTO> intervalDTOs = entity.getIntervals().stream()
                 .map(interval -> new MarkIntervalDTO(
                         interval.getId(),

@@ -36,6 +36,9 @@ public class GradingSystem {
     @OneToMany(mappedBy = "gradingSystem", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MarkInterval> intervals = new ArrayList<>(); // List of intervals for this version
 
+    @Column(nullable = false)
+    private boolean isActive = false; // Indicates if this grading system is currently active for its department
+
     // Explanation: Entity groups intervals to version the grading scale, with optional department and remark.
     // Why: Supports department-specific grading; nullable remark for notes; effectiveDate retained but not used for resolution.
 }

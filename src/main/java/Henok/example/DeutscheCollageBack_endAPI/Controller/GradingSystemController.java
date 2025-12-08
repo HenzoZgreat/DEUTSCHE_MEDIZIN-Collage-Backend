@@ -1,6 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.GradingSystemDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.UpdateActiveStatusDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.GradingSystemService;
@@ -89,6 +90,26 @@ public class GradingSystemController {
             return ResponseEntity.noContent().build();
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
+    /**
+     * Updates the active status of a grading system.
+     * Ensures only one grading system is active per department.
+     * @param id The grading system ID.
+     * @param request The request containing the new active status.
+     * @return The updated grading system DTO or error response.
+     */
+    @PutMapping("/{id}/active-status")
+    public ResponseEntity<?> updateActiveStatus(@PathVariable Long id, @RequestBody UpdateActiveStatusDTO request) {
+        try {
+            GradingSystemDTO updated = gradingSystemService.updateActiveStatus(id, request.isActive());
+            return ResponseEntity.ok(updated);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to update active status: " + e.getMessage()));
         }
     }
 

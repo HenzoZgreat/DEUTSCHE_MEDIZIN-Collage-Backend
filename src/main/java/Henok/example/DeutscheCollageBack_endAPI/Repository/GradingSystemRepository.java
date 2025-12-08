@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import org.springframework.data.domain.Pageable;
 
-import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -23,6 +23,9 @@ public interface GradingSystemRepository extends JpaRepository<GradingSystem, Lo
 
     @Query("SELECT g FROM GradingSystem g ORDER BY g.effectiveDate DESC")
     Page<GradingSystem> findLatestByEffectiveDate(Pageable pageable);
+
+    @Query("SELECT g FROM GradingSystem g WHERE g.isActive = true AND (:department IS NULL AND g.department IS NULL OR g.department = :department)")
+    List<GradingSystem> findActiveByDepartment(@Param("department") Department department);
 
     // Explanation: Custom query to find the latest grading system for a department (or global) sorted by id DESC.
     // Why: Returns Page for proper pagination; pageable limits to top 1 result for latest system.
