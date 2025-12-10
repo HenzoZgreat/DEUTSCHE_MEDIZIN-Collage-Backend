@@ -1,6 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCopy.CourseGradeDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCopy.SimplifiedStudentCopyDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCopy.StudentCopyDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCopy.StudentCopyRequestDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
@@ -290,6 +291,81 @@ public class StudentCopyService {
         }
 
         return totalGradePoints / totalCreditHours;
+    }
+
+    /**
+     * Generates a simplified student copy (without student information) for grade reports.
+     * 
+     * @param request The request containing studentId, classYearId, and semesterId
+     * @return SimplifiedStudentCopyDTO containing only academic context, courses, and GPA info
+     * @throws ResourceNotFoundException if student, classyear, semester, or batch-class-year-semester not found
+     */
+    @Transactional(readOnly = true)
+    public SimplifiedStudentCopyDTO generateSimplifiedStudentCopy(StudentCopyRequestDTO request) {
+        // Generate full student copy first
+        StudentCopyDTO fullCopy = generateStudentCopy(request);
+        
+        // Convert to simplified version
+        SimplifiedStudentCopyDTO simplified = new SimplifiedStudentCopyDTO();
+        
+        // Academic Context
+        SimplifiedStudentCopyDTO.ClassYearInfo classYearInfo = new SimplifiedStudentCopyDTO.ClassYearInfo();
+        classYearInfo.setId(fullCopy.getClassyear().getId());
+        classYearInfo.setName(fullCopy.getClassyear().getName());
+        simplified.setClassyear(classYearInfo);
+        
+        SimplifiedStudentCopyDTO.SemesterInfo semesterInfo = new SimplifiedStudentCopyDTO.SemesterInfo();
+        semesterInfo.setId(fullCopy.getSemester().getId());
+        semesterInfo.setName(fullCopy.getSemester().getName());
+        simplified.setSemester(semesterInfo);
+        
+        if (fullCopy.getAcademicYear() != null) {
+            SimplifiedStudentCopyDTO.AcademicYearInfo academicYearInfo = new SimplifiedStudentCopyDTO.AcademicYearInfo();
+            academicYearInfo.setYearCode(fullCopy.getAcademicYear().getYearCode());
+            academicYearInfo.setYearGC(fullCopy.getAcademicYear().getYearGC());
+            simplified.setAcademicYear(academicYearInfo);
+        }
+        
+        // Course Grades
+        simplified.setCourses(fullCopy.getCourses());
+        
+        // GPA Information
+        simplified.setSemesterGPA(fullCopy.getSemesterGPA());
+        simplified.setSemesterCGPA(fullCopy.getSemesterCGPA());
+        simplified.setStatus(fullCopy.getStatus());
+        
+        return simplified;
+    }
+
+    /**
+     * Generates student copies for multiple students for the same classyear and semester.
+     * 
+     * @param studentIds List of student IDs
+     * @param classYearId ClassYear ID
+     * @param semesterId Semester ID
+     * @return List of StudentCopyDTO for each student
+     */
+    @Transactional(readOnly = true)
+    public List<StudentCopyDTO> generateStudentCopiesForMultipleStudents(
+            List<Long> studentIds, Long classYearId, String semesterId) {
+        List<StudentCopyDTO> studentCopies = new ArrayList<>();
+        
+        for (Long studentId : studentIds) {
+            try {
+                StudentCopyRequestDTO request = new StudentCopyRequestDTO();
+                request.setStudentId(studentId);
+                request.setClassYearId(classYearId);
+                request.setSemesterId(semesterId);
+                
+                StudentCopyDTO studentCopy = generateStudentCopy(request);
+                studentCopies.add(studentCopy);
+            } catch (Exception e) {
+                // Skip students that have errors, continue with others
+                continue;
+            }
+        }
+        
+        return studentCopies;
     }
 
     /**

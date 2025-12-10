@@ -17,41 +17,19 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/filters")
 public class FilterDataController {
 
-    @Autowired
-    private DepartmentRepo departmentRepository;
-
-    @Autowired
-    private BatchRepo batchRepository;
-
-    @Autowired
-    private ClassYearRepository classYearRepository;
-
-    @Autowired
-    private SemesterRepo semesterRepository;
-
-    @Autowired
-    private ProgramModalityRepository programModalityRepository;
-
-    @Autowired
-    private ProgramLevelRepository programLevelRepository;
-
-    @Autowired
-    private EnrollmentTypeRepository enrollmentTypeRepository;
-
-    @Autowired
-    private AcademicYearRepo academicYearRepository;
-
-    @Autowired
-    private ImpairmentRepository impairmentRepository;
-
-    @Autowired
-    private CourseCategoryRepo courseCategoryRepository;
-
-    @Autowired
-    private CourseSourceRepo courseSourceRepository;
-
-    @Autowired
-    private StudentStatusRepo studentStatusRepository;
+    @Autowired private DepartmentRepo departmentRepository;
+    @Autowired private BatchRepo batchRepository;
+    @Autowired private ClassYearRepository classYearRepository;
+    @Autowired private SemesterRepo semesterRepository;
+    @Autowired private ProgramModalityRepository programModalityRepository;
+    @Autowired private ProgramLevelRepository programLevelRepository;
+    @Autowired private EnrollmentTypeRepository enrollmentTypeRepository;
+    @Autowired private AcademicYearRepo academicYearRepository;
+    @Autowired private ImpairmentRepository impairmentRepository;
+    @Autowired private CourseCategoryRepo courseCategoryRepository;
+    @Autowired private CourseSourceRepo courseSourceRepository;
+    @Autowired private StudentStatusRepo studentStatusRepository;
+    @Autowired private BatchClassYearSemesterRepo batchClassYearSemesterRepository;
 
 
     /**
@@ -199,6 +177,17 @@ public class FilterDataController {
                 })
                 .collect(Collectors.toList());
         response.put("studentStatuses", studentStatuses);
+
+        // === Batch + ClassYear + Semester (BCYS) - NEWLY ADDED ===
+        List<Map<String, Object>> bcysList = batchClassYearSemesterRepository.findAll().stream()
+                .map(bcys -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", bcys.getBcysID());
+                    map.put("name", bcys.getDisplayName()); // Uses your existing getDisplayName() method
+                    return map;
+                })
+                .collect(Collectors.toList());
+        response.put("batchClassYearSemesters", bcysList);
 
         return ResponseEntity.ok(response);
 

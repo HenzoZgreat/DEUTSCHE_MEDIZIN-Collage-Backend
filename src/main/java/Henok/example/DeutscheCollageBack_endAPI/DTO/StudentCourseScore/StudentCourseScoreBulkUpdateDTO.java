@@ -18,6 +18,7 @@ public class StudentCourseScoreBulkUpdateDTO {
     public static class StudentCourseScoreUpdateRequest {
         private Long id; // Required - identifies which record to update
         private Double score; // Optional - only update if not null
+        private Long courseSourceId; // Optional - only update if not null
         private Boolean isReleased; // Optional - only update if not null
     }
 }

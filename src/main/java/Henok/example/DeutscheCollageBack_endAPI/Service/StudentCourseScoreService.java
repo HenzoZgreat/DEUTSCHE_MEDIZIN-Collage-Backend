@@ -229,6 +229,13 @@ public class StudentCourseScoreService {
                 studentCourseScore.setScore(updateRequest.getScore());
             }
 
+            // Update source only if provided (not null)
+            if(updateRequest.getCourseSourceId() != null){
+                CourseSource newSource = courseSourceRepo.findById(updateRequest.getCourseSourceId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Course source not found with id: " + updateRequest.getCourseSourceId()));
+                studentCourseScore.setCourseSource(newSource);
+            }
+
             // Update isReleased only if provided (not null)
             if (updateRequest.getIsReleased() != null) {
                 studentCourseScore.setReleased(updateRequest.getIsReleased());
