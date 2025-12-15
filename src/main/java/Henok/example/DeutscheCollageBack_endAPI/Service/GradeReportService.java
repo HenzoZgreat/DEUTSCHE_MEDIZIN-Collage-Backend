@@ -59,10 +59,12 @@ public class GradeReportService {
             }
 
             try {
+                System.out.println("Generating grade report for student ID: " + studentId);
                 GradeReportDTO gradeReport = generateGradeReportForStudent(studentId);
                 if (gradeReport != null) {
                     gradeReports.add(gradeReport);
                 }
+                System.out.println("Successfully generated grade report for student ID: " + studentId + " and\n the report: " + gradeReport);
             } catch (IllegalArgumentException e) {
                 // Skip students with invalid data, continue with others
                 continue;
@@ -74,7 +76,9 @@ public class GradeReportService {
         }
 
         GradeReportResponseDTO response = new GradeReportResponseDTO();
+        System.out.println("Setting Grade-Reports ...");
         response.setGradeReports(gradeReports);
+        System.out.println("Successfully set Grade-Reports: \n" + gradeReports);
         return response;
     }
 

@@ -2,6 +2,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Passwords.StudentChangePasswordRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Passwords.RegistrarResetStudentPasswordRequest;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.ProfileResponse;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.*;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.TeacherRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
@@ -21,6 +22,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -31,28 +33,17 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
+    @Autowired    private AuthenticationManager authenticationManager;
 
-    @Autowired
-    private JwtUtil jwtUtil;
+    @Autowired    private JwtUtil jwtUtil;
+    @Autowired    private UserService userService;
+    @Autowired    private StudentDetailService studentDetailsService;
+    @Autowired    private TeacherService teacherService;
+    @Autowired    private GeneralManagerService generalManagerService;
 
-    @Autowired
-    private UserService userService;
-
-    @Autowired
-    private StudentDetailService studentDetailsService;
-
-    @Autowired
-    private TeacherService teacherService;
-
-    @Autowired
-    private GeneralManagerService generalManagerService;
-
-    @Autowired
-    private RegistrarService registrarService;
-    @Autowired
-    private BatchClassYearSemesterRepo batchClassYearSemesterRepository;
+    @Autowired    private RegistrarService registrarService;
+    @Autowired    private BatchClassYearSemesterRepo batchClassYearSemesterRepository;
+    @Autowired    private ProfileService profileService;
 
     // Authenticates a user and generates a JWT token
     // Why: Provides secure login with username/password, returns JWT for subsequent requests
@@ -241,6 +232,24 @@ public class AuthController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("An error occurred while resetting the password: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUserProfile() {
+        try {
+            String username = SecurityContextHolder.getContext().getAuthentication().getName();
+            User user = (User) userService.loadUserByUsername(username);
+
+            ProfileResponse response = profileService.buildProfileResponse(user);
+            return ResponseEntity.ok(response);
+
+        } catch (UsernameNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse("User not found"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to load profile: " + e.getMessage()));
         }
     }
 }

@@ -53,7 +53,8 @@ public class SecurityConfig {
                                 "/api/semesters/**",
                                 "/api/filters/options").permitAll()
 
-                        .requestMatchers("/api/auth/students/me/change-password").hasRole("STUDENT")
+                        .requestMatchers("/api/auth/students/me/change-password",
+                                "/api/students/profile").hasRole("STUDENT")
 
 
                         .requestMatchers("/api/students/**",
@@ -71,10 +72,12 @@ public class SecurityConfig {
                                 "/api/mark-intervals/**",
                                 "/api/bcsy/**",
                                 "/api/applicants/**",
-                                "/registrar/students/*/reset-password").hasRole("REGISTRAR")
-                        .requestMatchers("/api/auth/register/student").hasAnyRole("REGISTRAR")
+                                "/registrar/students/*/reset-password",
+                                "/api/auth/register/student").hasRole("REGISTRAR")
+                        .requestMatchers("/api/auth/register/teacher").hasAnyRole("DEPARTMENT_HEAD")
                         .requestMatchers("/api/auth/register/registrar").hasAnyRole("GENERAL_MANAGER", "VICE_DEAN")
-                        .requestMatchers("/api/auth/register/general-manager").hasAnyRole("GENERAL_MANAGER", "STUDENT")
+                        .requestMatchers("/api/auth/register/general-manager").hasAnyRole("GENERAL_MANAGER")
+                        .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);

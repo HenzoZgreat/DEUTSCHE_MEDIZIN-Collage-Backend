@@ -64,13 +64,16 @@ public class StudentCopyService {
         // 1. Get student details
         StudentDetails student = studentDetailsRepository.findById(request.getStudentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + request.getStudentId()));
+        System.out.println("passed StudentDetails");
 
         // 2. Get requested classyear and semester
         ClassYear classYear = classYearRepository.findById(request.getClassYearId())
                 .orElseThrow(() -> new ResourceNotFoundException("ClassYear not found with id: " + request.getClassYearId()));
+        System.out.println("passed ClassYear");
 
         Semester semester = semesterRepo.findById(request.getSemesterId())
                 .orElseThrow(() -> new ResourceNotFoundException("Semester not found with id: " + request.getSemesterId()));
+        System.out.println("passed Semester");
 
         // 3. Find BatchClassYearSemester matching student's batch + requested classyear + requested semester
         BatchClassYearSemester batchClassYearSemester = batchClassYearSemesterRepo
@@ -85,19 +88,26 @@ public class StudentCopyService {
                         ", classYear: " + classYear.getClassYear() +
                         ", semester: " + semester.getAcademicPeriodCode()
                 ));
+        System.out.println("passed BCYS");
 
         // 4. Get all courses for this student and batchClassYearSemester
         List<StudentCourseScore> courseScores = studentCourseScoreRepo
                 .findByStudentAndBatchClassYearSemester(student.getUser(), batchClassYearSemester);
 
+        System.out.println("all courses found successfully : ");
+
         // 5. Get grading system for student's department
         Department department = student.getDepartmentEnrolled();
         GradingSystem gradingSystem = gradingSystemService.findApplicableGradingSystem(department);
 
+        System.out.println("Grading system choosen : ");
+
         // 6. Build course grades list
+        System.out.println("Iterating through the courses ... ");
         List<CourseGradeDTO> courseGrades = new ArrayList<>();
         for (StudentCourseScore score : courseScores) {
             if (score.getScore() == null || !score.isReleased()) {
+                System.out.println("\t" + score.getCourse().getCTitle() + " --------- null or not released");
                 continue; // Skip courses without scores or not released
             }
 
@@ -124,13 +134,19 @@ public class StudentCopyService {
             courseGrade.setGradePoint(gradePoint);
 
             courseGrades.add(courseGrade);
+
+            System.out.println("\t" + score.getCourse().getCTitle() + " ------- " + score.getScore() + " " + letterGrade);
         }
 
         // 7. Calculate Semester GPA
+        System.out.println("Calculating Semester Gpa ... ");
         double semesterGPA = calculateGPA(courseGrades);
+        System.out.println(semesterGPA);
 
         // 8. Calculate Semester CGPA (cumulative from enrollment until requested semester)
+        System.out.println("Calulating CGPA ... ");
         double semesterCGPA = calculateCGPA(student.getUser(), batchClassYearSemester, gradingSystem);
+        System.out.println(semesterCGPA);
 
         // 9. Determine status
         String status = semesterGPA >= MINIMUM_PASSING_GPA ? "PASSED" : "FAILED";
@@ -346,8 +362,7 @@ public class StudentCopyService {
      * @return List of StudentCopyDTO for each student
      */
     @Transactional(readOnly = true)
-    public List<StudentCopyDTO> generateStudentCopiesForMultipleStudents(
-            List<Long> studentIds, Long classYearId, String semesterId) {
+    public List<StudentCopyDTO> generateStudentCopiesForMultipleStudents(List<Long> studentIds, Long classYearId, String semesterId) {
         List<StudentCopyDTO> studentCopies = new ArrayList<>();
         
         for (Long studentId : studentIds) {

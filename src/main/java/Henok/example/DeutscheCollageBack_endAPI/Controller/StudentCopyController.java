@@ -32,6 +32,7 @@ public class StudentCopyController {
     public ResponseEntity<?> generateStudentCopies(@RequestBody StudentCopyBulkRequestDTO request) {
         try {
             // Validate request
+            System.out.println("Received request: " + request);
             if (request == null) {
                 return ResponseEntity.badRequest()
                         .body(new ErrorResponse("Request cannot be null"));
@@ -49,6 +50,7 @@ public class StudentCopyController {
                         .body(new ErrorResponse("Student IDs list cannot be null or empty"));
             }
 
+            System.out.println("right Before service call with student IDs: " + request.getStudentIds());
             List<StudentCopyDTO> studentCopies = studentCopyService.generateStudentCopiesForMultipleStudents(
                     request.getStudentIds(),
                     request.getClassYearId(),
@@ -59,10 +61,7 @@ public class StudentCopyController {
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ErrorResponse(e.getMessage()));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new ErrorResponse(e.getMessage()));
-        } catch (IllegalStateException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {

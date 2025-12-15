@@ -1,17 +1,23 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Student.StudentProfileResponse;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentsListForSlipDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentDetailsDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentListDTO;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.StudentDetailService;
+import Henok.example.DeutscheCollageBack_endAPI.Service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,6 +31,9 @@ public class StudentController {
 
     @Autowired
     private StudentDetailService studentDetailsService;
+    @Autowired
+    private UserService userService;
+
 
     // Retrieves all active students as DTOs
     // Why: For admin/registrar to view all active student records as DTOs
@@ -55,6 +64,42 @@ public class StudentController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Failed to retrieve student: " + e.getMessage()));
+        }
+    }
+
+    // ------------[Get Authenticated Student's Full Profile] --------
+    @GetMapping("/profile")
+    public ResponseEntity<?> getMyStudentProfile() {
+        try {
+            // Extract username from JWT token (authenticated user)
+            String username = SecurityContextHolder.getContext().getAuthentication().getName();
+
+            // Load the User entity first
+            User user = (User) userService.loadUserByUsername(username);
+
+            // Ensure the user has STUDENT role - extra safety layer
+            if (user.getRole() != Role.STUDENT) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of(
+                                "error", "Access denied",
+                                "message", "This endpoint is only for students"
+                        ));
+            }
+
+            // Delegate to service to build full student profile DTO
+            StudentProfileResponse response = studentDetailsService.getStudentProfileByUser(user);
+
+            return ResponseEntity.ok(response);
+
+        } catch (UsernameNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "User not found"));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Student profile not found"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to load student profile"));
         }
     }
 

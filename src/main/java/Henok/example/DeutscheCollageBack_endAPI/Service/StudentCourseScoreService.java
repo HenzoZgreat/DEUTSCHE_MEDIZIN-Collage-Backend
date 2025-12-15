@@ -291,7 +291,7 @@ public class StudentCourseScoreService {
             Long sourceId,
             List<Long> courseIds) {
 
-        User student = userRepo.findById(studentId)
+        StudentDetails student = studentDetailsRepository.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found: " + studentId));
 
         List<StudentCourseScore> tempRecords = new ArrayList<>();
@@ -300,7 +300,7 @@ public class StudentCourseScoreService {
             for (Long courseId : courseIds) {
                 // Build DTO exactly like your current addCourse expects
                 StudentCourseScoreDTO dto = new StudentCourseScoreDTO();
-                dto.setStudentId(studentId);
+                dto.setStudentId(student.getUser().getId());
                 dto.setCourseId(courseId);
                 dto.setBatchClassYearSemesterId(bcysId);
                 dto.setSourceId(sourceId);
@@ -313,7 +313,7 @@ public class StudentCourseScoreService {
                 // Since addCourse saves directly, we query it back if needed
                 StudentCourseScore added = studentCourseScoreRepo
                         .findByStudentAndCourseAndBatchClassYearSemester(
-                                student,
+                                student.getUser(),
                                 courseRepo.findById(courseId).get(),
                                 batchClassYearSemesterRepo.findById(bcysId).get()
                         ).orElseThrow();

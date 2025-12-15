@@ -2,6 +2,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Service;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.StudentRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Student.StudentProfileResponse;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentsListForSlipDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentDetailsDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentUpdateDTO;
@@ -21,6 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -159,7 +161,7 @@ public class StudentDetailService {
     }
 
     // Retrieves a student by ID as a DTO, ensuring they are active
-// Why: Returns DTO for detailed views, includes all fields, respects enabled flag
+    // Why: Returns DTO for detailed views, includes all fields, respects enabled flag
     public StudentDetailsDTO getStudentById(Long id) {
         try {
             StudentDetails student = studentDetailsRepository.findById(id)
@@ -224,6 +226,70 @@ public class StudentDetailService {
                 })
                 .sorted(Comparator.comparing(StudentsListForSlipDTO::getFullNameENG))
                 .collect(Collectors.toList());
+    }
+
+    // Returns a complete student profile DTO for the given authenticated user
+    // Why: Prevents direct exposure of StudentDetails entity, allows selective field inclusion
+    // Throws ResourceNotFoundException if no StudentDetails exists for this user
+    @Transactional(readOnly = true)
+    public StudentProfileResponse getStudentProfileByUser(User user) {
+        // Fetch the linked StudentDetails - throw if not found
+        StudentDetails details = studentDetailsRepository.findByUser(user)
+                .orElseThrow(() -> new ResourceNotFoundException("Student profile not found for user: " + user.getUsername()));
+
+        // Build full names
+        String fullNameEnglish = String.join(" ",
+                details.getFirstNameENG(),
+                details.getFatherNameENG(),
+                details.getGrandfatherNameENG()).trim();
+
+        String fullNameAmharic = String.join(" ",
+                details.getFirstNameAMH(),
+                details.getFatherNameAMH(),
+                details.getGrandfatherNameAMH()).trim();
+
+        // Emergency contact full name
+        String contactFullNameENG = String.join(" ",
+                details.getContactPersonFirstNameENG(),
+                details.getContactPersonLastNameENG()).trim();
+
+        return StudentProfileResponse.builder()
+                .userId(user.getId())
+                .username(user.getUsername())
+                .fullNameEnglish(fullNameEnglish)
+                .fullNameAmharic(fullNameAmharic)
+                .gender(details.getGender())                          // enum - kept as is
+                .age(details.getAge())
+                .phoneNumber(details.getPhoneNumber())
+                .email(details.getEmail())
+                .dateOfBirthGC(details.getDateOfBirthGC())
+                .dateOfBirthEC(details.getDateOfBirthEC())
+                .maritalStatus(details.getMaritalStatus())            // enum - kept as is
+                .photoBase64(details.getStudentPhoto() != null
+                        ? Base64.getEncoder().encodeToString(details.getStudentPhoto())
+                        : null)
+                // Address info (nested directly inside DTO)
+                .placeOfBirthRegion(details.getPlaceOfBirthRegion().getRegion())
+                .placeOfBirthZone(details.getPlaceOfBirthZone().getZone())
+                .placeOfBirthWoreda(details.getPlaceOfBirthWoreda().getWoreda())
+                .currentAddressRegion(details.getCurrentAddressRegion().getRegion())
+                .currentAddressZone(details.getCurrentAddressZone().getZone())
+                .currentAddressWoreda(details.getCurrentAddressWoreda().getWoreda())
+                // Only names for related entities
+                .impairment(details.getImpairment() != null ? details.getImpairment().getImpairment() : null)
+                .schoolBackground(details.getSchoolBackground().getBackground())
+                .contactPersonFullNameENG(contactFullNameENG)
+                .contactPersonPhoneNumber(details.getContactPersonPhoneNumber())
+                .contactPersonRelation(details.getContactPersonRelation())
+                .dateEnrolledGC(details.getDateEnrolledGC())
+                .academicYear(details.getAcademicYear() != null ? details.getAcademicYear().getYearCode() : null)
+                .batchClassYearSemester(details.getBatchClassYearSemester().getDisplayName()) // assuming you have a display field
+                .studentRecentStatus(details.getStudentRecentStatus().getStatusName())
+                .departmentEnrolled(details.getDepartmentEnrolled().getDeptName())
+                .programModality(details.getProgramModality().getModality())
+                .documentStatus(details.getDocumentStatus())          // enum - kept as is
+                .grade12Result(details.getGrade12Result())
+                .build();
     }
 
 

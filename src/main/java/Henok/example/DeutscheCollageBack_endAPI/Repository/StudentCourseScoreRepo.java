@@ -23,11 +23,18 @@ public interface StudentCourseScoreRepo extends JpaRepository<StudentCourseScore
     
     /**
      * Finds all student course scores for a specific student and batch-class-year-semester.
+     * Uses JOIN FETCH to eagerly load necessary relationships and avoid circular reference issues.
      * @param student The student
      * @param batchClassYearSemester The batch-class-year-semester
      * @return List of StudentCourseScore
      */
-    List<StudentCourseScore> findByStudentAndBatchClassYearSemester(User student, BatchClassYearSemester batchClassYearSemester);
+    @Query("SELECT DISTINCT scs FROM StudentCourseScore scs " +
+           "JOIN FETCH scs.course " +
+           "JOIN FETCH scs.batchClassYearSemester bcys " +
+           "JOIN FETCH bcys.classYear " +
+           "JOIN FETCH bcys.semester " +
+           "WHERE scs.student = :student AND scs.batchClassYearSemester = :batchClassYearSemester")
+    List<StudentCourseScore> findByStudentAndBatchClassYearSemester(@Param("student") User student, @Param("batchClassYearSemester") BatchClassYearSemester batchClassYearSemester);
     
     /**
      * Finds all released student course scores for a specific student, ordered by class start date.
