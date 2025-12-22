@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Security;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -19,6 +20,9 @@ import java.util.Arrays;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    @Autowired
+    private CustomAccessDeniedHandler customAccessDeniedHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtRequestFilter jwtRequestFilter) throws Exception {
@@ -53,8 +57,7 @@ public class SecurityConfig {
                                 "/api/semesters/**",
                                 "/api/filters/options").permitAll()
 
-                        .requestMatchers("/api/auth/students/me/change-password",
-                                "/api/students/profile").hasRole("STUDENT")
+                        .requestMatchers("/api/students/profile").hasRole("STUDENT")
 
 
                         .requestMatchers("/api/students/**",
@@ -72,13 +75,45 @@ public class SecurityConfig {
                                 "/api/mark-intervals/**",
                                 "/api/bcsy/**",
                                 "/api/applicants/**",
-                                "/registrar/students/*/reset-password",
+                                "/api/auth/registrar/students/*/reset-password",
                                 "/api/auth/register/student").hasRole("REGISTRAR")
-                        .requestMatchers("/api/auth/register/teacher").hasAnyRole("DEPARTMENT_HEAD")
+                        .requestMatchers(
+                                "/api/courses/**").hasAnyRole("DEPARTMENT_HEAD", "REGISTRAR")
                         .requestMatchers("/api/auth/register/registrar").hasAnyRole("GENERAL_MANAGER", "VICE_DEAN")
                         .requestMatchers("/api/auth/register/general-manager").hasAnyRole("GENERAL_MANAGER")
-                        .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
+                        
+                        // Department Head endpoints
+                        .requestMatchers("/api/auth/register/teacher",
+                                "/api/auth/head/teachers/*/reset-password",
+                                "/api/department-heads/profile",
+                                "/api/department-heads/dashboard",
+                                "/api/department-heads/profile/photo",
+                                "/api/department-heads/profile/document",
+                                "/api/department-heads/teachers",
+                                "/api/department-heads/my-courses",
+                                "/api/department-heads/assessments/scores",
+                                "/api/department-heads/assessments/*/approve").hasRole("DEPARTMENT_HEAD")
+                        .requestMatchers(HttpMethod.PUT,"/api/teachers/**").hasRole("DEPARTMENT_HEAD")
+                        .requestMatchers(HttpMethod.DELETE,"/api/teachers/**").hasRole("DEPARTMENT_HEAD")
+                        
+                        
+                        // Teacher endpoints
+                        .requestMatchers("/api/teachers/profile",
+                                       "/api/teachers/my-students",
+                                       "/api/teachers/courses/*/students",
+                                       "/api/teachers/my-courses",
+                                       "/api/teachers/dashboard",
+                                       "/api/assessments/**", 
+                                       "/api/student-assessments/**").hasRole("TEACHER")
+
+                        .requestMatchers(HttpMethod.GET, 
+                                "/api/auth/me", 
+                                "/api/auth/me/change-password").authenticated()
                         .anyRequest().authenticated()
+                )
+                .exceptionHandling(exception -> exception
+                        .accessDeniedHandler(customAccessDeniedHandler)  // ← This is key
+//                        .authenticationEntryPoint(new CustomAuthenticationEntryPoint()) // optional: for unauthenticated
                 )
                 .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 

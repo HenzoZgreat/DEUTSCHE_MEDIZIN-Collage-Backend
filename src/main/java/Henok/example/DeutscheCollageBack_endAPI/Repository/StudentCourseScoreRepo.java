@@ -1,9 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Repository;
 
-import Henok.example.DeutscheCollageBack_endAPI.Entity.BatchClassYearSemester;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.Course;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentCourseScore;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
+import Henok.example.DeutscheCollageBack_endAPI.Service.TeacherService;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface StudentCourseScoreRepo extends JpaRepository<StudentCourseScore, Long> {
@@ -20,25 +19,27 @@ public interface StudentCourseScoreRepo extends JpaRepository<StudentCourseScore
     Optional<StudentCourseScore> findByStudentAndCourseAndBatchClassYearSemester(User student, Course course, BatchClassYearSemester batchClassYearSemester);
 
     List<StudentCourseScore> findByStudentAndIsReleasedTrue(User student);
-    
+
     /**
      * Finds all student course scores for a specific student and batch-class-year-semester.
      * Uses JOIN FETCH to eagerly load necessary relationships and avoid circular reference issues.
-     * @param student The student
+     *
+     * @param student                The student
      * @param batchClassYearSemester The batch-class-year-semester
      * @return List of StudentCourseScore
      */
     @Query("SELECT DISTINCT scs FROM StudentCourseScore scs " +
-           "JOIN FETCH scs.course " +
-           "JOIN FETCH scs.batchClassYearSemester bcys " +
-           "JOIN FETCH bcys.classYear " +
-           "JOIN FETCH bcys.semester " +
-           "WHERE scs.student = :student AND scs.batchClassYearSemester = :batchClassYearSemester")
+            "JOIN FETCH scs.course " +
+            "JOIN FETCH scs.batchClassYearSemester bcys " +
+            "JOIN FETCH bcys.classYear " +
+            "JOIN FETCH bcys.semester " +
+            "WHERE scs.student = :student AND scs.batchClassYearSemester = :batchClassYearSemester")
     List<StudentCourseScore> findByStudentAndBatchClassYearSemester(@Param("student") User student, @Param("batchClassYearSemester") BatchClassYearSemester batchClassYearSemester);
-    
+
     /**
      * Finds all released student course scores for a specific student, ordered by class start date.
      * Used for CGPA calculation (all courses from enrollment until requested semester).
+     *
      * @param student The student
      * @return List of released StudentCourseScore ordered by classStart_GC
      */
@@ -46,4 +47,39 @@ public interface StudentCourseScoreRepo extends JpaRepository<StudentCourseScore
             "WHERE scs.student = :student AND scs.isReleased = true " +
             "ORDER BY scs.batchClassYearSemester.classStart_GC ASC")
     List<StudentCourseScore> findByStudentAndIsReleasedTrueOrderedByClassStart(@Param("student") User student);
+
+    // Custom query to find enrollments for a set of (course, bcys) pairs
+    // Why: Avoids N+1 and efficiently gets all students taking teacher's courses
+    @Query("""
+            SELECT scs FROM StudentCourseScore scs
+            WHERE (scs.course, scs.batchClassYearSemester) IN :pairs
+            """)
+    List<StudentCourseScore> findByCourseAndBatchClassYearSemesterIn(@Param("pairs") Set<TeacherService.CourseBcysPair> pairs);
+
+    // Simpler and safer: find by teacher (via TeacherCourseAssignment IDs)
+    @Query("SELECT scs FROM StudentCourseScore scs " +
+            "JOIN TeacherCourseAssignment tca ON " +
+            "scs.course = tca.course AND scs.batchClassYearSemester = tca.bcys " +
+            "WHERE tca.id IN :assignmentIds")
+    List<StudentCourseScore> findByTeacherAssignmentIds(@Param("assignmentIds") List<Long> assignmentIds);
+
+    //============================== Teacher dashboard related queries ==============================//
+    // Counts distinct students for a teacher's assignments
+    // Why: Joins to TeacherCourseAssignment to get all enrollments for the teacher's courses/BCYS
+    // Returns 0 if no matches
+    @Query("SELECT COUNT(DISTINCT scs.student) FROM StudentCourseScore scs " +
+            "JOIN TeacherCourseAssignment tca ON " +
+            "scs.course = tca.course AND scs.batchClassYearSemester = tca.bcys " +
+            "WHERE tca.teacher = :teacher")
+    int countDistinctStudentsByTeacher(TeacherDetail teacher);
+
+    // Counts students per specific course + BCYS
+    // Why: For per-course student count in dashboard
+    // Returns 0 if no matches
+    long countByCourseAndBatchClassYearSemester(Course course, BatchClassYearSemester bcys);
+
+    // Finds all enrollments for a specific course + BCYS combination
+    // Why: Used to get the exact student list for one course the teacher is teaching
+    List<StudentCourseScore> findByCourseAndBatchClassYearSemester(Course course, BatchClassYearSemester bcys);
+
 }

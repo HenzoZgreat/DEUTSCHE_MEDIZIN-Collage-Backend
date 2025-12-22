@@ -111,6 +111,24 @@ public class UserService implements UserDetailsService {
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
     }
+
+
+    // Resets password for a specific user (admin action)
+    // Why: Allows privileged users to reset without old password
+    // Security: Encodes new password, optional role check
+    @Transactional
+    public void resetUserPassword(Long userId, String newPassword, Role expectedRole) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+
+        // Optional role validation
+        if (expectedRole != null && user.getRole() != expectedRole) {
+            throw new IllegalArgumentException("Can only reset passwords for " + expectedRole.name().toLowerCase() + "s");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
 }
 
 

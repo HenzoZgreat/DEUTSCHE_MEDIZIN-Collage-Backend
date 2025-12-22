@@ -1,16 +1,18 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.Passwords.StudentChangePasswordRequest;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.Passwords.RegistrarResetStudentPasswordRequest;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Passwords.ResetPasswordRequest_OldPasswordNeeded;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Passwords.ResetPasswordRequest_NewPasswordOnly;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.ProfileResponse;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.*;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.TeacherRegisterRequest;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.TeacherRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.BatchClassYearSemesterRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Security.JwtUtil;
 import Henok.example.DeutscheCollageBack_endAPI.Service.*;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -40,10 +42,13 @@ public class AuthController {
     @Autowired    private StudentDetailService studentDetailsService;
     @Autowired    private TeacherService teacherService;
     @Autowired    private GeneralManagerService generalManagerService;
-
+    @Autowired    private DepartmentHeadService departmentHeadService;
     @Autowired    private RegistrarService registrarService;
+    @Autowired    private DeanViceDeanService deanViceDeanService;
+
     @Autowired    private BatchClassYearSemesterRepo batchClassYearSemesterRepository;
     @Autowired    private ProfileService profileService;
+
 
     // Authenticates a user and generates a JWT token
     // Why: Provides secure login with username/password, returns JWT for subsequent requests
@@ -137,6 +142,107 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.CREATED).body(saved.getId());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An unexpected error occurred during registration"));
+        }
+    }
+
+
+    // POST /api/department-heads/register
+    // Why: Secured endpoint for admin/registrar to create a new department head account + details.
+    @PostMapping(value = "/register/department-head", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> registerDepartmentHead(
+            @Valid @RequestPart("data") DepartmentHeadRegistrationRequest request,
+            @RequestPart(value = "photo", required = false) MultipartFile photo,
+            @RequestPart(value = "documents", required = false) MultipartFile documents) {
+
+        try {
+            // Attach files to DTO for service processing
+            request.setPhoto(photo);
+            request.setDocuments(documents);
+
+            // Service now returns only the minimal info we need
+            Map<String, Object> minimalResponse = departmentHeadService.registerDepartmentHead(request);
+
+            // Simple success response without wrapper
+            return ResponseEntity
+                    .status(HttpStatus.CREATED)
+                    .body(minimalResponse);
+
+
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+
+        } catch (Exception e) {
+            // Catch any unexpected errors (e.g., file read issues, DB constraints)
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to register department head: " + e.getMessage()));
+        }
+    }
+
+    // Registers a new Vice-Dean with full personal details, photo, and supporting documents.
+    // Creates a User with ROLE_VICE_DEAN and links it to DeanViceDeanDetails.
+    @PostMapping(value = "/register/vice-dean", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> registerViceDean(
+            @RequestPart("data") @Valid DeanViceDeanRegisterRequest request,
+            @RequestPart(name = "photograph", required = false) MultipartFile photograph,
+            @RequestPart(name = "document", required = false) MultipartFile document) {
+
+        try {
+            Long detailsId = deanViceDeanService.registerDeanViceDean(request, Role.VICE_DEAN, photograph, document);
+
+            User savedUser = deanViceDeanService.getUserByDetailsId(detailsId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Vice-Dean registered successfully");
+            response.put("userId", savedUser.getId());
+            response.put("role", savedUser.getRole().name());
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "An unexpected error occurred during registration");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
+
+    // Registers a new Dean with full personal details, photo, and supporting documents.
+    // Creates a User with ROLE_DEAN and links it to DeanViceDeanDetails.
+    @PostMapping(value = "/register/dean", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> registerDean(
+            @RequestPart("data") @Valid DeanViceDeanRegisterRequest request,
+            @RequestPart(name = "photograph", required = false) MultipartFile photograph,
+            @RequestPart(name = "document", required = false) MultipartFile document) {
+
+        try {
+            Long detailsId = deanViceDeanService.registerDeanViceDean(request, Role.DEAN, photograph, document);
+
+            // Fetch the saved user to get userId (since we need the User entity's ID)
+            User savedUser = deanViceDeanService.getUserByDetailsId(detailsId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Dean registered successfully");
+            response.put("userId", savedUser.getId());
+            response.put("role", savedUser.getRole().name());
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "An unexpected error occurred during registration");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
     }
 
@@ -193,8 +299,8 @@ public class AuthController {
     // Allows authenticated students to change their own password
     // Why: Provides self-service password update for students, requiring old password verification for security
     // Security measures: Requires JWT authentication, verifies old password using PasswordEncoder, encodes new password
-    @PostMapping("students/me/change-password")
-    public ResponseEntity<?> changePassword(@RequestBody StudentChangePasswordRequest request) {
+    @PostMapping("me/change-password")
+    public ResponseEntity<?> changePassword(@RequestBody ResetPasswordRequest_OldPasswordNeeded request) {
         try {
             String username = SecurityContextHolder.getContext().getAuthentication().getName();
             userService.changeSelfPassword(username, request.getOldPassword(), request.getNewPassword());
@@ -217,12 +323,39 @@ public class AuthController {
     // Why: Enables administrative password reset for students, restricted to registrars
     // Security measures: Requires JWT authentication with REGISTRAR role, verifies target user is a student, encodes new password
     @PostMapping("/registrar/students/{studentUserId}/reset-password")
-    public ResponseEntity<?> resetStudentPassword(@PathVariable Long studentUserId, @RequestBody RegistrarResetStudentPasswordRequest request) {
+    public ResponseEntity<?> resetStudentPassword(@PathVariable Long studentUserId, @RequestBody ResetPasswordRequest_NewPasswordOnly request) {
         try {
             userService.resetStudentPassword(studentUserId, request.getNewPassword());
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Student password reset successfully");
             return ResponseEntity.ok(response);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse("User not found"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An error occurred while resetting the password: " + e.getMessage()));
+        }
+    }
+
+
+    @PostMapping("/head/teachers/{teacherUserId}/reset-password")
+    public ResponseEntity<?> resetTeacherPassword(@PathVariable Long teacherUserId, @RequestBody ResetPasswordRequest_NewPasswordOnly request) {
+        try {
+            // Validate request
+            if (request.getNewPassword() == null || request.getNewPassword().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ErrorResponse("New password cannot be empty"));
+            }
+
+            // Delegate to service for secure admin reset
+            userService.resetUserPassword(teacherUserId, request.getNewPassword(), Role.TEACHER);
+
+            return ResponseEntity.ok(Map.of("message", "Teacher password reset successfully"));
+
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ErrorResponse("User not found"));
@@ -250,6 +383,37 @@ public class AuthController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Failed to load profile: " + e.getMessage()));
+        }
+    }
+    @GetMapping("/me/document")
+    public ResponseEntity<?> getMyDocument() {
+        try {
+            String username = SecurityContextHolder.getContext().getAuthentication().getName();
+            User user = (User) userService.loadUserByUsername(username);
+
+            byte[] document = profileService.getMyDocument(user);
+
+            if (document == null || document.length == 0) {
+                return ResponseEntity.noContent().build();
+            }
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF) // Default to PDF, but client should handle based on context
+                    .header("Content-Disposition", "attachment; filename=\"document.pdf\"")
+                    .body(document);
+
+        } catch (UsernameNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse("User not found"));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to retrieve document: " + e.getMessage()));
         }
     }
 }

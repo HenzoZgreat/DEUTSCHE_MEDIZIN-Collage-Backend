@@ -1,5 +1,6 @@
-package Henok.example.DeutscheCollageBack_endAPI.DTO;
+package Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.AssignTeacherCoursesRequest;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Gender;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.MaritalStatus;
 import lombok.AllArgsConstructor;

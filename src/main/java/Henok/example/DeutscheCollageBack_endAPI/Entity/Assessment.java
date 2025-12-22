@@ -30,14 +30,22 @@ public class Assessment {
     private Double maxScore;
 
     @Column(name = "due_date")
-    private LocalDateTime dueDate;
+    private LocalDateTime dueDate;          // Optional
 
     @Column(name = "description", columnDefinition = "TEXT")
-    private String description;
+    private String description;             // Optional
 
     @Column(name = "ass_status", nullable = false)
     @Enumerated(EnumType.STRING)
     private AssessmentStatus assStatus = AssessmentStatus.PENDING;
+
+    @Column(name = "head_approval", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private AssessmentStatus headApproval = AssessmentStatus.PENDING;
+
+    @Column(name = "registrar_approval", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private AssessmentStatus registrarApproval = AssessmentStatus.PENDING;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

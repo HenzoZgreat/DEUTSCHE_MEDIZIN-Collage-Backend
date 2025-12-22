@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Repository;
 
+import Henok.example.DeutscheCollageBack_endAPI.Entity.BatchClassYearSemester;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Department;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentDetails;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
@@ -58,5 +59,13 @@ public interface StudentDetailsRepository extends JpaRepository<StudentDetails, 
     AND s.departmentEnrolled IS NOT NULL
     """)
     List<Department> findDistinctDepartmentsByStudentIds(@Param("studentIds") List<Long> studentIds);
+
+    // Example: find students in same batch and department as the course
+    @Query("SELECT s FROM StudentDetails s " +
+            "WHERE s.batchClassYearSemester = :bcys " +
+            "AND s.departmentEnrolled = :department")
+    List<StudentDetails> findByBatchClassYearSemesterAndDepartmentEnrolled(
+            @Param("bcys") BatchClassYearSemester bcys,
+            @Param("department") Department department);
 
 }

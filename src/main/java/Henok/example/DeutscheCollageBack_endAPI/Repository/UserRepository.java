@@ -18,4 +18,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // Check if user exists by ID
     boolean existsById(Long id);
 
+    // Checks if a username is already taken during registration/update.
+    boolean existsByUsername(String username);
+
+    boolean existsByUsernameAndIdNot(String username, Long id);
 }
