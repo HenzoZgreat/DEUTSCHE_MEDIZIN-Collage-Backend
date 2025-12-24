@@ -2,7 +2,6 @@ package Henok.example.DeutscheCollageBack_endAPI.DTO.DeanAndVice_Dean;
 
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Gender;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
-import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDate;

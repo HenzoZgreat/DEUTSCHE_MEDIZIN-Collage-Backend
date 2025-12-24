@@ -18,6 +18,7 @@ public class AssessmentScoresResponse {
     private String message = "Student scores retrieved successfully";
 
     private Long teacherCourseAssignmentId;
+    private String teacherName;
 
     private String courseCode;
 
@@ -46,6 +47,8 @@ public class AssessmentScoresResponse {
         private Double maxScore;
         private LocalDateTime dueDate;
         private AssessmentStatus status;
+        private AssessmentStatus headApproval;
+        private AssessmentStatus registrarApproval;
     }
 
     @Data

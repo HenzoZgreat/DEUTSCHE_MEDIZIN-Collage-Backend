@@ -1,10 +1,13 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.GeneralManager.GeneralManagerDetailDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.GeneralManager.GeneralManagerUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.GeneralManagerRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.GeneralManagerDetail;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
+import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.GeneralManagerDetailRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
@@ -19,12 +22,11 @@ public class GeneralManagerService {
 
     @Autowired
     private UserService userService;
-
     @Autowired
     private GeneralManagerDetailRepository generalManagerDetailRepository;
-
     @Autowired
     private EntityManager entityManager;
+
 
     @Transactional
     public GeneralManagerDetail registerGeneralManager(GeneralManagerRegisterRequest request, MultipartFile nationalIdImage, MultipartFile photograph) {
@@ -104,5 +106,72 @@ public class GeneralManagerService {
         entityManager.clear();
 
         return generalManagerDetailRepository.save(generalManagerDetail);
+    }
+
+    // Retrieves the profile of the currently authenticated general manager.
+    // Throws ResourceNotFoundException if no detail record exists for the user.
+    public GeneralManagerDetailDTO getProfileByUser(User user) {
+        GeneralManagerDetail detail = generalManagerDetailRepository.findByUser(user)
+                .orElseThrow(() -> new ResourceNotFoundException("General manager profile not found"));
+
+        return mapToDTO(detail);
+    }
+
+    // Performs a partial update on the general manager profile.
+    // Only fields that are non-null in the updateDTO will be updated.
+    // Why partial: Allows clients to update individual fields without sending the entire object.
+    // Validation is handled by @Valid on the DTO fields.
+    // Throws ResourceNotFoundException if profile does not exist.
+    public GeneralManagerDetailDTO updateProfile(User user, GeneralManagerUpdateDTO updateDTO) {
+        GeneralManagerDetail detail = generalManagerDetailRepository.findByUser(user)
+                .orElseThrow(() -> new ResourceNotFoundException("General manager profile not found"));
+
+        // Partial update logic – only apply changes for non-null fields
+        if (updateDTO.getFirstNameAmharic() != null) {
+            detail.setFirstNameAmharic(updateDTO.getFirstNameAmharic());
+        }
+        if (updateDTO.getLastNameAmharic() != null) {
+            detail.setLastNameAmharic(updateDTO.getLastNameAmharic());
+        }
+        if (updateDTO.getFirstNameEnglish() != null) {
+            detail.setFirstNameEnglish(updateDTO.getFirstNameEnglish());
+        }
+        if (updateDTO.getLastNameEnglish() != null) {
+            detail.setLastNameEnglish(updateDTO.getLastNameEnglish());
+        }
+        if (updateDTO.getEmail() != null) {
+            detail.setEmail(updateDTO.getEmail());
+        }
+        if (updateDTO.getPhoneNumber() != null) {
+            detail.setPhoneNumber(updateDTO.getPhoneNumber());
+        }
+        if (updateDTO.getNationalIdImage() != null) {
+            detail.setNationalIdImage(updateDTO.getNationalIdImage());
+        }
+        if (updateDTO.getPhotograph() != null) {
+            detail.setPhotograph(updateDTO.getPhotograph());
+        }
+
+        // Save updated entity (transactional, so changes are persisted)
+        GeneralManagerDetail updated = generalManagerDetailRepository.save(detail);
+
+        return mapToDTO(updated);
+    }
+
+    // Helper method to map entity to DTO.
+    // Why: Prevents exposing entity internals and blob data if not needed.
+    private GeneralManagerDetailDTO mapToDTO(GeneralManagerDetail detail) {
+        return GeneralManagerDetailDTO.builder()
+                .id(detail.getId())
+                .firstNameAmharic(detail.getFirstNameAmharic())
+                .lastNameAmharic(detail.getLastNameAmharic())
+                .firstNameEnglish(detail.getFirstNameEnglish())
+                .lastNameEnglish(detail.getLastNameEnglish())
+                .email(detail.getEmail())
+                .phoneNumber(detail.getPhoneNumber())
+                // Blob fields are returned only if client needs them (e.g., for display)
+                .nationalIdImage(detail.getNationalIdImage())
+                .photograph(detail.getPhotograph())
+                .build();
     }
 }

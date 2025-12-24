@@ -250,6 +250,64 @@ public class DepartmentHeadService {
         return mapToResponse(saved);
     }
 
+    // New self update partial method using User token source
+    public DepartmentHeadResponse updateDepartmentHeadSelf(User user, DepartmentHeadUpdateRequest req, MultipartFile photo) {
+        DepartmentHeadDetails details = departmentHeadRepository.findByUser(user)
+                .orElseThrow(() -> new ResourceNotFoundException("Department head profile not found"));
+
+        if (isNotBlank(req.getFirstNameENG())) details.setFirstNameENG(req.getFirstNameENG());
+        if (isNotBlank(req.getFirstNameAMH())) details.setFirstNameAMH(req.getFirstNameAMH());
+        if (isNotBlank(req.getFatherNameENG())) details.setFatherNameENG(req.getFatherNameENG());
+        if (isNotBlank(req.getFatherNameAMH())) details.setFatherNameAMH(req.getFatherNameAMH());
+        if (isNotBlank(req.getGrandfatherNameENG())) details.setGrandfatherNameENG(req.getGrandfatherNameENG());
+        if (isNotBlank(req.getGrandfatherNameAMH())) details.setGrandfatherNameAMH(req.getGrandfatherNameAMH());
+        if (req.getGender() != null) details.setGender(req.getGender());
+        if (isNotBlank(req.getPhoneNumber())) details.setPhoneNumber(req.getPhoneNumber());
+        if (isNotBlank(req.getEmail())) details.setEmail(req.getEmail());
+        
+        // RESTRICTED: HiredDate, Remark, IsActive, DepartmentId
+        // The prompt says "department heads cant update... hired date EC or GC, documents, isActive, remark, any user Info"
+        // So we intentionally SKIP setHiredDate, setRemark, setActive
+        
+        // Update residence address if available
+        if (isNotBlank(req.getResidenceRegionCode()) &&
+                isNotBlank(req.getResidenceZoneCode()) &&
+                isNotBlank(req.getResidenceWoredaCode())) {
+
+            Region region = regionRepository.findById(req.getResidenceRegionCode())
+                    .orElseThrow(() -> new BadRequestException("Invalid residence region code"));
+
+            Zone zone = zoneRepository.findById(req.getResidenceZoneCode())
+                    .orElseThrow(() -> new BadRequestException("Invalid residence zone code"));
+            if (!zone.getRegion().getRegionCode().equals(region.getRegionCode())) {
+                throw new BadRequestException("Zone does not belong to selected region");
+            }
+
+            Woreda woreda = woredaRepository.findById(req.getResidenceWoredaCode())
+                    .orElseThrow(() -> new BadRequestException("Invalid residence woreda code"));
+            if (!woreda.getZone().getZoneCode().equals(zone.getZoneCode())) {
+                throw new BadRequestException("Woreda does not belong to selected zone");
+            }
+
+            details.setResidenceRegion(region);
+            details.setResidenceZone(zone);
+            details.setResidenceWoreda(woreda);
+        }
+
+        // Replace photo if provided (Documents restricted)
+        if (photo != null && !photo.isEmpty()) {
+            validateFileSize(photo, 2 * 1024 * 1024, "Photo");
+            try {
+                details.setPhoto(photo.getBytes());
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to process new photo");
+            }
+        }
+
+        DepartmentHeadDetails saved = departmentHeadRepository.save(details);
+        return mapToResponse(saved);
+    }
+
     public List<DepartmentHeadResponse> getAllDepartmentHeads() {
         return departmentHeadRepository.findAll().stream()
                 .map(this::mapToResponse)
@@ -627,6 +685,21 @@ public class DepartmentHeadService {
                     map.put("totalCrHrs", course.getTheoryHrs() + course.getLabHrs());
                     map.put("classYearName", course.getClassYear().getClassYear()); // assuming getClassYearName() exists
                     map.put("semesterName", course.getSemester().getAcademicPeriod());     // assuming getSemesterName() exists
+                    List<TeacherCourseAssignment> assignments = teacherCourseAssignmentRepository.findByCourse(course);
+
+                    List<Map<String, String>> teachersList = assignments.stream()
+                            .map(ass -> {
+                                TeacherDetail teacher = ass.getTeacher();
+                                String fullName = teacher.getFirstNameEnglish() + " " + teacher.getLastNameEnglish();
+                                String bcysName = ass.getBcys().getDisplayName(); // Adjust getter if different (e.g., getName())
+                                Map<String, String> teacherMap = new HashMap<>();
+                                teacherMap.put("name", fullName);
+                                teacherMap.put("bcysName", bcysName);
+                                return teacherMap;
+                            })
+                            .collect(Collectors.toList());
+
+                    map.put("teachers", teachersList);
                     return map;
                 })
                 .collect(Collectors.toList());
@@ -663,6 +736,7 @@ public class DepartmentHeadService {
             
             AssessmentScoresResponse response = new AssessmentScoresResponse();
             response.setTeacherCourseAssignmentId(tca.getId());
+            response.setTeacherName(tca.getTeacher().getFirstNameEnglish() + " " + tca.getTeacher().getLastNameEnglish());
             response.setCourseCode(tca.getCourse().getCCode());
             response.setCourseTitle(tca.getCourse().getCTitle());
             response.setBatchClassYearSemester(tca.getBcys().getDisplayName());
@@ -677,6 +751,8 @@ public class DepartmentHeadService {
                         info.setMaxScore(a.getMaxScore());
                         info.setDueDate(a.getDueDate());
                         info.setStatus(a.getAssStatus());
+                        info.setHeadApproval(a.getHeadApproval());
+                        info.setRegistrarApproval(a.getRegistrarApproval());
                         return info;
                     })
                     .collect(Collectors.toList());
@@ -728,69 +804,96 @@ public class DepartmentHeadService {
     /**
      * Approves or rejects an assessment as department head.
      * @param authenticatedUser The authenticated department head user
-     * @param assessmentId The assessment ID
      * @param status ACCEPTED or REJECTED
      * @return Updated assessment
      */
+    // Updated Service method in DepartmentHeadService (or wherever it lives)
     @Transactional
-    public Assessment approveOrRejectAssessment(User authenticatedUser, Long assessmentId, AssessmentStatus status) {
+    public List<Assessment> approveOrRejectAllAssessmentsInAssignment(
+            User authenticatedUser,
+            Long teacherCourseAssignmentId,
+            AssessmentStatus status) {
+
+        // Validate status parameter
+        if (status != AssessmentStatus.ACCEPTED && status != AssessmentStatus.REJECTED) {
+            throw new IllegalArgumentException("Status must be ACCEPTED or REJECTED");
+        }
+
         // Verify user is department head
         DepartmentHeadDetails head = departmentHeadRepository.findByUser(authenticatedUser)
                 .orElseThrow(() -> new ResourceNotFoundException("Department head profile not found"));
-        
+
         Department department = head.getDepartment();
-        
-        // Get assessment
-        Assessment assessment = assessmentRepository.findById(assessmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Assessment not found"));
-        
-        // Verify assessment is for a course in this department
-        Course course = assessment.getTeacherCourseAssignment().getCourse();
+
+        // Load the TeacherCourseAssignment
+        TeacherCourseAssignment tca = teacherCourseAssignmentRepository.findById(teacherCourseAssignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher course assignment not found"));
+
+        // Verify the course belongs to this department head's department
+        Course course = tca.getCourse();
         if (!course.getDepartment().getDptID().equals(department.getDptID())) {
-            throw new IllegalArgumentException("You are not authorized to approve assessments for this department");
+            throw new IllegalArgumentException("You are not authorized to manage assessments for this department");
         }
-        
-        // Verify assessment was approved by teacher
-        if (assessment.getAssStatus() != AssessmentStatus.ACCEPTED) {
-            throw new IllegalArgumentException("Assessment must be approved by teacher first");
+
+        // Get all assessments under this teacherCourseAssignment
+        List<Assessment> assessments = assessmentRepository.findByTeacherCourseAssignment(tca);
+
+        if (assessments.isEmpty()) {
+            throw new ResourceNotFoundException("No assessments found for this course assignment");
         }
-        
-        // Update head approval
-        assessment.setHeadApproval(status);
-        
-        // If rejected, set assStatus back to PENDING
-        if (status == AssessmentStatus.REJECTED) {
-            assessment.setAssStatus(AssessmentStatus.PENDING);
+
+        // Check that ALL assessments have already been approved by the teacher (assStatus = ACCEPTED)
+        // Why: Department head can only act after teacher has approved them
+        for (Assessment a : assessments) {
+            if (a.getAssStatus() != AssessmentStatus.ACCEPTED) {
+                throw new IllegalArgumentException(
+                        "All assessments must be approved by the teacher first. Assessment '" + a.getAssTitle() + "' is not approved."
+                );
+            }
         }
-        
-        assessmentRepository.save(assessment);
-        
-        // If approved, create notification for registrars
+
+        List<Assessment> updatedAssessments = new ArrayList<>();
+
+        for (Assessment assessment : assessments) {
+            // Set head approval
+            assessment.setHeadApproval(status);
+
+            // If rejected → revert assStatus back to PENDING
+            if (status == AssessmentStatus.REJECTED) {
+                assessment.setAssStatus(AssessmentStatus.PENDING);
+            }
+            // If accepted → assStatus remains ACCEPTED (already set by teacher)
+
+            updatedAssessments.add(assessmentRepository.save(assessment));
+        }
+
+        // If approved → create one notification for the entire assignment
         if (status == AssessmentStatus.ACCEPTED) {
-            String message = createNotificationMessage(course, assessment);
+            String message = createBulkNotificationMessage(course, tca, assessments.size());
 
             notificationService.createNotification(
-                List.of(Role.REGISTRAR),
-                null,
-                Role.DEPARTMENT_HEAD,
-                message
+                    List.of(Role.REGISTRAR),
+                    null,
+                    Role.DEPARTMENT_HEAD,
+                    message
             );
         }
-        
-        return assessment;
+
+        return updatedAssessments;
     }
 
-    private static String createNotificationMessage(Course course, Assessment assessment) {
+    // Helper method for bulk notification message
+    private String createBulkNotificationMessage(Course course, TeacherCourseAssignment tca, int assessmentCount) {
         String courseCode = course.getCCode();
         String courseTitle = course.getCTitle();
-        String teacherName = assessment.getTeacherCourseAssignment().getTeacher().getFirstNameEnglish() +
-                " " + assessment.getTeacherCourseAssignment().getTeacher().getLastNameEnglish();
+        String teacherName = tca.getTeacher().getFirstNameEnglish() + " " + tca.getTeacher().getLastNameEnglish();
+
         return String.format(
-            "Department head has approved assessment '%s' for course %s (%s) by teacher %s. Please review.",
-            assessment.getAssTitle(),
-            courseCode,
-            courseTitle,
-            teacherName
+                "Department head has approved all %d assessments for course %s (%s) taught by %s. Please review.",
+                assessmentCount,
+                courseCode,
+                courseTitle,
+                teacherName
         );
     }
 }

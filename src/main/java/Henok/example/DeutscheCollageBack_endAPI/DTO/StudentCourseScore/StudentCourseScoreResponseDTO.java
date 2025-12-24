@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 public class StudentCourseScoreResponseDTO {
     private Long id;
     private Long studentId;
+    private String studentName;
     private CourseInfo course;
     private BCYSInfo bcys;
     private CourseSourceInfo courseSource;

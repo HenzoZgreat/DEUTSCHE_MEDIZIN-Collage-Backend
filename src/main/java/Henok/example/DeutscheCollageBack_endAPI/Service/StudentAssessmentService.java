@@ -271,6 +271,7 @@ public class StudentAssessmentService {
         // Step 3: Build response header info
         AssessmentScoresResponse response = new AssessmentScoresResponse();
         response.setTeacherCourseAssignmentId(tca.getId());
+        response.setTeacherName(tca.getTeacher().getFirstNameEnglish() + " " + tca.getTeacher().getLastNameEnglish());
         response.setCourseCode(tca.getCourse().getCCode());
         response.setCourseTitle(tca.getCourse().getCTitle());
         response.setBatchClassYearSemester(tca.getBcys().getDisplayName()); // assuming you have a display method
@@ -287,6 +288,7 @@ public class StudentAssessmentService {
                     info.setMaxScore(a.getMaxScore());
                     info.setDueDate(a.getDueDate());
                     info.setStatus(a.getAssStatus());
+                    info.setHeadApproval(a.getHeadApproval());
                     return info;
                 })
                 .toList();

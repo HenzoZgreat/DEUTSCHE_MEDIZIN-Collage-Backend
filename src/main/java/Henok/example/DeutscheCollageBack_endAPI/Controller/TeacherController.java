@@ -106,6 +106,32 @@ public class TeacherController {
         }
     }
 
+    @PatchMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> updateMyProfile(
+            @AuthenticationPrincipal User authenticatedUser,
+            @RequestPart("data") TeacherRegisterRequest request,
+            @RequestPart(name = "photograph", required = false) MultipartFile photograph) {
+        // NOTE: "document" multipart is NOT accepted here as per requirements.
+
+        try {
+            TeacherResponseDTO updated = teacherService.updateTeacherSelf(authenticatedUser, request, photograph);
+            return ResponseEntity.ok(updated);
+
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to update profile: " + e.getMessage()));
+        }
+    }
+
+    // Keeping the admin update endpoint with different path or role check if needed, 
+    // but the prompt asked specifically for the new endpoint. 
+    // The previous implementation used PUT /{id}. I will leave it as is.
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> update(
             @PathVariable Long id,

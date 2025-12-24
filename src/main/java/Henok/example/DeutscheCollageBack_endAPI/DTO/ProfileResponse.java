@@ -18,4 +18,6 @@ public class ProfileResponse {
     private String photoBase64;     // or use separate /files endpoint if you prefer
     private String email;
     private String phoneNumber;
+    private String departmentName;
+    private long departmentId;
 }

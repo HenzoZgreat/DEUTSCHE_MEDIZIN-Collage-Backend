@@ -251,6 +251,89 @@ public class DeanViceDeanService {
         userRepository.save(user);
         deanViceDeanDetailsRepository.save(details);
     }
+    
+    // Self-update method
+    // - Based on Authenticated User
+    // - Restricted: Documents, HiredDate, UserInfo
+    // - Allowed: Names, Gender, Phone, Email, Title, Remarks, Address, Photo
+    public void updateSelf(User user, DeanViceDeanUpdateRequest request, MultipartFile photo) {
+        DeanViceDeanDetails details = deanViceDeanDetailsRepository.findByUser(user)
+                .orElseThrow(() -> new IllegalArgumentException("Profile not found for user"));
+
+        // Update simple fields if not empty/null
+        if (request.getFirstNameAMH() != null && !request.getFirstNameAMH().isEmpty()) {
+            details.setFirstNameAMH(request.getFirstNameAMH());
+        }
+        if (request.getFirstNameENG() != null && !request.getFirstNameENG().isEmpty()) {
+            details.setFirstNameENG(request.getFirstNameENG());
+        }
+        if (request.getFatherNameAMH() != null && !request.getFatherNameAMH().isEmpty()) {
+            details.setFatherNameAMH(request.getFatherNameAMH());
+        }
+        if (request.getFatherNameENG() != null && !request.getFatherNameENG().isEmpty()) {
+            details.setFatherNameENG(request.getFatherNameENG());
+        }
+        if (request.getGrandfatherNameAMH() != null && !request.getGrandfatherNameAMH().isEmpty()) {
+            details.setGrandfatherNameAMH(request.getGrandfatherNameAMH());
+        }
+        if (request.getGrandfatherNameENG() != null && !request.getGrandfatherNameENG().isEmpty()) {
+            details.setGrandfatherNameENG(request.getGrandfatherNameENG());
+        }
+        if (request.getGender() != null) {
+            details.setGender(request.getGender());
+        }
+        if (request.getEmail() != null && !request.getEmail().isEmpty()) {
+            details.setEmail(request.getEmail());
+        }
+        if (request.getPhoneNumber() != null && !request.getPhoneNumber().isEmpty()) {
+            // Check uniqueness if changed
+            if (!request.getPhoneNumber().equals(details.getPhoneNumber())) {
+                if (deanViceDeanDetailsRepository.existsByPhoneNumberAndIdNot(request.getPhoneNumber(), details.getId())) {
+                    throw new IllegalArgumentException("Phone number already in use");
+                }
+                details.setPhoneNumber(request.getPhoneNumber());
+            }
+        }
+        
+        // HiredDate IS RESTRICTED
+        
+        if (request.getTitle() != null && !request.getTitle().isEmpty()) {
+            details.setTitle(request.getTitle());
+        }
+        if (request.getRemarks() != null && !request.getRemarks().isEmpty()) {
+            details.setRemarks(request.getRemarks());
+        }
+
+        // Update locations if codes provided
+        if (request.getResidenceWoredaCode() != null && !request.getResidenceWoredaCode().isEmpty()) {
+            Woreda woreda = woredaRepository.findById(request.getResidenceWoredaCode())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid residence Woreda code"));
+            details.setResidenceWoreda(woreda);
+        }
+        if (request.getResidenceZoneCode() != null && !request.getResidenceZoneCode().isEmpty()) {
+            Zone zone = zoneRepository.findById(request.getResidenceZoneCode())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid residence Zone code"));
+            details.setResidenceZone(zone);
+        }
+        if (request.getResidenceRegionCode() != null && !request.getResidenceRegionCode().isEmpty()) {
+            Region region = regionRepository.findById(request.getResidenceRegionCode())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid residence Region code"));
+            details.setResidenceRegion(region);
+        }
+
+        // Update photo if provided 
+        // Documents IS RESTRICTED (so we don't accept 'document' param here)
+        if (photo != null && !photo.isEmpty()) {
+            try {
+                details.setPhoto(photo.getBytes());
+            } catch (IOException e) {
+                throw new IllegalArgumentException("Failed to process photograph");
+            }
+        }
+
+        // Save updated user and details
+        deanViceDeanDetailsRepository.save(details);
+    }
 
     public ResponseEntity<?> getDocumentByIdAndRole(Long id, Role expectedRole) {
         try {

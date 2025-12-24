@@ -244,6 +244,7 @@ public class AssessmentService {
         // Step 4: Update all assessments' assStatus
         for (Assessment assessment : assessments) {
             assessment.setAssStatus(status);
+            assessment.setHeadApproval(AssessmentStatus.PENDING);
             assessmentRepository.save(assessment);
         }
         

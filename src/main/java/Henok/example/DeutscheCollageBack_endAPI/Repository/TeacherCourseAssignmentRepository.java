@@ -26,4 +26,6 @@ public interface TeacherCourseAssignmentRepository extends JpaRepository<Teacher
       AND scs.batchClassYearSemester = :bcys
     """)
     Long countEnrolledStudents(@Param("course") Course course, @Param("bcys") BatchClassYearSemester bcys);
+
+    List<TeacherCourseAssignment> findByCourse(Course course);
 }

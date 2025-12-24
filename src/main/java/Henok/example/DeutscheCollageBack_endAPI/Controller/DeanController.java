@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/dean")
+@RequestMapping("/api/deans")
 @RequiredArgsConstructor
 public class DeanController {
 
@@ -43,15 +43,34 @@ public class DeanController {
         }
     }
 
+    @PatchMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> updateMyProfile(
+            @AuthenticationPrincipal User user,
+            @RequestPart("data") DeanViceDeanUpdateRequest request,
+            @RequestPart(name = "photograph", required = false) MultipartFile photograph) {
+        
+        try {
+            if (user.getRole() != Role.DEAN) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied"));
+            }
+            
+            deanViceDeanService.updateSelf(user, request, photograph);
+            return ResponseEntity.ok(Map.of("message", "Profile updated successfully"));
+            
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "An unexpected error occurred during update");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
     // -----------[Update Dean]------------------
-    // description - Partially updates a Dean's details (any non-null/empty fields).
-    //               Cannot update username or documents.
-    // endpoint - PUT /api/deans/{id}
-    // body - Multipart form-data:
-    //        - data: JSON of DeanViceDeanUpdateRequest (optional fields)
-    //        - photograph: optional new image file
-    // success response - 200 OK with { "message": "Dean updated successfully" }
-    // ErrorResponse - { "error": "message" } (400 or 500)
+    // description - Partially updates a Dean's details (admin/existing function).
+    // ...
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> updateDean(
             @PathVariable Long id,

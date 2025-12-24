@@ -31,6 +31,8 @@ public class ProfileService {
         byte[] photo = null;
         String email = null;
         String phone = null;
+        String departmentName = null;
+        long departmentId = 0;
 
         switch (user.getRole()) {
             case STUDENT -> {
@@ -77,6 +79,8 @@ public class ProfileService {
                 photo = dh.getPhoto();
                 email = dh.getEmail();
                 phone = dh.getPhoneNumber();
+                departmentId = dh.getDepartment().getDptID();
+                departmentName = dh.getDepartment().getDeptName();
             }
             case DEAN, VICE_DEAN -> {
                 DeanViceDeanDetails d = deanRepo.findByUser(user)
@@ -100,6 +104,8 @@ public class ProfileService {
                 .photoBase64(photo != null ? Base64.getEncoder().encodeToString(photo) : null)
                 .email(email)
                 .phoneNumber(phone)
+                .departmentName(departmentName)
+                .departmentId(departmentId)
                 .build();
     }
 

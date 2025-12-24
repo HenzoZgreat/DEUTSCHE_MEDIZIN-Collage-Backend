@@ -21,6 +21,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -68,6 +69,29 @@ public class DepartmentHeadController {
             return ResponseEntity
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to update department head: " + e.getMessage()));
+        }
+    }
+
+    // -----------[Update My Profile]------------------
+    // description - Updates the authenticated department head's profile.
+    //               Restricted fields (documents, department, etc.) are ignored.
+    // endpoint - PATCH /api/department-heads/update
+    @PatchMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> updateMyProfile(
+            @AuthenticationPrincipal User authenticatedUser,
+            @Valid @RequestPart("data") DepartmentHeadUpdateRequest request,
+            @RequestPart(value = "photo", required = false) MultipartFile photo) {
+        
+        try {
+            DepartmentHeadResponse updated = departmentHeadService.updateDepartmentHeadSelf(authenticatedUser, request, photo);
+            return ResponseEntity.ok(updated);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (BadRequestException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to update profile: " + e.getMessage()));
         }
     }
 
@@ -353,26 +377,30 @@ public class DepartmentHeadController {
         }
     }
 
-    // -----------[Approve or Reject Assessment]------------------
-    // description - Allows department head to approve or reject an assessment. If approved, creates notification for registrars. If rejected, sets assessment status back to PENDING.
-    // endpoint - PUT /api/department-heads/assessments/{assessmentId}/approve?status={ACCEPTED|REJECTED}
-    // body - N/A (uses query parameter)
-    // success response - 200 OK with updated Assessment
-    // ErrorResponse - { "error": "message" } (400, 403, 404, 500)
-    @PutMapping("/assessments/{assessmentId}/approve")
-    public ResponseEntity<?> approveOrRejectAssessment(
+    // Updated Controller method
+    @PutMapping("/assignments/{teacherCourseAssignmentId}/approve-all")
+    public ResponseEntity<?> approveOrRejectAllAssessmentsInAssignment(
             @AuthenticationPrincipal User authenticatedUser,
-            @PathVariable Long assessmentId,
+            @PathVariable Long teacherCourseAssignmentId,
             @RequestParam AssessmentStatus status) {
+
         try {
             // Validate status
             if (status != AssessmentStatus.ACCEPTED && status != AssessmentStatus.REJECTED) {
                 return ResponseEntity.badRequest()
                         .body(Map.of("error", "Status must be ACCEPTED or REJECTED"));
             }
-            
-            Assessment updated = departmentHeadService.approveOrRejectAssessment(authenticatedUser, assessmentId, status);
-            return ResponseEntity.ok(updated);
+
+            List<Assessment> updated = departmentHeadService.approveOrRejectAllAssessmentsInAssignment(
+                    authenticatedUser, teacherCourseAssignmentId, status);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "All assessments processed successfully");
+            response.put("count", updated.size());
+            response.put("statusApplied", status.name());
+
+            return ResponseEntity.ok(response);
+
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", e.getMessage()));
@@ -381,7 +409,7 @@ public class DepartmentHeadController {
                     .body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to update assessment: " + e.getMessage()));
+                    .body(Map.of("error", "Failed to process assessments: " + e.getMessage()));
         }
     }
 }

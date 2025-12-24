@@ -183,6 +183,12 @@ public class StudentCourseScoreService {
         StudentCourseScoreResponseDTO dto = new StudentCourseScoreResponseDTO();
         dto.setId(score.getId());
         dto.setStudentId(score.getStudent().getId());
+
+        StudentDetails student = studentDetailsRepository.findByUser(score.getStudent())
+                .orElseThrow(() -> new ResourceNotFoundException("Student details not found for student id: " + score.getStudent().getId()));
+        dto.setStudentName(student.getFirstNameENG() + " " +
+                student.getFatherNameENG() + " " +
+                student.getGrandfatherNameENG());
         
         StudentCourseScoreResponseDTO.CourseInfo courseInfo = new StudentCourseScoreResponseDTO.CourseInfo(
                 score.getCourse().getCID(),

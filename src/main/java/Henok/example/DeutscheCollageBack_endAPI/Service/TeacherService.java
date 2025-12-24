@@ -357,7 +357,21 @@ public class TeacherService {
         TeacherDetail teacher = teacherRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Teacher not found with ID: " + id));
 
-        if (request.getUsername() != null && !request.getUsername().equals(teacher.getUser().getUsername()))
+        // ... existing admin update logic (if needed, or leave as is)
+        // For self update we generally don't use this method if it allows changing restricted things.
+        // But the previous implementation seems to cover general updates.
+        // We will add a NEW method for SELF update to strictly enforce the new rules.
+        
+        // REUSING existing update logic might be dangerous if requests contain restricted fields.
+        // The prompt asks for a specific logic for self-update.
+        // I will keep this existing method for ADMIN/General usage and add a specific one below.
+        
+        return updateTeacherCommon(teacher, request, photograph, document);
+    }
+    
+    // Extracted common update logic but we'll create a specific one for self-update to be safe/clean
+    private TeacherDetail updateTeacherCommon(TeacherDetail teacher, TeacherRegisterRequest request, MultipartFile photograph, MultipartFile document) {
+         if (request.getUsername() != null && !request.getUsername().equals(teacher.getUser().getUsername()))
             throw new IllegalArgumentException("Cannot change username");
 
         if (request.getPhoneNumber() != null && !request.getPhoneNumber().equals(teacher.getPhoneNumber())) {
@@ -432,6 +446,84 @@ public class TeacherService {
         }
 
         return teacherRepository.save(teacher);
+    }
+    
+    @Transactional
+    public TeacherResponseDTO updateTeacherSelf(User user, TeacherRegisterRequest request, MultipartFile photograph) {
+        TeacherDetail teacher = teacherRepository.findByUser(user)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher profile not found"));
+
+        // Allowed Updates: Names, Gender, Phone, Email, Title, Impairment, MaritalStatus, Address, Photo
+        // Restricted: Documents, HiredDate, DOB, Experience, Department, UserInfo (username/password/role)
+
+        if (request.getPhoneNumber() != null && !request.getPhoneNumber().isEmpty() 
+                && !request.getPhoneNumber().equals(teacher.getPhoneNumber())) {
+            if (teacherRepository.findByPhoneNumber(request.getPhoneNumber()).isPresent())
+                throw new IllegalArgumentException("Phone number already in use");
+            teacher.setPhoneNumber(request.getPhoneNumber());
+        }
+
+        ofNullable(request.getFirstNameAmharic()).filter(s -> !s.isEmpty()).ifPresent(teacher::setFirstNameAmharic);
+        ofNullable(request.getLastNameAmharic()).filter(s -> !s.isEmpty()).ifPresent(teacher::setLastNameAmharic);
+        ofNullable(request.getFirstNameEnglish()).filter(s -> !s.isEmpty()).ifPresent(teacher::setFirstNameEnglish);
+        ofNullable(request.getLastNameEnglish()).filter(s -> !s.isEmpty()).ifPresent(teacher::setLastNameEnglish);
+        
+        ofNullable(request.getGender()).ifPresent(teacher::setGender);
+        
+        // DOB IS RESTRICTED for Teacher self-update per prompt "date of birth"
+        // Hired Date IS RESTRICTED per prompt
+        // Experience IS RESTRICTED per prompt
+        // Department IS RESTRICTED per prompt
+        // Documents ARE RESTRICTED per prompt
+        
+        ofNullable(request.getEmail()).ifPresent(e -> teacher.setEmail(e.isEmpty() ? null : e));
+        ofNullable(request.getTitle()).ifPresent(t -> teacher.setTitle(t.isEmpty() ? null : t));
+        ofNullable(request.getMaritalStatus()).ifPresent(teacher::setMaritalStatus);
+
+        ofNullable(request.getImpairmentCode()).ifPresent(code -> {
+            if (code.isEmpty()) teacher.setImpairment(null);
+            else {
+                Impairment imp = impairmentRepository.findById(code)
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid impairment code"));
+                teacher.setImpairment(imp);
+            }
+        });
+
+        ofNullable(request.getCurrentAddressWoredaCode()).ifPresent(code -> {
+            if (code.isEmpty()) teacher.setCurrentAddressWoreda(null);
+            else {
+                Woreda w = woredaRepository.findById(code)
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid woreda code"));
+                teacher.setCurrentAddressWoreda(w);
+            }
+        });
+        ofNullable(request.getCurrentAddressZoneCode()).ifPresent(code -> {
+            if (code.isEmpty()) teacher.setCurrentAddressZone(null);
+            else {
+                Zone z = zoneRepository.findById(code)
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid zone code"));
+                teacher.setCurrentAddressZone(z);
+            }
+        });
+        ofNullable(request.getCurrentAddressRegionCode()).ifPresent(code -> {
+            if (code.isEmpty()) teacher.setCurrentAddressRegion(null);
+            else {
+                Region r = regionRepository.findById(code)
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid region code"));
+                teacher.setCurrentAddressRegion(r);
+            }
+        });
+
+        try {
+            if (photograph != null && !photograph.isEmpty())
+                teacher.setPhotograph(photograph.getBytes());
+            // Intentionally ignoring 'document' update here
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to process photograph: " + e.getMessage());
+        }
+
+        TeacherDetail updated = teacherRepository.save(teacher);
+        return toDetailDto(updated);
     }
 
     // ==================== DELETE ====================

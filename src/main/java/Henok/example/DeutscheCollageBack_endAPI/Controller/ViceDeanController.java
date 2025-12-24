@@ -39,6 +39,31 @@ public class ViceDeanController {
         }
     }
 
+    @PatchMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> updateMyProfile(
+            @AuthenticationPrincipal User user,
+            @RequestPart("data") DeanViceDeanUpdateRequest request,
+            @RequestPart(name = "photograph", required = false) MultipartFile photograph) {
+        
+        try {
+            if (user.getRole() != Role.VICE_DEAN) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied"));
+            }
+            
+            deanViceDeanService.updateSelf(user, request, photograph);
+            return ResponseEntity.ok(Map.of("message", "Profile updated successfully"));
+            
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "An unexpected error occurred during update");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
     // -----------[Update Vice-Dean]------------------
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> updateViceDean(
