@@ -3,6 +3,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Controller;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.AssignTeacherCoursesRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.TeacherCourseAssignmentResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
+import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.TeacherCourseAssignmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,15 +25,22 @@ public class TeacherCourseAssignmentController {
     public ResponseEntity<?> assignCourses(
             @PathVariable Long teacherId,
             @RequestBody List<AssignTeacherCoursesRequest> requests) {
+
         try {
-            if (requests == null || requests.isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(new ErrorResponse("At least one course assignment is required"));
-            }
-            List<TeacherCourseAssignmentResponse> result = assignmentService.assignCoursesToTeacher(teacherId, requests);
+            List<TeacherCourseAssignmentResponse> result =
+                    assignmentService.assignCoursesToTeacher(teacherId, requests);
+
             return ResponseEntity.status(HttpStatus.CREATED).body(result);
+
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+            // Covers all validation errors: missing data, not found, duplicates
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse(e.getMessage()));
+
+        } catch (Exception e) {
+            // Handles unexpected errors (DB constraints, etc.)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to assign courses: " + e.getMessage()));
         }
     }
 
@@ -42,12 +50,30 @@ public class TeacherCourseAssignmentController {
         return ResponseEntity.ok(assignmentService.getAssignmentsByTeacher(teacherId));
     }
 
-    // DELETE: Remove specific assignment
+    /**
+     * Deletes a specific course assignment for a teacher.
+     * Also removes all related assessments and student assessment records.
+     */
     @DeleteMapping("/{assignmentId}")
-    public ResponseEntity<Void> removeAssignment(
+    public ResponseEntity<?> removeAssignment(
             @PathVariable Long teacherId,
             @PathVariable Long assignmentId) {
-        assignmentService.removeAssignment(assignmentId);
-        return ResponseEntity.noContent().build();
+
+        try {
+            assignmentService.removeAssignment(assignmentId);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            // Covers "Assignment not found" and validation errors from AssessmentService
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (ResourceNotFoundException e) {
+            // Assessments not found (from AssessmentService)
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            // Any unexpected error (DB constraint, etc.)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to delete assignment: " + e.getMessage()));
+        }
     }
 }

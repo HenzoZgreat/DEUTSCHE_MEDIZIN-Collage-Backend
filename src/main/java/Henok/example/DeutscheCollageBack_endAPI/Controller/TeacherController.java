@@ -60,7 +60,6 @@ public class TeacherController {
         }
     }
 
-    // ... (register and update endpoints unchanged)
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable Long id) {

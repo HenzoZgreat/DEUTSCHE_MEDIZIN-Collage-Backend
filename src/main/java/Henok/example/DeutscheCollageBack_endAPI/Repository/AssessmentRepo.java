@@ -45,4 +45,7 @@ public interface AssessmentRepo extends JpaRepository<Assessment, Long> {
     void deleteStudentAssessmentsByAssessmentIds(@Param("assessmentIds") List<Long> assessmentIds);
 
     List<Assessment> findByTeacherCourseAssignment(TeacherCourseAssignment tca);
+
+    @Query("SELECT a.assID FROM Assessment a WHERE a.teacherCourseAssignment.id = :assignmentId")
+    List<Long> findAssessmentIdsByAssignmentId(@Param("assignmentId") Long assignmentId);
 }

@@ -1,9 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.DeanAndVice_Dean.DeanViceDeanListDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.DeanAndVice_Dean.DeanViceDeanProfileDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.DeanAndVice_Dean.DeanViceDeanResponse;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.DeanAndVice_Dean.DeanViceDeanUpdateRequest;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.DeanAndVice_Dean.*;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.DeanViceDeanRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.DeanViceDeanDetails;
@@ -13,9 +10,9 @@ import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Zone;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.DeanViceDeanDetailsRepository;
-import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.RegionRepository;
-import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.WoredaRepository;
-import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.ZoneRepository;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.DepartmentRepo;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.*;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.StudentDetailsRepository;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -46,6 +43,10 @@ public class DeanViceDeanService {
     private final UserService userService; // existing service for user registration
     private final UserRepository userRepository;
     private final DeanViceDeanDetailsRepository deanViceDeanDetailsRepository;
+    private final StudentDetailsRepository studentDetailsRepository;
+    private final DepartmentRepo departmentRepository;
+    private final ProgramModalityRepository programModalityRepository;
+    private final ProgramLevelRepository programLevelRepository;
     private final WoredaRepository woredaRepository;
     private final ZoneRepository zoneRepository;
     private final RegionRepository regionRepository;
@@ -158,10 +159,10 @@ public class DeanViceDeanService {
     }
 
     // Update by ID
-// Why: Partial update - only apply non-null/non-empty fields.
-// Cannot update username or documents (as per requirement).
-// Handles photo update separately.
-// Validates and updates locations if codes provided.
+    // Why: Partial update - only apply non-null/non-empty fields.
+    // Cannot update username or documents (as per requirement).
+    // Handles photo update separately.
+    // Validates and updates locations if codes provided.
     public void updateDeanViceDean(Long id, DeanViceDeanUpdateRequest request, MultipartFile photo, MultipartFile document, Role expectedRole) {
         DeanViceDeanDetails details = deanViceDeanDetailsRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Dean/Vice-Dean not found with ID: " + id));
@@ -407,7 +408,6 @@ public class DeanViceDeanService {
     }
 
 
-
     // Helper to retrieve User from saved DeanViceDeanDetails (needed for userId in response)
     // Why: We only return detailsId from registration, but response needs User.id
     @Transactional(readOnly = true)
@@ -415,5 +415,59 @@ public class DeanViceDeanService {
         return deanViceDeanDetailsRepository.findById(detailsId)
                 .orElseThrow(() -> new IllegalStateException("Dean/Vice-Dean details not found"))
                 .getUser();
+    }
+
+
+    // Fetch dashboard data for Dean.
+    // Why: Aggregates multiple queries into a single method for efficiency.
+    // Uses custom repository queries for groupings/counts to avoid loading all entities.
+    @Transactional(readOnly = true)
+    public DeanDashboardDTO getDashboardData() {
+        DeanDashboardDTO dto = new DeanDashboardDTO();
+
+        // Total students: Simple count from StudentDetails.
+        dto.setTotalStudents(studentDetailsRepository.count());
+
+        // Total departments: Count from Department.
+        dto.setTotalDepartments(departmentRepository.count());
+
+        // Total department heads: Count users with ROLE_DEPARTMENT_HEAD.
+        dto.setTotalDepartmentHeads(userRepository.countByRole(Role.DEPARTMENT_HEAD));
+
+        // Active modalities: Count all ProgramModality (no active flag, assume all active).
+        // If needed, filter if an active field is added later.
+        dto.setActiveModalities(programModalityRepository.count());
+
+        // Active levels: Count ProgramLevel where active = true.
+        dto.setActiveLevels(programLevelRepository.countByActiveTrue());
+
+        // Students by level: Group StudentDetails by programModality.programLevel.name.
+        // Use custom query to get Map<levelName, count>.
+        dto.setStudentsByLevel(studentDetailsRepository.countStudentsByProgramLevel());
+
+        // Students by modality: Group by programModality.modality.
+        dto.setStudentsByModality(studentDetailsRepository.countStudentsByModality());
+
+        // Students per department: Group by departmentEnrolled.deptName.
+        dto.setStudentsPerDepartment(studentDetailsRepository.countStudentsPerDepartment());
+
+        // Enrollment trend: Group by academicYear.yearCode (assuming AcademicYear has yearCode).
+        // If academicYear is null for some, fallback to year from dateEnrolledGC.
+        dto.setEnrollmentTrend(studentDetailsRepository.getEnrollmentTrendByAcademicYear());
+
+        // Gender distribution: Group by gender.
+        dto.setGenderDistribution(studentDetailsRepository.countByGender());
+
+        // Additional: Total teachers.
+        dto.setTotalTeachers(userRepository.countByRole(Role.TEACHER));
+
+        // Average Grade 12 result: Average of grade12Result (ignore nulls).
+        dto.setAverageGrade12Result(studentDetailsRepository.getAverageGrade12Result().orElse(0.0));
+
+        // Exit exam pass rate: (count where isStudentPassExitExam = true) / totalStudents * 100.
+        long passCount = studentDetailsRepository.countByIsStudentPassExitExamTrue();
+//        dto.setExitExamPassRate(dto.getTotalStudents > 0 ? (double) passCount / dto.getTotalStudents * 100 : 0.0);
+
+        return dto;
     }
 }

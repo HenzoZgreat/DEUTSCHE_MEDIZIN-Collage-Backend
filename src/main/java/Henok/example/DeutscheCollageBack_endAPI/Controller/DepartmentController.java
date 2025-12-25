@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.DepartmentResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Department;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.DepartmentDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
@@ -46,11 +47,11 @@ public class DepartmentController {
         }
     }
 
-    //Get all Departments
+    // Get all Departments
     @GetMapping
     public ResponseEntity<?> getAllDepartments() {
         try {
-            List<Department> departments = departmentService.getAllDepartments();
+            List<DepartmentResponseDTO> departments = departmentService.getAllDepartments();
             return ResponseEntity.ok(departments);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -62,7 +63,7 @@ public class DepartmentController {
     @GetMapping("/{id}")
     public ResponseEntity<?> getDepartmentById(@PathVariable Long id) {
         try {
-            Department department = departmentService.getDepartmentById(id);
+            DepartmentResponseDTO department = departmentService.getDepartmentById(id);
             return ResponseEntity.ok(department);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)

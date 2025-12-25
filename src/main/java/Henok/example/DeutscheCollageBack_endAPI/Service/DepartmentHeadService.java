@@ -11,6 +11,7 @@ import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Region;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Woreda;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Zone;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.AssessmentStatus;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.Gender;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
@@ -320,8 +321,6 @@ public class DepartmentHeadService {
         return mapToResponse(details);
     }
 
-    // Add to DepartmentHeadService
-
     // Fetches profile for the current department head user.
     // Builds a Map with all details except document/photo blobs.
     // Includes booleans for hasDocument and hasPhoto.
@@ -451,7 +450,6 @@ public class DepartmentHeadService {
         }
     }
 
-    //============== Dean's Additional Methods ==============//
     // Why: Separate method so only DEAN role can trigger department change.
     // Enforces uniqueness: no two heads for same department.
     @Transactional
@@ -513,6 +511,11 @@ public class DepartmentHeadService {
         
         // Build dashboard DTO
         DepartmentHeadDashboardDTO dashboard = new DepartmentHeadDashboardDTO();
+        dashboard.setDepartmentHeadName(
+                head.getFirstNameENG() + " " +
+                head.getFatherNameENG() + " " +
+                head.getGrandfatherNameENG()
+        );
         
         // 1. Department Info
         DepartmentHeadDashboardDTO.DepartmentInfo deptInfo = new DepartmentHeadDashboardDTO.DepartmentInfo();
@@ -703,6 +706,77 @@ public class DepartmentHeadService {
                     return map;
                 })
                 .collect(Collectors.toList());
+    }
+
+    // Add to DepartmentHeadService
+
+    // Why: Securely fetches only students from the authenticated department head's department.
+// Calculates full name in English: firstNameENG + fatherNameENG + grandfatherNameENG
+// Uses getDisplayName() from BatchClassYearSemester and statusName from StudentStatus
+// "Active" students are those with studentRecentStatus.statusName == "Active"
+    @Transactional(readOnly = true)
+    public Map<String, Object> getMyDepartmentStudents(User currentUser) {
+
+        // Find department head profile
+        DepartmentHeadDetails headDetails = departmentHeadRepository.findByUser(currentUser)
+                .orElseThrow(() -> new ResourceNotFoundException("Department head profile not found"));
+
+        Department department = headDetails.getDepartment();
+        if (department == null) {
+            throw new ResourceNotFoundException("No department assigned to this head");
+        }
+
+        // Fetch all students in this department
+        List<StudentDetails> deptStudents = studentDetailsRepository.findByDepartmentEnrolled(department);
+
+        // Map to response format
+        List<Map<String, Object>> studentList = deptStudents.stream()
+                .map(student -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", student.getId());
+                    map.put("studentId", student.getUser().getUsername());
+                    map.put("fullName",
+                            student.getFirstNameENG() + " " +
+                                    student.getFatherNameENG() + " " +
+                                    student.getGrandfatherNameENG());
+                    map.put("recentBcysName", student.getBatchClassYearSemester().getDisplayName());
+                    map.put("studentRecentStatusName", student.getStudentRecentStatus().getStatusName());
+                    map.put("phoneNumber", student.getPhoneNumber());
+                    map.put("gender", student.getGender().name());
+                    return map;
+                })
+                .collect(Collectors.toList());
+
+        // Calculate statistics
+        long totalInDept = deptStudents.size();
+        long totalInCollege = studentDetailsRepository.count(); // all students in the system
+        double percentage = totalInCollege > 0 ? (totalInDept * 100.0 / totalInCollege) : 0.0;
+
+        long maleCount = deptStudents.stream()
+                .filter(s -> s.getGender() == Gender.MALE)
+                .count();
+        long femaleCount = totalInDept - maleCount;
+
+        long activeCount = deptStudents.stream()
+                .filter(s -> "Active".equals(s.getStudentRecentStatus().getStatusName()))
+                .count();
+        long inactiveCount = totalInDept - activeCount;
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalStudentsInDepartment", totalInDept);
+        stats.put("totalStudentsInCollege", totalInCollege);
+        stats.put("percentageOfCollege", Math.round(percentage * 100.0) / 100.0); // 2 decimal places
+        stats.put("maleCount", maleCount);
+        stats.put("femaleCount", femaleCount);
+        stats.put("activeStudentsCount", activeCount);
+        stats.put("inactiveStudentsCount", inactiveCount);
+
+        // Final response
+        Map<String, Object> response = new HashMap<>();
+        response.put("students", studentList);
+        response.put("statistics", stats);
+
+        return response;
     }
 
     /**

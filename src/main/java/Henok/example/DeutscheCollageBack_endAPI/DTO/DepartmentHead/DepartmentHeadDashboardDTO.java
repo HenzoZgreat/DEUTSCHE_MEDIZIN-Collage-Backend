@@ -10,6 +10,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DepartmentHeadDashboardDTO {
+    private String departmentHeadName;
     private DepartmentInfo departmentInfo;
     private Summary summary;
     private List<PendingApproval> pendingApprovals;

@@ -357,6 +357,25 @@ public class DepartmentHeadController {
         }
     }
 
+    // Returns all students enrolled in the department of the currently logged-in department head.
+    // Also includes department-level statistics.
+    // Requires valid JWT token with ROLE_DEPARTMENT_HEAD.
+    @GetMapping("/my-students")
+    public ResponseEntity<?> getMyDepartmentStudents(@AuthenticationPrincipal User currentUser) {
+        try {
+            Map<String, Object> response = departmentHeadService.getMyDepartmentStudents(currentUser);
+            return ResponseEntity.ok(response);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to retrieve students"));
+        }
+    }
+
     // -----------[Get Approved Assessment Scores]------------------
     // description - Returns AssessmentScoresResponse for all assessments approved by teachers that are assigned to courses in the department.
     // endpoint - GET /api/department-heads/assessments/scores

@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.DepartmentResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Department;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.DepartmentDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramLevel;
@@ -69,17 +70,66 @@ public class DepartmentService {
                 "Added a new Department : " + department.getDeptName());
     }
 
-    public List<Department> getAllDepartments() {
+
+    private DepartmentResponseDTO toResponseDTO(Department department) {
+        DepartmentResponseDTO.ModalityDTO modalityDTO = null;
+        if (department.getProgramModality() != null) {
+            DepartmentResponseDTO.LevelDTO levelDTO = null;
+            if (department.getProgramModality().getProgramLevel() != null) {
+                ProgramLevel level = department.getProgramModality().getProgramLevel();
+                levelDTO = new DepartmentResponseDTO.LevelDTO(
+                        level.getCode(),
+                        level.getName(),
+                        level.getActive()
+                );
+            }
+            modalityDTO = new DepartmentResponseDTO.ModalityDTO(
+                    department.getProgramModality().getModalityCode(),
+                    department.getProgramModality().getModality(),
+                    levelDTO
+            );
+        }
+
+        DepartmentResponseDTO.LevelDTO directLevelDTO = null;
+        if (department.getProgramLevel() != null) {
+            ProgramLevel directLevel = department.getProgramLevel();
+            directLevelDTO = new DepartmentResponseDTO.LevelDTO(
+                    directLevel.getCode(),
+                    directLevel.getName(),
+                    directLevel.getActive()
+            );
+        }
+
+        return new DepartmentResponseDTO(
+                department.getDptID(),
+                department.getDeptName(),
+                department.getTotalCrHr(),
+                department.getDepartmentCode(),
+                modalityDTO,
+                directLevelDTO
+        );
+    }
+
+    public List<DepartmentResponseDTO> getAllDepartments() {
         List<Department> departments = departmentRepository.findAll();
         if (departments.isEmpty()) {
             throw new ResourceNotFoundException("No departments found");
         }
-        return departments;
+        return departments.stream()
+                .map(this::toResponseDTO)
+                .collect(Collectors.toList());
     }
 
-    public Department getDepartmentById(Long id) {
-        return departmentRepository.findById(id)
+    public DepartmentResponseDTO getDepartmentById(Long id) {
+        Department department = departmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + id));
+        return toResponseDTO(department);
+    }
+
+    public Department getDepartmentByUsingId(Long id) {
+        Department department = departmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + id));
+        return department;
     }
 
     public List<Department> getDepartmentsByModality(String modalityCode) {
@@ -109,7 +159,7 @@ public class DepartmentService {
             throw new IllegalArgumentException("Department DTO cannot be null");
         }
 
-        Department existingDepartment = getDepartmentById(id);
+        Department existingDepartment = getDepartmentByUsingId(id);
         String newDeptCode = departmentDTO.getDepartmentCode();
 
         if (newDeptCode != null && !existingDepartment.getDepartmentCode().equals(newDeptCode) &&

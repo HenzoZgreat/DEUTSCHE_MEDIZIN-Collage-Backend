@@ -177,6 +177,49 @@ public class AssessmentService {
         assessmentRepository.delete(assessment);
     }
 
+    /**
+     * Deletes multiple assessments by their IDs.
+     *
+     * Why this design:
+     * - Reusable: Can be called from any service (teacher, department head, admin) after they perform their own authorization.
+     * - Safe cascading: StudentAssessment records (child table) are deleted first to avoid FK constraint violations.
+     * - Graceful error handling: If any assessment ID is invalid → throws clear exception and stops the whole operation
+     *   (transactional rollback ensures partial deletes don't happen).
+     * - No authentication here → caller is responsible for checking permissions.
+     *
+     * @param assessmentIds List of assessment IDs to delete (must not be null or empty)
+     * @throws ResourceNotFoundException if any ID does not exist
+     * @throws IllegalArgumentException if the list is null or empty
+     */
+    @Transactional
+    public void deleteAssessmentsByIds(List<Long> assessmentIds) {
+
+        // Basic input validation
+        if (assessmentIds == null || assessmentIds.isEmpty()) {
+            throw new IllegalArgumentException("Assessment IDs list cannot be null or empty");
+        }
+
+        // Verify all assessments exist – collect missing IDs for better error message
+        List<Long> existingIds = assessmentRepository.findAllById(assessmentIds)
+                .stream()
+                .map(Assessment::getAssID)
+                .toList();
+
+        if (existingIds.size() != assessmentIds.size()) {
+            // Find which IDs are missing
+            List<Long> missing = new ArrayList<>(assessmentIds);
+            missing.removeAll(existingIds);
+            throw new ResourceNotFoundException("Assessments not found with IDs: " + missing);
+        }
+
+        // Step 1: Delete all related StudentAssessment records first
+        // Why: StudentAssessment has FK to Assessment → must delete children before parent
+        assessmentRepository.deleteStudentAssessmentsByAssessmentIds(assessmentIds);
+
+        // Step 2: Delete the assessments themselves
+        assessmentRepository.deleteAllById(assessmentIds);
+    }
+
     @Transactional(readOnly = true)
     public List<Assessment> getAssessmentsByAssignment(User authenticatedUser, Long teacherCourseAssignmentId) {
         TeacherDetail teacher = teacherDetailRepository.findByUser(authenticatedUser)

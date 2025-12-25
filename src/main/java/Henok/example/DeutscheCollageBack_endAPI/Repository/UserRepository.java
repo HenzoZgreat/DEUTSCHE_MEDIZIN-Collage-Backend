@@ -21,5 +21,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // Checks if a username is already taken during registration/update.
     boolean existsByUsername(String username);
 
-    boolean existsByUsernameAndIdNot(String username, Long id);
+    long countByRole(Role role);
 }

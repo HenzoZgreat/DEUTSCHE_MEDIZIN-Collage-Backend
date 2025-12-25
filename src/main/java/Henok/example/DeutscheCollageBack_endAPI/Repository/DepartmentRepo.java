@@ -10,6 +10,8 @@ import java.util.List;
 public interface DepartmentRepo extends JpaRepository<Department, Long> {
     boolean existsByDepartmentCode(String departmentCode);
 
+    Department findById(long dptID);
+
     List<Department> findByProgramModality(ProgramModality programModality);
 
     List<Department> findByProgramLevel(ProgramLevel programLevel);

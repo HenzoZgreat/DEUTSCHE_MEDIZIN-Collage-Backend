@@ -4,33 +4,36 @@ import Henok.example.DeutscheCollageBack_endAPI.Entity.BatchClassYearSemester;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Department;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentDetails;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.Gender;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public interface StudentDetailsRepository extends JpaRepository<StudentDetails, Long> {
     Optional<StudentDetails> findByPhoneNumber(String phoneNumber);
 
     Optional<StudentDetails> findByUser(User student);
 
-    // Finds all students with enabled user accounts
-    // Why: Ensures only active students are retrieved for most queries
-    List<StudentDetails> findAllByUserEnabledTrue();
-
-    // Finds a student by ID where the user account is enabled
-    // Why: Ensures retrieval respects the enabled flag for consistency
-    Optional<StudentDetails> findByIdAndUserEnabledTrue(Long id);
-
-    // Checks if a phone number is already in use by another student
-    // Why: Enforces uniqueness constraint at the application level
-    boolean existsByPhoneNumberAndIdNot(String phoneNumber, Long id);
-
-    // Finds a student by associated user ID
-    // Why: Useful for linking user authentication to student details
-    Optional<StudentDetails> findByUserId(Long userId);
+//    // Finds all students with enabled user accounts
+//    // Why: Ensures only active students are retrieved for most queries
+//    List<StudentDetails> findAllByUserEnabledTrue();
+//
+//    // Finds a student by ID where the user account is enabled
+//    // Why: Ensures retrieval respects the enabled flag for consistency
+//    Optional<StudentDetails> findByIdAndUserEnabledTrue(Long id);
+//
+//    // Checks if a phone number is already in use by another student
+//    // Why: Enforces uniqueness constraint at the application level
+//    boolean existsByPhoneNumberAndIdNot(String phoneNumber, Long id);
+//
+//    // Finds a student by associated user ID
+//    // Why: Useful for linking user authentication to student details
+//    Optional<StudentDetails> findByUserId(Long userId);
 
     boolean existsByPhoneNumber(String phoneNumber);
 
@@ -68,4 +71,73 @@ public interface StudentDetailsRepository extends JpaRepository<StudentDetails, 
             @Param("bcys") BatchClassYearSemester bcys,
             @Param("department") Department department);
 
+
+    List<StudentDetails> findByDepartmentEnrolled(Department department);
+
+    //===========================================================
+    // Count students grouped by program level name.
+// Returns Map<levelName, count>.
+    @Query("SELECT pl.name AS levelName, COUNT(s) AS count " +
+            "FROM StudentDetails s " +
+            "JOIN s.programModality pm " +
+            "JOIN pm.programLevel pl " +
+            "GROUP BY pl.name")
+    List<Object[]> countStudentsByProgramLevelRaw();
+    default Map<String, Long> countStudentsByProgramLevel() {
+        return countStudentsByProgramLevelRaw().stream()
+                .collect(Collectors.toMap(arr -> (String) arr[0], arr -> (Long) arr[1]));
+    }
+
+    // Count students grouped by modality.
+// Similar mapping.
+    @Query("SELECT pm.modality AS modality, COUNT(s) AS count " +
+            "FROM StudentDetails s " +
+            "JOIN s.programModality pm " +
+            "GROUP BY pm.modality")
+    List<Object[]> countStudentsByModalityRaw();
+    default Map<String, Long> countStudentsByModality() {
+        return countStudentsByModalityRaw().stream()
+                .collect(Collectors.toMap(arr -> (String) arr[0], arr -> (Long) arr[1]));
+    }
+
+    // Students per department.
+    @Query("SELECT d.deptName AS deptName, COUNT(s) AS count " +
+            "FROM StudentDetails s " +
+            "JOIN s.departmentEnrolled d " +
+            "GROUP BY d.deptName")
+    List<Object[]> countStudentsPerDepartmentRaw();
+    default Map<String, Long> countStudentsPerDepartment() {
+        return countStudentsPerDepartmentRaw().stream()
+                .collect(Collectors.toMap(arr -> (String) arr[0], arr -> (Long) arr[1]));
+    }
+
+    // Enrollment trend by academic year code.
+    @Query("SELECT ay.yearCode AS yearCode, COUNT(s) AS count " +
+            "FROM StudentDetails s " +
+            "JOIN s.academicYear ay " +
+            "GROUP BY ay.yearCode " +
+            "ORDER BY ay.yearCode")
+    List<Object[]> getEnrollmentTrendByAcademicYearRaw();
+    default Map<String, Long> getEnrollmentTrendByAcademicYear() {
+        return getEnrollmentTrendByAcademicYearRaw().stream()
+                .collect(Collectors.toMap(arr -> (String) arr[0], arr -> (Long) arr[1]));
+    }
+
+    // Gender distribution.
+    @Query("SELECT s.gender AS gender, COUNT(s) AS count " +
+            "FROM StudentDetails s " +
+            "GROUP BY s.gender")
+    List<Object[]> countByGenderRaw();
+    default Map<String, Long> countByGender() {
+        return countByGenderRaw().stream()
+                .collect(Collectors.toMap(arr -> ((Gender) arr[0]).name(), arr -> (Long) arr[1]));
+    }
+
+    // Average Grade 12 result.
+    @Query("SELECT AVG(s.grade12Result) FROM StudentDetails s WHERE s.grade12Result IS NOT NULL")
+    Optional<Double> getAverageGrade12Result();
+
+    // Count passed exit exams.
+    @Query("SELECT COUNT(s) FROM StudentDetails s WHERE s.isStudentPassExitExam = true")
+    long countByIsStudentPassExitExamTrue();
 }

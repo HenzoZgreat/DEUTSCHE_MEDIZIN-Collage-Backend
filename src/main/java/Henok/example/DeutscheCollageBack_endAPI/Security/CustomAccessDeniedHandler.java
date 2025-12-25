@@ -58,8 +58,8 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
         Map<String, Object> error = Map.of(
                 "timestamp", Instant.now().toString(),
                 "status", 403,
-                "error", "Forbidden - Insufficient Role Permissions",
-                "message", message,
+                "message", "Forbidden - Insufficient Role Permissions",
+                "error", message,
                 "path", path,
                 "username", username,
                 "yourRole", userRole

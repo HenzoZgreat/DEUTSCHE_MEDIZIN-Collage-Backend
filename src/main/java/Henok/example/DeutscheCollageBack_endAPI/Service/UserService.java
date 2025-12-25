@@ -6,6 +6,7 @@ import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -128,6 +129,36 @@ public class UserService implements UserDetailsService {
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+    }
+
+    // Deletes a user by their ID from the users table
+    // Why: Provides a simple administrative operation to remove a user account permanently
+    // Important: This method performs a HARD DELETE directly on the User entity only.
+    // It does NOT check or cascade delete related records in other tables.
+    // Use with caution — foreign key constraints may prevent deletion if references exist.
+    @Transactional
+    public void deleteUserById(Long userId) {
+        // Validate input
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID cannot be null");
+        }
+
+        // Check if user exists
+        if (!userRepository.existsById(userId)) {
+            throw new ResourceNotFoundException("User not found with id: " + userId);
+        }
+
+        try {
+            userRepository.deleteById(userId);
+
+        } catch (DataIntegrityViolationException e) {
+            // Most common case: foreign key constraint violation (e.g., StudentDetails references this User)
+            throw new DataIntegrityViolationException(
+                    "Cannot delete user because it is referenced by other records (e.g., student/teacher details)", e);
+        } catch (Exception e) {
+            // Fallback for completely unexpected errors
+            throw new RuntimeException("Unexpected error while deleting user with id: " + userId, e);
+        }
     }
 }
 

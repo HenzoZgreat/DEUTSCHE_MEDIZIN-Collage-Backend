@@ -59,8 +59,11 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/students/profile").hasRole("STUDENT")
 
+                        .requestMatchers(HttpMethod.GET, "/api/students/**").hasAnyRole("DEPARTMENT_HEAD", "REGISTRAR", "TEACHER", "DEAN", "VICE_DEAN", "GENERAL_MANAGER")
 
-                        .requestMatchers("/api/students/**",
+
+                        // Registrar endpoints
+                        .requestMatchers(
                                 "/api/batches/**",
                                 "/api/class-years/**",
                                 "/api/courses/**",
@@ -77,8 +80,7 @@ public class SecurityConfig {
                                 "/api/applicants/**",
                                 "/api/auth/registrar/students/*/reset-password",
                                 "/api/auth/register/student").hasRole("REGISTRAR")
-                        .requestMatchers(
-                                "/api/courses/**").hasAnyRole("DEPARTMENT_HEAD", "REGISTRAR")
+                        .requestMatchers("/api/courses/**").hasAnyRole("DEPARTMENT_HEAD", "REGISTRAR")
                         .requestMatchers("/api/auth/register/registrar").hasAnyRole("GENERAL_MANAGER", "VICE_DEAN")
                         .requestMatchers("/api/auth/register/general-manager").hasAnyRole("GENERAL_MANAGER")
                         
@@ -91,14 +93,19 @@ public class SecurityConfig {
                                 "/api/department-heads/profile/document",
                                 "/api/department-heads/teachers",
                                 "/api/department-heads/my-courses",
+                                "api/department-heads/my-students",
                                 "/api/department-heads/assessments/scores",
                                 "/api/department-heads/assessments/*/approve").hasRole("DEPARTMENT_HEAD")
                         .requestMatchers(HttpMethod.PUT,"/api/teachers/**").hasRole("DEPARTMENT_HEAD")
-                        .requestMatchers(HttpMethod.DELETE,"/api/teachers/**").hasRole("DEPARTMENT_HEAD")
-                        
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/teachers/**",
+                                "/api/teachers/{teacherId}/course-assignments/**").hasRole("DEPARTMENT_HEAD")
+                        .requestMatchers(HttpMethod.POST, "/api/teachers/{teacherId}/course-assignments").hasRole("DEPARTMENT_HEAD")
+
                         
                         // Teacher endpoints
                         .requestMatchers("/api/teachers/profile",
+                                       "/api/teachers/update",
                                        "/api/teachers/my-students",
                                        "/api/teachers/courses/*/students",
                                        "/api/teachers/my-courses",

@@ -10,5 +10,5 @@ import java.util.Optional;
 public interface ProgramLevelRepository extends JpaRepository<ProgramLevel, String> {
     boolean existsByCodeIgnoreCase(String code);
 
-    Optional<ProgramLevel> findByCodeIgnoreCase(String code);
+    long countByActiveTrue();
 }

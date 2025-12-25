@@ -67,6 +67,12 @@ public class TeacherService {
 
         // --- VALIDATION (same as before) ---
         validateRegistrationRequest(request);
+        if (photograph != null && !photograph.isEmpty() && photograph.getSize() > 2_000_000) { // 2MB limit
+            throw new IllegalArgumentException("Student photo size exceeds 2MB limit");
+        }
+        if (document != null && !document.isEmpty() && document.getSize() > 10_000_000) { // 10MB limit
+            throw new IllegalArgumentException("Document size exceeds 10MB limit");
+        }
 
         // --- CREATE USER ---
         UserRegisterRequest userReq = new UserRegisterRequest();
@@ -144,6 +150,7 @@ public class TeacherService {
 
         if (teacherRepository.findByPhoneNumber(request.getPhoneNumber()).isPresent())
             throw new IllegalArgumentException("Phone number already exists");
+
     }
 
     // Extracted teacher building
@@ -437,6 +444,14 @@ public class TeacherService {
         });
 
         try {
+
+            if (photograph != null && !photograph.isEmpty() && photograph.getSize() > 2_000_000) { // 2MB limit
+                throw new IllegalArgumentException("Student photo size exceeds 2MB limit");
+            }
+            if (document != null && !document.isEmpty() && document.getSize() > 10_000_000) { // 10MB limit
+                throw new IllegalArgumentException("Document size exceeds 10MB limit");
+            }
+
             if (photograph != null && !photograph.isEmpty())
                 teacher.setPhotograph(photograph.getBytes());
             if (document != null && !document.isEmpty())
