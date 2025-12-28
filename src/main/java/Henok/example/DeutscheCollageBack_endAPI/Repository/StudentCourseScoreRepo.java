@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Repository;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarDashboardDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Service.TeacherService;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -8,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -82,4 +84,26 @@ public interface StudentCourseScoreRepo extends JpaRepository<StudentCourseScore
     // Why: Used to get the exact student list for one course the teacher is teaching
     List<StudentCourseScore> findByCourseAndBatchClassYearSemester(Course course, BatchClassYearSemester bcys);
 
+    // New: Returns List<Object[]> with [deptName (String), avgScore (Double)]
+    // Why: Safe projection; avoids Map direct return and resolves path issue by correct join order.
+    @Query("SELECT d.deptName, AVG(scs.score) " +
+            "FROM StudentDetails sd " +
+            "JOIN sd.user u " +                     // sd -> user (existing OneToOne)
+            "JOIN StudentCourseScore scs ON scs.student = u " +  // join scores for that user
+            "JOIN sd.departmentEnrolled d " +
+            "WHERE scs.isReleased = true " +
+            "GROUP BY d.deptName")
+    List<Object[]> findRawAverageScoresByDepartment();
+
+    // Returns List<Object[]> where each array is: [studentId (Long), fullName (String), avgScore (Double)]
+    // Why: Projects only needed columns; GROUP BY and HAVING work as before.
+    // Service layer will map to nested DTO for consistency.
+    @Query("SELECT u.id, CONCAT(sd.firstNameENG, ' ', sd.fatherNameENG), AVG(scs.score) " +
+            "FROM StudentCourseScore scs " +
+            "JOIN scs.student u " +
+            "JOIN StudentDetails sd ON sd.user = u " +  // correct direction: StudentDetails -> User
+            "WHERE scs.isReleased = true " +
+            "GROUP BY u.id, sd.firstNameENG, sd.fatherNameENG " +
+            "HAVING AVG(scs.score) < :threshold")
+    List<Object[]> findRawLowAverageStudents(@Param("threshold") Double threshold);
 }

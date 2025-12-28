@@ -1,30 +1,50 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.AssessmentScoresResponse;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarDashboardDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.RegistrarRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.RegistrarDetail;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
-import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
-import Henok.example.DeutscheCollageBack_endAPI.Repository.RegistrarDetailRepository;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.AcademicYear;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.*;
+import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.AcademicYearRepo;
+import Henok.example.DeutscheCollageBack_endAPI.Service.Utility.AcademicYearUtilityService;
 import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class RegistrarService {
 
-    @Autowired
-    private UserService userService;
+    @Autowired private final UserService userService;
+    @Autowired private final RegistrarDetailRepository registrarDetailRepository;
+    @Autowired private final AppliedStudentRepository appliedStudentRepository;
+    @Autowired private final StudentDetailsRepository studentDetailsRepository;
+    @Autowired private final StudentCourseScoreRepo studentCourseScoreRepository;
+    @Autowired private final DepartmentRepo departmentRepository;
+    @Autowired private final StudentStatusRepo studentStatusRepository;
+    @Autowired private final AcademicYearRepo academicYearRepository; // New: to fetch all academic years
+    @Autowired private final AcademicYearUtilityService academicYearUtilityService; // New: injected for date checking
+    @Autowired private final DepartmentHeadRepository departmentHeadRepository;
+    @Autowired private final CourseRepo courseRepo;
+    @Autowired private final AssessmentRepo assessmentRepository;
+    @Autowired private final StudentCourseScoreRepo studentCourseScoreRepo;
+    @Autowired private final StudentAssessmentRepo studentAssessmentRepository;
+    @Autowired private final TeacherCourseAssignmentRepository assignmentRepository;
+    @Autowired private EntityManager entityManager;
 
-    @Autowired
-    private RegistrarDetailRepository registrarDetailRepository;
 
-    @Autowired
-    private EntityManager entityManager;
 
     @Transactional
     public RegistrarDetail registerRegistrar(RegistrarRegisterRequest request, MultipartFile nationalIdImage, MultipartFile photograph) {
@@ -104,5 +124,329 @@ public class RegistrarService {
         entityManager.clear();
 
         return registrarDetailRepository.save(registrarDetail);
+    }
+
+    // Aggregates dashboard data.
+    // Why: Central method to fetch and compute all metrics in one go, minimizing DB calls.
+    // Handles: Defaults to 0/null for no-data cases; throws RuntimeException for critical errors (e.g., DB failure).
+    public RegistrarDashboardDTO getDashboardData() {
+        RegistrarDashboardDTO dto = new RegistrarDashboardDTO();
+
+        // Cards - safe counts
+        dto.setTotalApplicants(appliedStudentRepository.count());
+        dto.setPendingApplicants(appliedStudentRepository.countByApplicationStatus(ApplicationStatus.PENDING));
+        dto.setRegisteredStudents(studentDetailsRepository.count());
+        dto.setTotalDepartments(departmentRepository.count());
+
+        StudentStatus activeStatus = studentStatusRepository.findByStatusName("ACTIVE")
+                .orElseThrow(() -> new ResourceNotFoundException("Student status 'ACTIVE' not found in database"));
+        dto.setActiveStudents(studentDetailsRepository.countByStudentRecentStatus(activeStatus));
+
+        dto.setIncompleteDocuments(studentDetailsRepository.countByDocumentStatus(DocumentStatus.INCOMPLETE));
+
+        // === SAFE HANDLING FOR APPLICANT GENDER DISTRIBUTION ===
+        // Why: The previous countByGenderGrouped() may fail due to empty results, null gender, or unsupported return type.
+        // Solution: Use simple, safe derived query methods + manual mapping.
+        try {
+            Map<Gender, Long> genderDist = new EnumMap<>(Gender.class);
+            for (Gender g : Gender.values()) {
+                long count = appliedStudentRepository.countByGender(g);
+                genderDist.put(g, count);
+            }
+            dto.setApplicantGenderDistribution(genderDist);
+        } catch (Exception e) {
+            // Prevent crash - return empty map if anything goes wrong
+            dto.setApplicantGenderDistribution(Collections.emptyMap());
+        }
+
+        // === SAFE HANDLING FOR ENROLLMENT BY DEPARTMENT ===
+        // Why: countByDepartmentEnrolledGrouped() likely fails for similar reasons (unsupported Map return or join issues).
+        // Solution: Use countByDepartmentEnrolled(Department department) derived queries + manual aggregation.
+        try {
+            // Fetch all departments first (usually small number)
+            List<Department> allDepts = departmentRepository.findAll();
+            Map<String, Long> enrollmentByDept = new LinkedHashMap<>();
+            for (Department dept : allDepts) {
+                long count = studentDetailsRepository.countByDepartmentEnrolled(dept);
+                if (count > 0) { // Only include departments with students
+                    enrollmentByDept.put(dept.getDeptName(), count);
+                }
+            }
+            dto.setEnrollmentByDepartment(enrollmentByDept);
+        } catch (Exception e) {
+            // Prevent crash
+            dto.setEnrollmentByDepartment(Collections.emptyMap());
+        }
+
+        // Average scores by department - keep safe empty fallback (already stable from previous fix)
+        try {
+            List<Object[]> rawAvg = studentCourseScoreRepository.findRawAverageScoresByDepartment();
+            Map<String, Double> avgScoresByDept = rawAvg.stream()
+                    .filter(row -> row[0] != null && row[1] != null)
+                    .collect(Collectors.toMap(
+                            row -> (String) row[0],
+                            row -> ((Number) row[1]).doubleValue()
+                    ));
+            dto.setAverageScoresByDepartment(avgScoresByDept);
+        } catch (Exception e) {
+            dto.setAverageScoresByDepartment(Collections.emptyMap());
+        }
+
+        // Academic year trends - safe (in-memory)
+        List<AcademicYear> allAcademicYears = academicYearRepository.findAll();
+        if (allAcademicYears.isEmpty()) {
+            dto.setEnrollmentTrendsByAcademicYear(Collections.emptyList());
+        } else {
+            Map<String, Long> trendsMap = studentDetailsRepository.findAll()
+                    .stream()
+                    .filter(sd -> sd.getDateEnrolledGC() != null)
+                    .map(sd -> academicYearUtilityService.findAcademicYearByDate(sd.getDateEnrolledGC(), allAcademicYears))
+                    .filter(Objects::nonNull)
+                    .map(AcademicYear::getAcademicYearGC)
+                    .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+
+            List<RegistrarDashboardDTO.AcademicYearEnrollment> trends = trendsMap.entrySet().stream()
+                    .map(entry -> {
+                        RegistrarDashboardDTO.AcademicYearEnrollment aye = new RegistrarDashboardDTO.AcademicYearEnrollment();
+                        aye.setAcademicYearGC(entry.getKey());
+                        aye.setCount(entry.getValue());
+                        return aye;
+                    })
+                    .sorted(Comparator.comparing(RegistrarDashboardDTO.AcademicYearEnrollment::getAcademicYearGC))
+                    .collect(Collectors.toList());
+
+            dto.setEnrollmentTrendsByAcademicYear(trends);
+        }
+
+        // Recent applicants - safe with null check
+        List<AppliedStudent> recent = appliedStudentRepository.findTop10ByOrderByIdDesc();
+        List<RegistrarDashboardDTO.RecentApplicantDTO> recentDTOs = recent.stream()
+                .map(as -> {
+                    RegistrarDashboardDTO.RecentApplicantDTO rad = new RegistrarDashboardDTO.RecentApplicantDTO();
+                    rad.setId(as.getId());
+                    rad.setFirstNameENG(as.getFirstNameENG());
+                    rad.setApplicationStatus(as.getApplicationStatus());
+                    rad.setDepartmentEnrolled(as.getDepartmentEnrolled() != null ? as.getDepartmentEnrolled().getDeptName() : "N/A");
+                    return rad;
+                })
+                .collect(Collectors.toList());
+        dto.setRecentApplicants(recentDTOs);
+
+        // Low score alerts - safe
+        List<Object[]> rawAlerts = studentCourseScoreRepository.findRawLowAverageStudents(50.0);
+        List<RegistrarDashboardDTO.StudentAlertDTO> alerts = rawAlerts.stream()
+                .map(row -> {
+                    RegistrarDashboardDTO.StudentAlertDTO alert = new RegistrarDashboardDTO.StudentAlertDTO();
+                    alert.setStudentId((Long) row[0]);
+                    alert.setFullName((String) row[1]);
+                    alert.setAvgScore(((Number) row[2]).doubleValue());
+                    return alert;
+                })
+                .collect(Collectors.toList());
+        dto.setLowScoreAlerts(alerts);
+
+        return dto;
+    }
+
+    /**
+     * Retrieves scores grid for all assessments that have been APPROVED by the department head
+     * (headApproval = ACCEPTED) across ALL departments.
+     *
+     * Why this method:
+     * - Registrars have university-wide access → they can see head-approved assessments from every department
+     * - No department filtering needed
+     * - Shows full grid for registrar to review before final release
+     *
+     * @param authenticatedUser The authenticated registrar
+     * @return List of AssessmentScoresResponse (one per teacher course assignment)
+     */
+    @Transactional(readOnly = true)
+    public List<AssessmentScoresResponse> getHeadApprovedAssessmentScoresForRegistrar(User authenticatedUser) {
+
+        // Optional: Verify registrar profile if you have a RegistrarDetails entity
+        // If not, just rely on Role.REGISTRAR checked in SecurityConfig
+        // Example if you have one:
+        // RegistrarDetails registrar = registrarRepository.findByUser(authenticatedUser)
+        //         .orElseThrow(() -> new ResourceNotFoundException("Registrar profile not found"));
+
+        // Get ALL assessments where headApproval = ACCEPTED (no department filter)
+        List<Assessment> headApprovedAssessments = assessmentRepository.findAll().stream()
+                .filter(a -> a.getHeadApproval() == AssessmentStatus.ACCEPTED)
+                .collect(Collectors.toList());
+
+        if (headApprovedAssessments.isEmpty()) {
+            return Collections.emptyList(); // Clean empty response
+        }
+
+        // Group by teacher course assignment
+        Map<TeacherCourseAssignment, List<Assessment>> byAssignment = headApprovedAssessments.stream()
+                .collect(Collectors.groupingBy(Assessment::getTeacherCourseAssignment));
+
+        // Build responses for each assignment
+        List<AssessmentScoresResponse> responses = new ArrayList<>();
+        for (Map.Entry<TeacherCourseAssignment, List<Assessment>> entry : byAssignment.entrySet()) {
+            TeacherCourseAssignment tca = entry.getKey();
+            List<Assessment> assessments = entry.getValue();
+
+            AssessmentScoresResponse response = new AssessmentScoresResponse();
+            response.setTeacherCourseAssignmentId(tca.getId());
+            response.setTeacherName(tca.getTeacher().getFirstNameEnglish() + " " + tca.getTeacher().getLastNameEnglish());
+            response.setCourseCode(tca.getCourse().getCCode());
+            response.setCourseTitle(tca.getCourse().getCTitle());
+            response.setBatchClassYearSemester(tca.getBcys().getDisplayName());
+
+            // Build assessment infos – sorted by creation date
+            List<AssessmentScoresResponse.AssessmentInfo> assessmentInfos = assessments.stream()
+                    .sorted((a1, a2) -> a1.getCreatedAt().compareTo(a2.getCreatedAt()))
+                    .map(a -> {
+                        AssessmentScoresResponse.AssessmentInfo info = new AssessmentScoresResponse.AssessmentInfo();
+                        info.setAssessmentId(a.getAssID());
+                        info.setTitle(a.getAssTitle());
+                        info.setMaxScore(a.getMaxScore());
+                        info.setDueDate(a.getDueDate());
+                        info.setStatus(a.getAssStatus());
+                        info.setHeadApproval(a.getHeadApproval());
+                        info.setRegistrarApproval(a.getRegistrarApproval());
+                        return info;
+                    })
+                    .collect(Collectors.toList());
+            response.setAssessments(assessmentInfos);
+
+            // Get enrolled students for this course + BCYS
+            List<StudentCourseScore> courseScores = studentCourseScoreRepo.findByCourseAndBatchClassYearSemester(
+                    tca.getCourse(), tca.getBcys());
+
+            Set<User> uniqueUsers = courseScores.stream()
+                    .map(StudentCourseScore::getStudent)
+                    .collect(Collectors.toSet());
+
+            // Build student score views
+            List<AssessmentScoresResponse.StudentScoreView> studentViews = uniqueUsers.stream()
+                    .map(user -> {
+                        StudentDetails student = studentDetailsRepository.findByUser(user).orElse(null);
+                        if (student == null) return null;
+
+                        AssessmentScoresResponse.StudentScoreView view = new AssessmentScoresResponse.StudentScoreView();
+                        view.setStudentId(student.getId());
+                        view.setStudentIdNumber(user.getUsername()); // or student.getStudentIdNumber() if available
+                        view.setFullNameENG(student.getFirstNameENG() + " " + student.getFatherNameENG() + " " + student.getGrandfatherNameENG());
+                        view.setFullNameAMH(student.getFirstNameAMH() + " " + student.getFatherNameAMH() + " " + student.getGrandfatherNameAMH());
+
+                        // Scores for each assessment (in same order as assessmentInfos)
+                        List<AssessmentScoresResponse.SingleScore> scores = assessments.stream()
+                                .map(ass -> {
+                                    StudentAssessmentKey key = new StudentAssessmentKey(student.getId(), ass.getAssID());
+                                    Double score = studentAssessmentRepository.findById(key)
+                                            .map(StudentAssessment::getScore)
+                                            .orElse(null);
+                                    return new AssessmentScoresResponse.SingleScore(ass.getAssID(), score);
+                                })
+                                .collect(Collectors.toList());
+                        view.setScores(scores);
+                        return view;
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            response.setStudents(studentViews);
+            responses.add(response);
+        }
+
+        return responses;
+    }
+    // Add this method to your RegistrarService
+    @Transactional
+    public List<Assessment> registrarApproveOrRejectAllAssessments(
+            User authenticatedUser,
+            Long teacherCourseAssignmentId,
+            AssessmentStatus status) {
+
+        // Validate status
+        if (status != AssessmentStatus.ACCEPTED && status != AssessmentStatus.REJECTED) {
+            throw new IllegalArgumentException("Status must be ACCEPTED or REJECTED");
+        }
+
+        // Verify registrar role/profile if you have one (optional – role checked in security config)
+        // Assuming registrar has User with Role.REGISTRAR – no extra profile needed
+
+        // Load TeacherCourseAssignment
+        TeacherCourseAssignment tca = assignmentRepository.findById(teacherCourseAssignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher course assignment not found"));
+
+        // Get all assessments under this assignment
+        List<Assessment> assessments = assessmentRepository.findByTeacherCourseAssignment(tca);
+
+        if (assessments.isEmpty()) {
+            throw new ResourceNotFoundException("No assessments found for this course assignment");
+        }
+
+        // All must be head-approved before registrar can act
+        for (Assessment a : assessments) {
+            if (a.getHeadApproval() != AssessmentStatus.ACCEPTED) {
+                throw new IllegalArgumentException(
+                        "All assessments must be approved by department head first. Assessment '" + a.getAssTitle() + "' is pending head approval."
+                );
+            }
+        }
+
+        List<Assessment> updatedAssessments = new ArrayList<>();
+
+        // Step 1: Update registrarApproval on all assessments
+        for (Assessment assessment : assessments) {
+            assessment.setRegistrarApproval(status);
+            updatedAssessments.add(assessmentRepository.save(assessment));
+        }
+
+        // Step 2: If registrar APPROVES → calculate total score per student and update StudentCourseScore
+        if (status == AssessmentStatus.ACCEPTED) {
+            Course course = tca.getCourse();
+            BatchClassYearSemester bcys = tca.getBcys();
+
+            // Get all enrolled students for this course + BCYS
+            List<StudentCourseScore> enrollments = studentCourseScoreRepository
+                    .findByCourseAndBatchClassYearSemester(course, bcys);
+
+            if (!enrollments.isEmpty()) {
+                // Pre-load all student scores for these assessments to avoid N+1
+                List<Long> assessmentIds = assessments.stream()
+                        .map(Assessment::getAssID)
+                        .toList();
+
+                List<StudentAssessment> allScores = studentAssessmentRepository
+                        .findByAssessmentInAndStudentIn(
+                                assessments,
+                                enrollments.stream()
+                                        .map(StudentCourseScore::getStudent)
+                                        .map(user -> studentDetailsRepository.findByUser(user).orElse(null))
+                                        .filter(Objects::nonNull)
+                                        .toList()
+                        );
+
+                // Map: studentId → total score
+                Map<Long, Double> studentTotalScores = new HashMap<>();
+
+                for (StudentAssessment sa : allScores) {
+                    Long studentId = sa.getStudent().getId();
+                    Double score = sa.getScore() != null ? sa.getScore() : 0.0;
+                    studentTotalScores.merge(studentId, score, Double::sum);
+                }
+
+                // Update each StudentCourseScore with calculated total
+                for (StudentCourseScore scs : enrollments) {
+                    Long studentId = studentDetailsRepository.findByUser(scs.getStudent())
+                            .map(StudentDetails::getId)
+                            .orElse(null);
+
+                    if (studentId != null) {
+                        Double total = studentTotalScores.getOrDefault(studentId, 0.0);
+                        scs.setScore(total);
+//                        scs.setIsReleased(true); // Final score is now officially released
+                    }
+                    studentCourseScoreRepository.save(scs);
+                }
+            }
+        }
+
+        return updatedAssessments;
     }
 }

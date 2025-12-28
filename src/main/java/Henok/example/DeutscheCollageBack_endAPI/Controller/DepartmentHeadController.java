@@ -72,6 +72,44 @@ public class DepartmentHeadController {
         }
     }
 
+    // ==================== GET FILES ====================
+    @GetMapping(value = "/get-photo/{id}", produces = MediaType.IMAGE_JPEG_VALUE)
+    public ResponseEntity<?> getPhoto(@PathVariable Long id) {
+        try {
+            byte[] photo = departmentHeadService.getDepartmentHeadPhoto(id);
+            if (photo == null || photo.length == 0) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Photo not found"));
+            }
+            return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG)
+                .body(photo);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Failed to retrieve photo"));
+        }
+    }
+
+    @GetMapping(value = "/get-document/{id}")
+    public ResponseEntity<?> getDocument(@PathVariable Long id) {
+        try {
+            byte[] doc = departmentHeadService.getDepartmentHeadDocument(id);
+            if (doc == null || doc.length == 0) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Document not found"));
+            }
+            return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"dept_head_doc_" + id + "\"")
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(doc);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Failed to retrieve document"));
+        }
+    }
+
     // -----------[Update My Profile]------------------
     // description - Updates the authenticated department head's profile.
     //               Restricted fields (documents, department, etc.) are ignored.

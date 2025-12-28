@@ -2,28 +2,18 @@ package Henok.example.DeutscheCollageBack_endAPI.DTO.DeanAndVice_Dean;
 
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Gender;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
-// DeanViceDeanResponse DTO
-// Response DTO for Dean/Vice-Dean details.
-// Excludes sensitive fields like password.
-// Replaces documents with hasDocument boolean.
-// Encodes photo as Base64 string for safe JSON transmission.
+// DeanViceDeanDetailDTO
+// DTO used for retrieving detailed information about a Dean or Vice-Dean by ID.
+// Excludes photo and document bytes; instead provides boolean flags.
+// Includes residence location names and codes for frontend display/search.
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class DeanViceDeanResponse {
-
+public class DeanViceDeanDetailDTO {
     private Long id;
-    private Long userId;
     private String username;
-    private Role role;
     private String firstNameAMH;
     private String firstNameENG;
     private String fatherNameAMH;
@@ -33,13 +23,20 @@ public class DeanViceDeanResponse {
     private Gender gender;
     private String email;
     private String phoneNumber;
-    private String residenceWoredaCode;
-    private String residenceZoneCode;
+
+    // Residence details with both name and code
+    private String residenceRegion;
     private String residenceRegionCode;
+    private String residenceZone;
+    private String residenceZoneCode;
+    private String residenceWoreda;
+    private String residenceWoredaCode;
+
     private LocalDate hiredDateGC;
     private String title;
-    private String remarks;
-    private String photo; // Base64 encoded string
-    private boolean hasDocument; // True if documents exist
+    private String remarks; // Included for admin view
+    private boolean hasPhoto;
+    private boolean hasDocument;
+    private Role role;
     private boolean active;
 }

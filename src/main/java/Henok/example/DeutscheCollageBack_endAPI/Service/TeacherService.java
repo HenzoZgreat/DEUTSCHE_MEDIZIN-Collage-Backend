@@ -229,6 +229,21 @@ public class TeacherService {
         return toDetailDto(t);
     }
 
+    // ==================== GET FILES ====================
+    @Transactional(readOnly = true)
+    public byte[] getTeacherPhoto(Long id) {
+        TeacherDetail t = teacherRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with ID: " + id));
+        return t.getPhotograph();
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] getTeacherDocument(Long id) {
+        TeacherDetail t = teacherRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with ID: " + id));
+        return t.getDocuments();
+    }
+
     // ==================== PRIVATE MAPPERS ====================
 
     private TeacherListDTO toListDto(TeacherDetail t) {
@@ -310,6 +325,7 @@ public class TeacherService {
         Course c = a.getCourse();
         BatchClassYearSemester b = a.getBcys();
 
+        dto.setTeacherCourseAssigmentId(a.getId());
         dto.setId(c.getCID());
         dto.setCourseCode(c.getCCode());  // Assuming Course has getCode()
         dto.setCourseTitle(c.getCTitle());  // Assuming Course has getTitle()
@@ -799,6 +815,8 @@ public class TeacherService {
         response.setRecentCourses(recentCourses);
 
         return response;
+    
+
     }
 
 }

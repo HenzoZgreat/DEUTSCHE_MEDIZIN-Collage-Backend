@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class AssignedCourseDTO {
 
+    private Long teacherCourseAssigmentId; // Assignment ID
     private Long id;                        // Course ID
     private String courseCode;              // Course code
     private String courseTitle;             // Course title

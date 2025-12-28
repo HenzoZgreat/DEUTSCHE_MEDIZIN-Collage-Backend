@@ -15,6 +15,7 @@ import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.TeacherService;
 import Henok.example.DeutscheCollageBack_endAPI.Service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -131,6 +132,44 @@ public class TeacherController {
     // Keeping the admin update endpoint with different path or role check if needed, 
     // but the prompt asked specifically for the new endpoint. 
     // The previous implementation used PUT /{id}. I will leave it as is.
+    // ==================== GET FILES ====================
+    @GetMapping(value = "/get-photo/{id}", produces = MediaType.IMAGE_JPEG_VALUE)
+    public ResponseEntity<?> getPhoto(@PathVariable Long id) {
+        try {
+            byte[] photo = teacherService.getTeacherPhoto(id);
+            if (photo == null || photo.length == 0) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse("Photo not found"));
+            }
+            return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG) // Assuming JPEG, browser will handle PNG too mostly
+                .body(photo);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ErrorResponse("Failed to retrieve photo"));
+        }
+    }
+
+    @GetMapping(value = "/get-document/{id}")
+    public ResponseEntity<?> getDocument(@PathVariable Long id) {
+        try {
+            byte[] doc = teacherService.getTeacherDocument(id);
+            if (doc == null || doc.length == 0) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse("Document not found"));
+            }
+            return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"teacher_doc_" + id + "\"")
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(doc);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ErrorResponse("Failed to retrieve document"));
+        }
+    }
+
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> update(
             @PathVariable Long id,

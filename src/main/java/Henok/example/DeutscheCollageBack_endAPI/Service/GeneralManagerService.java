@@ -1,23 +1,36 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.GeneralManager.GeneralManagerDashboardDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.GeneralManager.GeneralManagerDetailDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.GeneralManager.GeneralManagerUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.GeneralManagerRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.GeneralManagerDetail;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.AcademicYear;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.ApplicationStatus;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.DocumentStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
-import Henok.example.DeutscheCollageBack_endAPI.Repository.GeneralManagerDetailRepository;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.AcademicYearRepo;
+import Henok.example.DeutscheCollageBack_endAPI.Service.Utility.AcademicYearUtilityService;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class GeneralManagerService {
 
     @Autowired
@@ -26,6 +39,22 @@ public class GeneralManagerService {
     private GeneralManagerDetailRepository generalManagerDetailRepository;
     @Autowired
     private EntityManager entityManager;
+    // Repositories for enrolled students and applicants
+    private final StudentDetailsRepository studentDetailsRepository;
+    private final AppliedStudentRepository appliedStudentRepository;
+
+    // Repositories for staff detail entities (to count by role)
+    private final TeacherRepository teacherDetailRepository;
+    private final RegistrarDetailRepository registrarDetailRepository;
+    private final DepartmentHeadRepository departmentHeadDetailsRepository;
+    // Assume DeanViceDeanDetailRepository exists based on previous entities
+    private final DeanViceDeanDetailsRepository deanViceDeanDetailRepository;
+
+    // Repository for AcademicYear lookup
+    private final AcademicYearRepo academicYearRepository;
+
+    // Utility service to determine which academic year a date belongs to
+    private final AcademicYearUtilityService academicYearUtilityService;
 
 
     @Transactional
@@ -172,6 +201,150 @@ public class GeneralManagerService {
                 // Blob fields are returned only if client needs them (e.g., for display)
                 .nationalIdImage(detail.getNationalIdImage())
                 .photograph(detail.getPhotograph())
+                .build();
+    }
+
+
+    public GeneralManagerDashboardDTO getDashboardData() {
+        List<AcademicYear> allAcademicYears = academicYearRepository.findAll();
+
+        return GeneralManagerDashboardDTO.builder()
+                .studentOverview(buildStudentOverview())
+                .applicationOverview(buildApplicationOverview())
+                .staffOverview(buildStaffOverview())
+                .departmentOverview(buildDepartmentOverview())
+                .operationalAlerts(buildOperationalAlerts())
+                .trends(buildTrends(allAcademicYears))
+                .build();
+    }
+
+    private GeneralManagerDashboardDTO.StudentOverview buildStudentOverview() {
+        // Use existing raw methods and map to nested DTOs
+        List<GeneralManagerDashboardDTO.DepartmentCount> byDepartment = studentDetailsRepository.countStudentsPerDepartmentRaw().stream()
+                .map(arr -> GeneralManagerDashboardDTO.DepartmentCount.builder()
+                        .departmentName((String) arr[0])
+                        .count((Long) arr[1])
+                        .build())
+                .toList();
+
+        List<GeneralManagerDashboardDTO.ProgramModalityCount> byModality = studentDetailsRepository.countStudentsByModalityRaw().stream()
+                .map(arr -> GeneralManagerDashboardDTO.ProgramModalityCount.builder()
+                        .modality((String) arr[0])
+                        .count((Long) arr[1])
+                        .build())
+                .toList();
+
+        // Status count – assuming StudentStatus has a name field; adjust if needed
+        List<GeneralManagerDashboardDTO.StudentStatusCount> byStatus = studentDetailsRepository.findAll().stream()
+                .collect(Collectors.groupingBy(s -> s.getStudentRecentStatus().getStatusName(), Collectors.counting()))
+                .entrySet().stream()
+                .map(e -> GeneralManagerDashboardDTO.StudentStatusCount.builder()
+                        .status(e.getKey())
+                        .count(e.getValue())
+                        .build())
+                .toList();
+
+        long incompleteDocs = studentDetailsRepository.countByDocumentStatus(DocumentStatus.INCOMPLETE);
+
+        return GeneralManagerDashboardDTO.StudentOverview.builder()
+                .totalEnrolled(studentDetailsRepository.count())
+                .byDepartment(byDepartment)
+                .byProgramModality(byModality)
+                .byStatus(byStatus)
+                .incompleteDocuments(incompleteDocs)
+                .build();
+    }
+
+    private GeneralManagerDashboardDTO.ApplicationOverview buildApplicationOverview() {
+        List<GeneralManagerDashboardDTO.ApplicationStatusCount> byStatus = List.of(
+                GeneralManagerDashboardDTO.ApplicationStatusCount.builder()
+                        .status(ApplicationStatus.PENDING)
+                        .count(appliedStudentRepository.countByApplicationStatus(ApplicationStatus.PENDING))
+                        .build(),
+                GeneralManagerDashboardDTO.ApplicationStatusCount.builder()
+                        .status(ApplicationStatus.ACCEPTED)
+                        .count(appliedStudentRepository.countByApplicationStatus(ApplicationStatus.ACCEPTED))
+                        .build(),
+                GeneralManagerDashboardDTO.ApplicationStatusCount.builder()
+                        .status(ApplicationStatus.REJECTED)
+                        .count(appliedStudentRepository.countByApplicationStatus(ApplicationStatus.REJECTED))
+                        .build()
+        );
+
+        long pendingCount = appliedStudentRepository.countByApplicationStatus(ApplicationStatus.PENDING);
+
+        // Department counts for applicants – using simple grouping (no raw query available yet)
+        List<GeneralManagerDashboardDTO.DepartmentCount> byDepartment = appliedStudentRepository.findAll().stream()
+                .collect(Collectors.groupingBy(a -> a.getDepartmentEnrolled().getDeptName(), Collectors.counting()))
+                .entrySet().stream()
+                .map(e -> GeneralManagerDashboardDTO.DepartmentCount.builder()
+                        .departmentName(e.getKey())
+                        .count(e.getValue())
+                        .build())
+                .toList();
+
+        return GeneralManagerDashboardDTO.ApplicationOverview.builder()
+                .totalApplied(appliedStudentRepository.count())
+                .pendingCount(pendingCount)
+                .byStatus(byStatus)
+                .byDepartment(byDepartment)
+                .build();
+    }
+
+    private GeneralManagerDashboardDTO.StaffOverview buildStaffOverview() {
+        return GeneralManagerDashboardDTO.StaffOverview.builder()
+                .totalTeachers(teacherDetailRepository.count())
+                .totalRegistrars(registrarDetailRepository.count())
+                .totalDepartmentHeads(departmentHeadDetailsRepository.count())
+                .totalDeansViceDeans(deanViceDeanDetailRepository.count())
+                .totalStaff(teacherDetailRepository.count() +
+                        registrarDetailRepository.count() +
+                        departmentHeadDetailsRepository.count() +
+                        deanViceDeanDetailRepository.count())
+                .build();
+    }
+
+    private GeneralManagerDashboardDTO.DepartmentOverview buildDepartmentOverview() {
+        // Count distinct departments from enrolled students
+        long totalDepartments = studentDetailsRepository.countDistinctDepartments();
+        return GeneralManagerDashboardDTO.DepartmentOverview.builder()
+                .totalDepartments(totalDepartments)
+                .build();
+    }
+
+    private GeneralManagerDashboardDTO.OperationalAlerts buildOperationalAlerts() {
+        long pendingApps = appliedStudentRepository.countByApplicationStatus(ApplicationStatus.PENDING);
+        long studentsWithImpairments = studentDetailsRepository.countByImpairmentIsNotNull();
+
+        return GeneralManagerDashboardDTO.OperationalAlerts.builder()
+                .pendingApplications(pendingApps)
+                .studentsWithImpairments(studentsWithImpairments)
+                .build();
+    }
+
+    private GeneralManagerDashboardDTO.Trends buildTrends(List<AcademicYear> academicYears) {
+        // Fetch only enrollment dates to avoid loading full entities
+        List<LocalDate> enrollmentDates = studentDetailsRepository.findAllEnrollmentDates();
+
+        Map<String, Long> countByAcademicYear = enrollmentDates.stream()
+                .collect(Collectors.groupingBy(
+                        date -> {
+                            AcademicYear ay = academicYearUtilityService.findAcademicYearByDate(date, academicYears);
+                            return ay != null ? ay.getAcademicYearGC() : "Unknown";
+                        },
+                        Collectors.counting()
+                ));
+
+        List<GeneralManagerDashboardDTO.EnrollmentTrend> trendList = countByAcademicYear.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(e -> GeneralManagerDashboardDTO.EnrollmentTrend.builder()
+                        .academicYear(e.getKey())
+                        .count(e.getValue())
+                        .build())
+                .toList();
+
+        return GeneralManagerDashboardDTO.Trends.builder()
+                .enrollmentOverYears(trendList)
                 .build();
     }
 }

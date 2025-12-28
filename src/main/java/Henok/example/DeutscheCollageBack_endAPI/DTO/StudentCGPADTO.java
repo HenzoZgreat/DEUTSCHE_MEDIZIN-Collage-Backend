@@ -1,0 +1,18 @@
+package Henok.example.DeutscheCollageBack_endAPI.DTO;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class StudentCGPADTO {
+    private Long studentId;
+    private String idNumber;
+    private String fullName;
+    private String department;
+    private String batchClassYearSemester;
+    private String studentStatus;
+    private Double cgpa;
+}

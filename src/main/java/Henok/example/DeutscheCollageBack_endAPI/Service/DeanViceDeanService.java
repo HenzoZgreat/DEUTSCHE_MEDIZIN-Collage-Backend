@@ -132,6 +132,56 @@ public class DeanViceDeanService {
         return detailsList.stream().map(this::mapToListDTO).collect(Collectors.toList());
     }
 
+    // Add these methods to DeanViceDeanService
+
+    // Retrieve detailed information for a Dean/Vice-Dean by details ID.
+// Throws exception if not found or role mismatch.
+// Maps entity to DTO, computes hasPhoto/hasDocument flags.
+    @Transactional(readOnly = true)
+    public DeanViceDeanDetailDTO getDetailById(Long id, Role expectedRole) {
+        DeanViceDeanDetails details = deanViceDeanDetailsRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Dean/Vice-Dean not found with ID: " + id));
+
+        if (details.getUser().getRole() != expectedRole) {
+            throw new IllegalArgumentException("Role mismatch: expected " + expectedRole);
+        }
+
+        if (!details.isActive()) {
+            throw new IllegalArgumentException("This Dean/Vice-Dean is no longer active");
+        }
+
+        DeanViceDeanDetailDTO dto = new DeanViceDeanDetailDTO();
+        dto.setId(details.getId());
+        dto.setUsername(details.getUser().getUsername());
+        dto.setFirstNameAMH(details.getFirstNameAMH());
+        dto.setFirstNameENG(details.getFirstNameENG());
+        dto.setFatherNameAMH(details.getFatherNameAMH());
+        dto.setFatherNameENG(details.getFatherNameENG());
+        dto.setGrandfatherNameAMH(details.getGrandfatherNameAMH());
+        dto.setGrandfatherNameENG(details.getGrandfatherNameENG());
+        dto.setGender(details.getGender());
+        dto.setEmail(details.getEmail());
+        dto.setPhoneNumber(details.getPhoneNumber());
+
+        // Residence details
+        dto.setResidenceRegion(details.getResidenceRegion().getRegion());
+        dto.setResidenceRegionCode(details.getResidenceRegion().getRegionCode());
+        dto.setResidenceZone(details.getResidenceZone().getZone());
+        dto.setResidenceZoneCode(details.getResidenceZone().getZoneCode());
+        dto.setResidenceWoreda(details.getResidenceWoreda().getWoreda());
+        dto.setResidenceWoredaCode(details.getResidenceWoreda().getWoredaCode());
+
+        dto.setHiredDateGC(details.getHiredDateGC());
+        dto.setTitle(details.getTitle());
+        dto.setRemarks(details.getRemarks());
+        dto.setHasPhoto(details.getPhoto() != null && details.getPhoto().length > 0);
+        dto.setHasDocument(details.getDocuments() != null && details.getDocuments().length > 0);
+        dto.setRole(details.getUser().getRole());
+        dto.setActive(details.isActive());
+
+        return dto;
+    }
+
     // Helper mapper for ListDTO
     private DeanViceDeanListDTO mapToListDTO(DeanViceDeanDetails details) {
         DeanViceDeanListDTO dto = new DeanViceDeanListDTO();
@@ -469,5 +519,25 @@ public class DeanViceDeanService {
 //        dto.setExitExamPassRate(dto.getTotalStudents > 0 ? (double) passCount / dto.getTotalStudents * 100 : 0.0);
 
         return dto;
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] getDeanViceDeanPhoto(Long id, Role expectedRole) {
+        DeanViceDeanDetails details = deanViceDeanDetailsRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Dean/Vice-Dean not found with ID: " + id));
+        if (details.getUser().getRole() != expectedRole) {
+            throw new IllegalArgumentException("Role mismatch");
+        }
+        return details.getPhoto();
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] getDeanViceDeanDocument(Long id, Role expectedRole) {
+        DeanViceDeanDetails details = deanViceDeanDetailsRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Dean/Vice-Dean not found with ID: " + id));
+        if (details.getUser().getRole() != expectedRole) {
+            throw new IllegalArgumentException("Role mismatch");
+        }
+        return details.getDocuments();
     }
 }

@@ -32,5 +32,7 @@ public class DepartmentHeadResponse {
     private Map<String, Object> residenceZone;   // { "id": zoneCode, "name": zone }
     private Map<String, Object> residenceWoreda; // { "id": woredaCode, "name": woreda }
     private String remark;
+    private boolean hasPhoto;
+    private boolean hasDocument;
     private boolean isActive;
 }

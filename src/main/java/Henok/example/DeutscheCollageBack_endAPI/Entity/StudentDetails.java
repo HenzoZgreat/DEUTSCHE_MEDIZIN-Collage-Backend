@@ -75,7 +75,7 @@ public class StudentDetails {
     @Column(nullable = false, unique = true)
     private String phoneNumber;
 
-    @Column(name = "date_of_birth_ec", nullable = false)
+    @Column(name = "date_of_birth_ec", nullable = true)
     private String dateOfBirthEC;
 
     @Column(name = "date_of_birth_gc", nullable = false)

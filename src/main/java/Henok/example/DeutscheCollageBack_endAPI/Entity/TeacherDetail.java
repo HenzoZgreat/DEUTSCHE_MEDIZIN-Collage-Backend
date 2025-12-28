@@ -104,6 +104,6 @@ public class TeacherDetail {
     private byte[] photograph;
 
     @Lob
-    @Column(name = "documents")
+    @Column(name = "documents", columnDefinition = "LONGBLOB")
     private byte[] documents;       // single PDF (CV, certificates, …)
 }

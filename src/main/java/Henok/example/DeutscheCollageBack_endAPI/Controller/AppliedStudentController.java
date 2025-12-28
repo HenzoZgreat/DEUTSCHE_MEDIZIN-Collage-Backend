@@ -2,12 +2,16 @@ package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.AppliedStudentListResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.AppliedStudentResponseDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.AcceptApplicationRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.AppliedStudentRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.AppliedStudent;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentDetails;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.ApplicationStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.AppliedStudentService;
+import Henok.example.DeutscheCollageBack_endAPI.Service.StudentDetailService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -25,6 +29,9 @@ public class AppliedStudentController {
 
     @Autowired
     private AppliedStudentService appliedStudentService;
+
+    @Autowired
+    private StudentDetailService studentService;
 
     /**
      * Registers a new applicant with the provided details, optional document, and optional student photo.
@@ -173,6 +180,29 @@ public class AppliedStudentController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("An error occurred while retrieving document: " + e.getMessage()));
+        }
+    }
+
+
+    @PostMapping("/{id}/accept")
+    public ResponseEntity<?> acceptApplication(
+            @PathVariable Long id,
+            @Valid @RequestPart("request") AcceptApplicationRequest request,
+            @RequestPart(value = "studentPhoto", required = false) MultipartFile studentPhoto,
+            @RequestPart(value = "document", required = false) MultipartFile document) {
+
+        try {
+            StudentDetails registeredStudent = studentService.acceptAppliedStudent(id, request, studentPhoto, document);
+            return ResponseEntity.ok(registeredStudent);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An unexpected error occurred during acceptance"));
         }
     }
 }

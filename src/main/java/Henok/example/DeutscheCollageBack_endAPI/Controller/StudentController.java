@@ -178,4 +178,17 @@ public class StudentController {
                     .body(new ErrorResponse("Failed to disable student: " + e.getMessage()));
         }
     }
+
+    // StudentDetailsController method
+    @GetMapping("/fields")
+    public ResponseEntity<List<String>> getStudentDetailsFields() {
+        // Delegate to the service to fetch the list of all fields in StudentDetails entity.
+        // Why: Controller handles the HTTP request and response, keeping business logic (reflection) in the service layer.
+        List<String> fields = studentDetailsService.getAllFields();
+
+        // Return the list with HTTP 200 OK status.
+        // Why: Provides a successful response; error handling can be added via global exception handlers if needed.
+        return ResponseEntity.ok(fields);
+    }
+
 }

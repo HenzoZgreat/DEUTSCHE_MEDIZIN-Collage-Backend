@@ -1,14 +1,14 @@
 package Henok.example.DeutscheCollageBack_endAPI.Repository;
 
-import Henok.example.DeutscheCollageBack_endAPI.Entity.BatchClassYearSemester;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.Department;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentDetails;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarDashboardDTO;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.DocumentStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Gender;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -18,22 +18,6 @@ public interface StudentDetailsRepository extends JpaRepository<StudentDetails, 
     Optional<StudentDetails> findByPhoneNumber(String phoneNumber);
 
     Optional<StudentDetails> findByUser(User student);
-
-//    // Finds all students with enabled user accounts
-//    // Why: Ensures only active students are retrieved for most queries
-//    List<StudentDetails> findAllByUserEnabledTrue();
-//
-//    // Finds a student by ID where the user account is enabled
-//    // Why: Ensures retrieval respects the enabled flag for consistency
-//    Optional<StudentDetails> findByIdAndUserEnabledTrue(Long id);
-//
-//    // Checks if a phone number is already in use by another student
-//    // Why: Enforces uniqueness constraint at the application level
-//    boolean existsByPhoneNumberAndIdNot(String phoneNumber, Long id);
-//
-//    // Finds a student by associated user ID
-//    // Why: Useful for linking user authentication to student details
-//    Optional<StudentDetails> findByUserId(Long userId);
 
     boolean existsByPhoneNumber(String phoneNumber);
 
@@ -89,7 +73,7 @@ public interface StudentDetailsRepository extends JpaRepository<StudentDetails, 
     }
 
     // Count students grouped by modality.
-// Similar mapping.
+    // Similar mapping.
     @Query("SELECT pm.modality AS modality, COUNT(s) AS count " +
             "FROM StudentDetails s " +
             "JOIN s.programModality pm " +
@@ -140,4 +124,61 @@ public interface StudentDetailsRepository extends JpaRepository<StudentDetails, 
     // Count passed exit exams.
     @Query("SELECT COUNT(s) FROM StudentDetails s WHERE s.isStudentPassExitExam = true")
     long countByIsStudentPassExitExamTrue();
+
+    long countByStudentRecentStatus(StudentStatus status);
+
+    long countByDocumentStatus(DocumentStatus status);
+
+    long countByDepartmentEnrolled(Department department);
+
+
+
+    // ==================== NEW METHODS FOR Registrar DASHBOARD ====================
+
+    // Returns list of department name + count for dashboard
+    @Query("SELECT d.deptName AS departmentName, COUNT(s) AS count " +
+            "FROM StudentDetails s " +
+            "JOIN s.departmentEnrolled d " +
+            "GROUP BY d.deptName")
+    List<DepartmentCountProjection> countStudentsByDepartment();
+
+    interface DepartmentCountProjection {
+        String getDepartmentName();
+        Long getCount();
+    }
+
+    // Returns list of modality + count
+    @Query("SELECT pm.modality AS modality, COUNT(s) AS count " +
+            "FROM StudentDetails s " +
+            "JOIN s.programModality pm " +
+            "GROUP BY pm.modality")
+    List<ProgramModalityCountProjection> countStudentsByProgramModality();
+
+    interface ProgramModalityCountProjection {
+        String getModality();
+        Long getCount();
+    }
+
+    // Returns list of recent status + count
+    @Query("SELECT s.studentRecentStatus.statusName AS status, COUNT(s) AS count " +
+            "FROM StudentDetails s " +
+            "GROUP BY s.studentRecentStatus.statusName")
+    List<StudentStatusCountProjection> countStudentsByRecentStatus();
+
+    interface StudentStatusCountProjection {
+        String getStatus();
+        Long getCount();
+    }
+
+    // Count students with impairment (not null)
+    long countByImpairmentIsNotNull();
+
+    // Count distinct departments (for department overview)
+    @Query("SELECT COUNT(DISTINCT s.departmentEnrolled) FROM StudentDetails s")
+    long countDistinctDepartments();
+
+    // Projection to fetch only enrollment dates (dateEnrolledGC) – avoids loading full entities
+    @Query("SELECT s.dateEnrolledGC FROM StudentDetails s WHERE s.dateEnrolledGC IS NOT NULL")
+    List<LocalDate> findAllEnrollmentDates();
 }
+

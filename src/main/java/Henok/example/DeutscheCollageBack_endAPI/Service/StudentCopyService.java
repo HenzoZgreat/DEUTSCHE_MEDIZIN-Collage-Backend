@@ -221,7 +221,7 @@ public class StudentCopyService {
      * Calculates GPA for a list of course grades.
      * Formula: Sum of (GradePoint) / Sum of (Credit Hours)
      */
-    private double calculateGPA(List<CourseGradeDTO> courseGrades) {
+    public double calculateGPA(List<CourseGradeDTO> courseGrades) {
         if (courseGrades == null || courseGrades.isEmpty()) {
             return 0.0;
         }
@@ -245,7 +245,7 @@ public class StudentCopyService {
      * Calculates CGPA (Cumulative GPA) from enrollment until the requested semester.
      * Includes all courses from all semesters up to and including the requested semester.
      */
-    private double calculateCGPA(User student, BatchClassYearSemester requestedBCYS, GradingSystem gradingSystem) {
+    public double calculateCGPA(User student, BatchClassYearSemester requestedBCYS, GradingSystem gradingSystem) {
         // Get all released course scores for the student, ordered by classStart_GC
         List<StudentCourseScore> allScores = studentCourseScoreRepo
                 .findByStudentAndIsReleasedTrueOrderedByClassStart(student);

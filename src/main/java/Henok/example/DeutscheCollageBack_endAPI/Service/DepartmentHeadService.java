@@ -437,6 +437,10 @@ public class DepartmentHeadService {
                 "name", details.getResidenceWoreda().getWoreda()
         ));
 
+        // Photo detection
+        resp.setHasPhoto(details.getPhoto() != null && details.getPhoto().length > 0);
+        resp.setHasDocument(details.getDocuments() != null && details.getDocuments().length > 0);
+
         return resp;
     }
 
@@ -656,9 +660,23 @@ public class DepartmentHeadService {
             teachers.add(dto);
         }
         
+        
         return teachers;
     }
 
+    @Transactional(readOnly = true)
+    public byte[] getDepartmentHeadPhoto(Long id) {
+        DepartmentHeadDetails details = departmentHeadRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Department head not found with id: " + id));
+        return details.getPhoto();
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] getDepartmentHeadDocument(Long id) {
+        DepartmentHeadDetails details = departmentHeadRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Department head not found with id: " + id));
+        return details.getDocuments();
+    }
 
     // Why: Retrieves courses only for the department of the authenticated department head.
     // Ensures security - a head cannot see courses from other departments.

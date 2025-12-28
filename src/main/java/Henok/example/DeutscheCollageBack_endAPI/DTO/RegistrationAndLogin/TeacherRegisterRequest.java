@@ -34,7 +34,7 @@ public class TeacherRegisterRequest {
     private Long departmentId;
     private LocalDate hireDateGC;
     private String hireDateEC;
-    private String title;
+    private String title; // optional
     private Integer yearsOfExperience;
 
     private String impairmentCode;
@@ -45,5 +45,5 @@ public class TeacherRegisterRequest {
     private String currentAddressRegionCode;
 
     // New: List of course + BCYS assignments
-    private List<AssignTeacherCoursesRequest> courseAssignments = new ArrayList<>();
+    private List<AssignTeacherCoursesRequest> courseAssignments = new ArrayList<>(); // optional
 }

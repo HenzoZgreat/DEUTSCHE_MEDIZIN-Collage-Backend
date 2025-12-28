@@ -1,0 +1,115 @@
+package Henok.example.DeutscheCollageBack_endAPI.Controller;
+
+import Henok.example.DeutscheCollageBack_endAPI.DTO.AssessmentScoresResponse;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarDashboardDTO;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.Assessment;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.AssessmentStatus;
+import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
+import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
+import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
+import Henok.example.DeutscheCollageBack_endAPI.Service.DepartmentHeadService;
+import Henok.example.DeutscheCollageBack_endAPI.Service.RegistrarService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+// RegistrarController
+// Why: Handles HTTP requests for registrar endpoints, delegates to service, manages responses.
+// Security: @PreAuthorize for role-based access.
+// Error Handling: Catches exceptions, returns ErrorResponse with appropriate HTTP status.
+@RestController
+@RequestMapping("/api/registrar")
+@RequiredArgsConstructor
+public class RegistrarController {
+
+    private final RegistrarService registrarService;
+
+
+    // Fetches dashboard data.
+    // Why: Single endpoint for all dashboard info; returns 200 OK on success.
+    // Error: 500 for internal errors with structured response.
+    @GetMapping("/dashboard")
+    public ResponseEntity<?> getDashboardData() {
+        try {
+            RegistrarDashboardDTO data = registrarService.getDashboardData();
+            return ResponseEntity.ok(data);
+        } catch (ResourceNotFoundException ex) {
+            // 404 - when required reference data is missing (e.g., ACTIVE status)
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(ex.getMessage()));
+        } catch (BadRequestException ex) {
+            // 400 - for any client-side misuse (not used here yet, but ready)
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse(ex.getMessage()));
+        } catch (Exception ex) {
+            // 500 - unexpected errors (DB failure, etc.)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to load dashboard data"));
+        }
+    }
+
+    // Allows registrar to view all assessments that have been approved by department heads
+    // Why: Registrars need to review and potentially release final scores after department head approval
+    // Security: Only REGISTRAR role reaches here (handled in SecurityConfig)
+    // Updated Controller method (replace or add alongside the previous one)
+    @GetMapping("/head-approved-scores")
+    public ResponseEntity<?> getHeadApprovedAssessmentScoresForRegistrar(@AuthenticationPrincipal User authenticatedUser) {
+
+        try {
+            List<AssessmentScoresResponse> responses = registrarService.getHeadApprovedAssessmentScoresForRegistrar(authenticatedUser);
+
+            // Return empty list if none found
+            return ResponseEntity.ok(responses.isEmpty() ? Collections.emptyList() : responses);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to retrieve head-approved assessments: " + e.getMessage()));
+        }
+    }
+
+    // Add this method to RegistrarController
+    @PutMapping("/assignments/{teacherCourseAssignmentId}/final-approve-all")
+    public ResponseEntity<?> registrarFinalApproveOrRejectAll(
+            @AuthenticationPrincipal User authenticatedUser,
+            @PathVariable Long teacherCourseAssignmentId,
+            @RequestParam AssessmentStatus status) {
+
+        try {
+            if (status != AssessmentStatus.ACCEPTED && status != AssessmentStatus.REJECTED) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Status must be ACCEPTED or REJECTED"));
+            }
+
+            List<Assessment> updated = registrarService.registrarApproveOrRejectAllAssessments(
+                    authenticatedUser, teacherCourseAssignmentId, status);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "All assessments processed by registrar");
+            response.put("count", updated.size());
+            response.put("registrarAction", status.name());
+            if (status == AssessmentStatus.ACCEPTED) {
+                response.put("finalScoresReleased", true);
+            }
+
+            return ResponseEntity.ok(response);
+
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to process final approval: " + e.getMessage()));
+        }
+    }
+}

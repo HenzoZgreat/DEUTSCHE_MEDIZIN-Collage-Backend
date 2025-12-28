@@ -69,8 +69,6 @@ public class SecurityConfig {
                                 "/api/courses/**",
                                 "/api/course-categories/**",
                                 "/api/course-sources/**",
-                                "/api/departments/**",
-                                "/api/program-levels/**",
                                 "/api/student-course-scores/**",
                                 "/api/student-statuses/**",
                                 "/api/semesters/**",
@@ -81,6 +79,10 @@ public class SecurityConfig {
                                 "/api/auth/registrar/students/*/reset-password",
                                 "/api/auth/register/student").hasRole("REGISTRAR")
                         .requestMatchers("/api/courses/**").hasAnyRole("DEPARTMENT_HEAD", "REGISTRAR")
+                        .requestMatchers(
+                                "/api/departments/**",
+                                "/api/program-levels/**",
+                                "/api/program-modality").hasAnyRole("DEAN", "VICE_DEAN", "REGISTRAR")
                         .requestMatchers("/api/auth/register/registrar").hasAnyRole("GENERAL_MANAGER", "VICE_DEAN")
                         .requestMatchers("/api/auth/register/general-manager").hasAnyRole("GENERAL_MANAGER")
                         

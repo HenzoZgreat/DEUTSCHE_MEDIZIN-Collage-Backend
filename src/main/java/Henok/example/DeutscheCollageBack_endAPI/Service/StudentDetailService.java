@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.AcceptApplicationRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.StudentRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Student.StudentProfileResponse;
@@ -7,8 +8,10 @@ import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentsListFor
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentDetailsDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentListDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCGPADTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.*;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.ApplicationStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.DocumentStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
@@ -21,10 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Comparator;
-import java.util.List;
+import java.lang.reflect.Field;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,6 +33,9 @@ public class StudentDetailService {
 
     @Autowired
     private StudentDetailsRepository studentDetailsRepository;
+
+    @Autowired
+    private AppliedStudentRepository appliedStudentRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -72,22 +76,32 @@ public class StudentDetailService {
     @Autowired
     private AcademicYearRepo academicYearRepository;
 
+    @Autowired
+    private StudentCopyService studentCopyService;
+
+    @Autowired
+    private GradingSystemService gradingSystemService;
+
     // Registers a new student with the provided details and files
     // Why: Handles student registration with multipart form data, validates inputs, and ensures data integrity
     @Transactional(rollbackFor = Exception.class)
     public StudentDetails registerStudent(StudentRegisterRequest request, MultipartFile studentPhoto, MultipartFile document) {
+        System.out.println("================ Starting student registration process... ================");
         // Validate required fields
         validateRegistrationRequest(request);
+        System.out.println("Registration request validated successfully.");
 
         // Check for duplicate phone number
         if (studentDetailsRepository.existsByPhoneNumber(request.getPhoneNumber())) {
             throw new IllegalArgumentException("Phone number already in use");
         }
+        System.out.println("Phone number is unique.");
         // Check for duplicate exitExamUserID if provided
         if (request.getExitExamUserID() != null && !request.getExitExamUserID().isEmpty()
                 && studentDetailsRepository.existsByExitExamUserID(request.getExitExamUserID())) {
             throw new IllegalArgumentException("Exit exam user ID already in use");
         }
+        System.out.println("Exit exam user ID is unique or not provided.");
 
         // Validate file sizes
         if (studentPhoto != null && !studentPhoto.isEmpty() && studentPhoto.getSize() > 2_000_000) { // 2MB limit
@@ -96,6 +110,7 @@ public class StudentDetailService {
         if (document != null && !document.isEmpty() && document.getSize() > 10_000_000) { // 10MB limit
             throw new IllegalArgumentException("Document size exceeds 10MB limit");
         }
+        System.out.println("File sizes are within limits.");
 
         // Register user with STUDENT role
         UserRegisterRequest userRequest = new UserRegisterRequest();
@@ -108,6 +123,7 @@ public class StudentDetailService {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("User registration failed: " + e.getMessage());
         }
+        System.out.println("User registered successfully with username: " + user.getUsername());
 
         // Map request to StudentDetails entity
         StudentDetails student;
@@ -118,6 +134,7 @@ public class StudentDetailService {
         } catch (IOException e) {
             throw new IllegalArgumentException("Failed to process file uploads: " + e.getMessage());
         }
+        System.out.println("StudentDetails entity created successfully !! ");
 
         // Save student
         try {
@@ -225,6 +242,50 @@ public class StudentDetailService {
                     return dto;
                 })
                 .sorted(Comparator.comparing(StudentsListForSlipDTO::getFullNameENG))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Retrieves all students with their Cumulative GPA (CGPA).
+     * Why: For Dean, ViceDean, and General Manager to view student performance.
+     */
+    @Transactional(readOnly = true)
+    public List<StudentCGPADTO> getAllStudentsWithCGPA() {
+        return studentDetailsRepository.findAll().stream()
+                .map(student -> {
+                    StudentCGPADTO dto = new StudentCGPADTO();
+
+                    dto.setStudentId(student.getId());
+                    dto.setIdNumber(student.getUser().getUsername());
+                    
+                    String fullName = String.join(" ",
+                            student.getFirstNameENG(),
+                            student.getFatherNameENG(),
+                            student.getGrandfatherNameENG()).trim();
+                    dto.setFullName(fullName);
+
+                    dto.setDepartment(student.getDepartmentEnrolled().getDeptName());
+                    dto.setBatchClassYearSemester(student.getBatchClassYearSemester().getDisplayName());
+                    dto.setStudentStatus(student.getStudentRecentStatus().getStatusName());
+
+                    // Calculate CGPA
+                    try {
+                        GradingSystem gradingSystem = gradingSystemService.findApplicableGradingSystem(student.getDepartmentEnrolled());
+                        double cgpa = studentCopyService.calculateCGPA(
+                                student.getUser(),
+                                student.getBatchClassYearSemester(),
+                                gradingSystem
+                        );
+                        // Round to 2 decimal places if needed, but double is fine for now
+                         // Use BigDecimal for precision if strictly required, but Double is standard here
+                        dto.setCgpa(Math.round(cgpa * 100.0) / 100.0);
+                    } catch (Exception e) {
+                        System.err.println("Error calculating CGPA for student " + student.getUser().getUsername() + ": " + e.getMessage());
+                        dto.setCgpa(0.0); // Default to 0.0 on error
+                    }
+
+                    return dto;
+                })
                 .collect(Collectors.toList());
     }
 
@@ -635,7 +696,6 @@ public class StudentDetailService {
             BatchClassYearSemester bcys = batchClassYearSemesterRepository.findById(dto.getBatchClassYearSemesterId())
                     .orElseThrow(() -> new ResourceNotFoundException("BatchClassYearSemester not found with id: " + dto.getBatchClassYearSemesterId()));
             student.setBatchClassYearSemester(bcys);
-//            student.setStudentRecentBatch(bcys);
         }
         if (dto.getStudentRecentStatusId() != null) {
             StudentStatus status = studentStatusRepository.findById(dto.getStudentRecentStatusId())
@@ -646,7 +706,6 @@ public class StudentDetailService {
             Department dept = departmentRepository.findById(dto.getDepartmentEnrolledId())
                     .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + dto.getDepartmentEnrolledId()));
             student.setDepartmentEnrolled(dept);
-//            student.setStudentRecentDepartment(dept);
         }
         if (dto.getProgramModalityCode() != null) {
             ProgramModality modality = programModalityRepository.findById(dto.getProgramModalityCode())
@@ -717,8 +776,10 @@ public class StudentDetailService {
             student.setImpairment(impairmentRepository.findById(request.getImpairmentCode())
                     .orElseThrow(() -> new ResourceNotFoundException("Impairment not found with code: " + request.getImpairmentCode())));
         }
-        student.setAcademicYear(academicYearRepository.findById(request.getAcademicYearCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Academic year not found with code: " + request.getAcademicYearCode())));
+        if (request.getAcademicYearCode() != null && !request.getAcademicYearCode().isEmpty()) {
+            student.setAcademicYear(academicYearRepository.findById(request.getAcademicYearCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Academic year not found with code: " + request.getAcademicYearCode())));
+        }
         student.setSchoolBackground(schoolBackgroundRepository.findById(request.getSchoolBackgroundId())
                 .orElseThrow(() -> new ResourceNotFoundException("School background not found with id: " + request.getSchoolBackgroundId())));
         if (studentPhoto != null && !studentPhoto.isEmpty()) {
@@ -856,4 +917,117 @@ public class StudentDetailService {
 
         return dto;
     }
+
+    // Method to add inside your existing StudentService
+
+    @Transactional(rollbackFor = Exception.class)
+    public StudentDetails acceptAppliedStudent(
+            Long appliedStudentId,
+            AcceptApplicationRequest request,
+            MultipartFile studentPhoto,
+            MultipartFile document) throws IOException {
+
+        // Fetch applied student
+        AppliedStudent applied = appliedStudentRepository.findById(appliedStudentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Applied student not found with id: " + appliedStudentId));
+        System.out.println("Check finished");
+
+        // Update application status to ACCEPTED (optional, if you want to track it)
+        applied.setApplicationStatus(ApplicationStatus.ACCEPTED);
+        appliedStudentRepository.save(applied);
+        System.out.println("Application status updated to ACCEPTED");
+
+        // Prepare StudentRegisterRequest from AppliedStudent + acceptance data
+        StudentRegisterRequest registerRequest = new StudentRegisterRequest();
+
+        // Personal info
+        registerRequest.setFirstNameAMH(applied.getFirstNameAMH());
+        registerRequest.setFirstNameENG(applied.getFirstNameENG());
+        registerRequest.setFatherNameAMH(applied.getFatherNameAMH());
+        registerRequest.setFatherNameENG(applied.getFatherNameENG());
+        registerRequest.setGrandfatherNameAMH(applied.getGrandfatherNameAMH());
+        registerRequest.setGrandfatherNameENG(applied.getGrandfatherNameENG());
+        registerRequest.setMotherNameAMH(applied.getMotherNameAMH());
+        registerRequest.setMotherNameENG(applied.getMotherNameENG());
+        registerRequest.setMotherFatherNameAMH(applied.getMotherFatherNameAMH());
+        registerRequest.setMotherFatherNameENG(applied.getMotherFatherNameENG());
+
+        // Demographic
+        registerRequest.setGender(applied.getGender());
+        registerRequest.setAge(applied.getAge());
+        registerRequest.setPhoneNumber(applied.getPhoneNumber());
+
+        // Dates
+        registerRequest.setDateOfBirthEC(applied.getDateOfBirthEC());
+        registerRequest.setDateOfBirthGC(applied.getDateOfBirthGC());
+        registerRequest.setDateEnrolledEC(request.getDateEnrolledEC());
+        registerRequest.setDateEnrolledGC(request.getDateEnrolledGC());
+
+        // Addresses
+        registerRequest.setPlaceOfBirthWoredaCode(applied.getPlaceOfBirthWoreda().getWoredaCode());
+        registerRequest.setPlaceOfBirthZoneCode(applied.getPlaceOfBirthZone().getZoneCode());
+        registerRequest.setPlaceOfBirthRegionCode(applied.getPlaceOfBirthRegion().getRegionCode());
+        registerRequest.setCurrentAddressWoredaCode(applied.getCurrentAddressWoreda().getWoredaCode());
+        registerRequest.setCurrentAddressZoneCode(applied.getCurrentAddressZone().getZoneCode());
+        registerRequest.setCurrentAddressRegionCode(applied.getCurrentAddressRegion().getRegionCode());
+
+        // Additional
+        registerRequest.setEmail(applied.getEmail());
+        registerRequest.setMaritalStatus(applied.getMaritalStatus());
+        registerRequest.setImpairmentCode(applied.getImpairment() != null ? applied.getImpairment().getImpairmentCode() : null);
+        registerRequest.setSchoolBackgroundId(applied.getSchoolBackground().getId());
+
+        // Emergency contact
+        registerRequest.setContactPersonFirstNameAMH(applied.getContactPersonFirstNameAMH());
+        registerRequest.setContactPersonFirstNameENG(applied.getContactPersonFirstNameENG());
+        registerRequest.setContactPersonLastNameAMH(applied.getContactPersonLastNameAMH());
+        registerRequest.setContactPersonLastNameENG(applied.getContactPersonLastNameENG());
+        registerRequest.setContactPersonPhoneNumber(applied.getContactPersonPhoneNumber());
+        registerRequest.setContactPersonRelation(applied.getContactPersonRelation());
+
+        // Academic
+        registerRequest.setDepartmentEnrolledId(applied.getDepartmentEnrolled().getDptID());
+        registerRequest.setProgramModalityCode(applied.getProgramModality().getModalityCode());
+        registerRequest.setBatchClassYearSemesterId(request.getBatchClassYearSemesterId());
+        registerRequest.setStudentRecentStatusId(request.getStudentRecentStatusId());
+        registerRequest.setAcademicYearCode(request.getAcademicYearCode());
+
+        // Transfer & exit exam
+        registerRequest.setIsTransfer(request.getIsTransfer());
+        registerRequest.setExitExamUserID(request.getExitExamUserID());
+        registerRequest.setExitExamScore(request.getExitExamScore());
+        registerRequest.setIsStudentPassExitExam(request.getIsStudentPassExitExam() != null ? request.getIsStudentPassExitExam() : false);
+        registerRequest.setGrade12Result(request.getGrade12Result());
+
+        // Username & password - generate or use phone/email (adjust as per your policy)
+        registerRequest.setUsername(request.getUsername());
+        registerRequest.setPassword(request.getPassword()); // implement strong random password
+
+        // Remark
+        registerRequest.setRemark(request.getRemark());
+        System.out.println("Register request prepared");
+
+        // Call existing registerStudent method
+        return registerStudent(registerRequest, studentPhoto, document);
+    }
+
+    // Helper method for temporary password (example)
+    private String generateTemporaryPassword() {
+        return UUID.randomUUID().toString().substring(0, 12); // or use stronger generator
+    }
+
+    // StudentDetailsService method
+    public List<String> getAllFields() {
+        // Retrieve all declared fields of the StudentDetails entity using Java reflection.
+        // Why: This dynamically lists all parameters (fields) of the entity without hardcoding them,
+        // allowing flexibility if the entity changes in the future.
+        Field[] fields = StudentDetails.class.getDeclaredFields();
+
+        // Convert fields to a list of their names.
+        // Why: Maps each Field object to its name property for easy return as a String list.
+        return Arrays.stream(fields)
+                .map(Field::getName)
+                .collect(Collectors.toList());
+    }
+
 }
