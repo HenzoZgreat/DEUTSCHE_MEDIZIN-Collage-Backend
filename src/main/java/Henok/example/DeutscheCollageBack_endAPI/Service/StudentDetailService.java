@@ -139,10 +139,13 @@ public class StudentDetailService {
         // Save student
         try {
             StudentDetails newStudent = studentDetailsRepository.save(student);
+            System.out.println("Student registered successfully with ID: " + newStudent.getId());
             notificationService.createNotification(Arrays.asList(
                     Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.REGISTRAR),
                     null, Role.REGISTRAR,
                     "New Student Registered : " + newStudent.getFirstNameAMH() + " " + newStudent.getFatherNameAMH());
+
+            System.out.println("Finally Sent Notifications");
             return newStudent;
         } catch (DataIntegrityViolationException e) {
             throw new IllegalArgumentException("Failed to register student due to duplicate entry or constraint violation: " + e.getMessage());
@@ -920,101 +923,114 @@ public class StudentDetailService {
 
     // Method to add inside your existing StudentService
 
-    @Transactional(rollbackFor = Exception.class)
-    public StudentDetails acceptAppliedStudent(
-            Long appliedStudentId,
-            AcceptApplicationRequest request,
-            MultipartFile studentPhoto,
-            MultipartFile document) throws IOException {
+// Method to add inside your existing StudentService
 
-        // Fetch applied student
-        AppliedStudent applied = appliedStudentRepository.findById(appliedStudentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Applied student not found with id: " + appliedStudentId));
-        System.out.println("Check finished");
+@Transactional(rollbackFor = Exception.class)
+public StudentDetails acceptAppliedStudent(
+        Long appliedStudentId,
+        AcceptApplicationRequest request,
+        MultipartFile studentPhoto,
+        MultipartFile document) throws IOException {
 
-        // Update application status to ACCEPTED (optional, if you want to track it)
-        applied.setApplicationStatus(ApplicationStatus.ACCEPTED);
-        appliedStudentRepository.save(applied);
-        System.out.println("Application status updated to ACCEPTED");
+    // Fetch applied student
+    AppliedStudent applied = appliedStudentRepository.findById(appliedStudentId)
+            .orElseThrow(() -> new ResourceNotFoundException("Applied student not found with id: " + appliedStudentId));
 
-        // Prepare StudentRegisterRequest from AppliedStudent + acceptance data
-        StudentRegisterRequest registerRequest = new StudentRegisterRequest();
 
-        // Personal info
-        registerRequest.setFirstNameAMH(applied.getFirstNameAMH());
-        registerRequest.setFirstNameENG(applied.getFirstNameENG());
-        registerRequest.setFatherNameAMH(applied.getFatherNameAMH());
-        registerRequest.setFatherNameENG(applied.getFatherNameENG());
-        registerRequest.setGrandfatherNameAMH(applied.getGrandfatherNameAMH());
-        registerRequest.setGrandfatherNameENG(applied.getGrandfatherNameENG());
-        registerRequest.setMotherNameAMH(applied.getMotherNameAMH());
-        registerRequest.setMotherNameENG(applied.getMotherNameENG());
-        registerRequest.setMotherFatherNameAMH(applied.getMotherFatherNameAMH());
-        registerRequest.setMotherFatherNameENG(applied.getMotherFatherNameENG());
+    // Prepare StudentRegisterRequest using existing DTO
+    StudentRegisterRequest registerRequest = new StudentRegisterRequest();
 
-        // Demographic
-        registerRequest.setGender(applied.getGender());
-        registerRequest.setAge(applied.getAge());
-        registerRequest.setPhoneNumber(applied.getPhoneNumber());
+    // User credentials (required from AcceptApplicationRequest)
+    registerRequest.setUsername(request.getUsername());
+    registerRequest.setPassword(request.getPassword());
 
-        // Dates
-        registerRequest.setDateOfBirthEC(applied.getDateOfBirthEC());
-        registerRequest.setDateOfBirthGC(applied.getDateOfBirthGC());
-        registerRequest.setDateEnrolledEC(request.getDateEnrolledEC());
-        registerRequest.setDateEnrolledGC(request.getDateEnrolledGC());
+    // Personal Information - copy from AppliedStudent
+    registerRequest.setFirstNameAMH(applied.getFirstNameAMH());
+    registerRequest.setFirstNameENG(applied.getFirstNameENG());
+    registerRequest.setFatherNameAMH(applied.getFatherNameAMH());
+    registerRequest.setFatherNameENG(applied.getFatherNameENG());
+    registerRequest.setGrandfatherNameAMH(applied.getGrandfatherNameAMH());
+    registerRequest.setGrandfatherNameENG(applied.getGrandfatherNameENG());
+    registerRequest.setMotherNameAMH(applied.getMotherNameAMH());
+    registerRequest.setMotherNameENG(applied.getMotherNameENG());
+    registerRequest.setMotherFatherNameAMH(applied.getMotherFatherNameAMH());
+    registerRequest.setMotherFatherNameENG(applied.getMotherFatherNameENG());
 
-        // Addresses
-        registerRequest.setPlaceOfBirthWoredaCode(applied.getPlaceOfBirthWoreda().getWoredaCode());
-        registerRequest.setPlaceOfBirthZoneCode(applied.getPlaceOfBirthZone().getZoneCode());
-        registerRequest.setPlaceOfBirthRegionCode(applied.getPlaceOfBirthRegion().getRegionCode());
-        registerRequest.setCurrentAddressWoredaCode(applied.getCurrentAddressWoreda().getWoredaCode());
-        registerRequest.setCurrentAddressZoneCode(applied.getCurrentAddressZone().getZoneCode());
-        registerRequest.setCurrentAddressRegionCode(applied.getCurrentAddressRegion().getRegionCode());
+    // Demographic Information
+    registerRequest.setGender(applied.getGender());
+    registerRequest.setAge(applied.getAge());
+    registerRequest.setPhoneNumber(applied.getPhoneNumber());
 
-        // Additional
-        registerRequest.setEmail(applied.getEmail());
-        registerRequest.setMaritalStatus(applied.getMaritalStatus());
-        registerRequest.setImpairmentCode(applied.getImpairment() != null ? applied.getImpairment().getImpairmentCode() : null);
-        registerRequest.setSchoolBackgroundId(applied.getSchoolBackground().getId());
+    // Date of Birth
+    registerRequest.setDateOfBirthEC(applied.getDateOfBirthEC());
+    registerRequest.setDateOfBirthGC(applied.getDateOfBirthGC());
 
-        // Emergency contact
-        registerRequest.setContactPersonFirstNameAMH(applied.getContactPersonFirstNameAMH());
-        registerRequest.setContactPersonFirstNameENG(applied.getContactPersonFirstNameENG());
-        registerRequest.setContactPersonLastNameAMH(applied.getContactPersonLastNameAMH());
-        registerRequest.setContactPersonLastNameENG(applied.getContactPersonLastNameENG());
-        registerRequest.setContactPersonPhoneNumber(applied.getContactPersonPhoneNumber());
-        registerRequest.setContactPersonRelation(applied.getContactPersonRelation());
+    // Place of Birth (using codes from entities)
+    registerRequest.setPlaceOfBirthWoredaCode(applied.getPlaceOfBirthWoreda().getWoredaCode());
+    registerRequest.setPlaceOfBirthZoneCode(applied.getPlaceOfBirthZone().getZoneCode());
+    registerRequest.setPlaceOfBirthRegionCode(applied.getPlaceOfBirthRegion().getRegionCode());
 
-        // Academic
-        registerRequest.setDepartmentEnrolledId(applied.getDepartmentEnrolled().getDptID());
-        registerRequest.setProgramModalityCode(applied.getProgramModality().getModalityCode());
-        registerRequest.setBatchClassYearSemesterId(request.getBatchClassYearSemesterId());
-        registerRequest.setStudentRecentStatusId(request.getStudentRecentStatusId());
-        registerRequest.setAcademicYearCode(request.getAcademicYearCode());
+    // Current Address
+    registerRequest.setCurrentAddressWoredaCode(applied.getCurrentAddressWoreda().getWoredaCode());
+    registerRequest.setCurrentAddressZoneCode(applied.getCurrentAddressZone().getZoneCode());
+    registerRequest.setCurrentAddressRegionCode(applied.getCurrentAddressRegion().getRegionCode());
 
-        // Transfer & exit exam
-        registerRequest.setIsTransfer(request.getIsTransfer());
-        registerRequest.setExitExamUserID(request.getExitExamUserID());
-        registerRequest.setExitExamScore(request.getExitExamScore());
-        registerRequest.setIsStudentPassExitExam(request.getIsStudentPassExitExam() != null ? request.getIsStudentPassExitExam() : false);
-        registerRequest.setGrade12Result(request.getGrade12Result());
+    // Additional Personal Information
+    registerRequest.setEmail(applied.getEmail());
+    registerRequest.setMaritalStatus(applied.getMaritalStatus());
+    registerRequest.setImpairmentCode(applied.getImpairment() != null ? applied.getImpairment().getImpairmentCode() : null);
+    registerRequest.setSchoolBackgroundId(applied.getSchoolBackground().getId());
 
-        // Username & password - generate or use phone/email (adjust as per your policy)
-        registerRequest.setUsername(request.getUsername());
-        registerRequest.setPassword(request.getPassword()); // implement strong random password
+    // Emergency Contact
+    registerRequest.setContactPersonFirstNameAMH(applied.getContactPersonFirstNameAMH());
+    registerRequest.setContactPersonFirstNameENG(applied.getContactPersonFirstNameENG());
+    registerRequest.setContactPersonLastNameAMH(applied.getContactPersonLastNameAMH());
+    registerRequest.setContactPersonLastNameENG(applied.getContactPersonLastNameENG());
+    registerRequest.setContactPersonPhoneNumber(applied.getContactPersonPhoneNumber());
+    registerRequest.setContactPersonRelation(applied.getContactPersonRelation());
 
-        // Remark
-        registerRequest.setRemark(request.getRemark());
-        System.out.println("Register request prepared");
+    // Academic Preferences from AppliedStudent
+    registerRequest.setDepartmentEnrolledId(applied.getDepartmentEnrolled().getDptID());
+    registerRequest.setProgramModalityCode(applied.getProgramModality().getModalityCode());
 
-        // Call existing registerStudent method
-        return registerStudent(registerRequest, studentPhoto, document);
-    }
+    // Acceptance-specific required fields from request
+    registerRequest.setDateEnrolledEC(request.getDateEnrolledEC());
+    registerRequest.setDateEnrolledGC(request.getDateEnrolledGC());
+    registerRequest.setAcademicYearCode(request.getAcademicYearCode());
+    registerRequest.setBatchClassYearSemesterId(request.getBatchClassYearSemesterId());
+    registerRequest.setStudentRecentStatusId(request.getStudentRecentStatusId());
 
-    // Helper method for temporary password (example)
-    private String generateTemporaryPassword() {
-        return UUID.randomUUID().toString().substring(0, 12); // or use stronger generator
-    }
+    // Transfer and Exit Exam
+    registerRequest.setIsTransfer(request.getIsTransfer());
+    registerRequest.setExitExamUserID(request.getExitExamUserID());
+    registerRequest.setExitExamScore(request.getExitExamScore());
+    registerRequest.setIsStudentPassExitExam(request.getIsStudentPassExitExam());
+    registerRequest.setGrade12Result(request.getGrade12Result());
+
+    // Document status and remark
+    registerRequest.setDocumentStatus(applied.getDocument() != null || document != null ? DocumentStatus.COMPLETE : DocumentStatus.INCOMPLETE);
+    registerRequest.setRemark(request.getRemark());
+
+    // Reuse existing registerStudent method which handles:
+    // - Validation
+    // - User creation
+    // - File processing
+    // - StudentDetails creation
+    // - Notifications
+    MultipartFile photoToUse = studentPhoto != null ? studentPhoto : null;
+    MultipartFile documentToUse = document != null ? document : null;
+    StudentDetails st = new StudentDetails();
+    st = registerStudent(registerRequest, photoToUse, documentToUse);
+System.out.println("---------Finished Registering Applicant --------");
+
+    // Update application status to ACCEPTED
+    applied.setApplicationStatus(ApplicationStatus.ACCEPTED);
+    System.out.println("Updated the application Status...");
+    appliedStudentRepository.save(applied);
+    System.out.println("Saved the status to the database");
+
+    return st;
+}
 
     // StudentDetailsService method
     public List<String> getAllFields() {

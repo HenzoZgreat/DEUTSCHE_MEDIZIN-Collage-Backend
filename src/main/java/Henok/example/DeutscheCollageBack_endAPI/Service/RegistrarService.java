@@ -8,6 +8,7 @@ import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.AcademicYear;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.*;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
+import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.AcademicYearRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Service.Utility.AcademicYearUtilityService;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -124,6 +126,174 @@ public class RegistrarService {
         entityManager.clear();
 
         return registrarDetailRepository.save(registrarDetail);
+    }
+
+    // -- New helper methods for controller endpoints --
+    @Transactional(readOnly = true)
+    public java.util.List<Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarResponse> getAllUserEnabledRegistrars() {
+        return registrarDetailRepository.findAll().stream()
+                .filter(rd -> rd.getUser() != null && rd.getUser().isEnabled() && rd.getUser().getRole() == Role.REGISTRAR)
+                .map(rd -> {
+                    Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarResponse dto = new Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarResponse();
+                    dto.setId(rd.getId());
+                    dto.setUsername(rd.getUser().getUsername());
+                    dto.setFirstNameAmharic(rd.getFirstNameAmharic());
+                    dto.setLastNameAmharic(rd.getLastNameAmharic());
+                    dto.setFirstNameEnglish(rd.getFirstNameEnglish());
+                    dto.setLastNameEnglish(rd.getLastNameEnglish());
+                    dto.setEmail(rd.getEmail());
+                    dto.setPhoneNumber(rd.getPhoneNumber());
+                    dto.setHasPhoto(rd.getPhotograph() != null && rd.getPhotograph().length > 0);
+                    dto.setHasNationalId(rd.getNationalIdImage() != null && rd.getNationalIdImage().length > 0);
+                    dto.setEnabled(rd.getUser().isEnabled());
+                    return dto;
+                }).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarResponse getProfileByUser(User user) {
+        RegistrarDetail rd = registrarDetailRepository.findByUser(user)
+                .orElseThrow(() -> new ResourceNotFoundException("Registrar profile not found for user: " + user.getUsername()));
+
+        Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarResponse dto = new Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarResponse();
+        dto.setId(rd.getId());
+        dto.setUsername(rd.getUser().getUsername());
+        dto.setFirstNameAmharic(rd.getFirstNameAmharic());
+        dto.setLastNameAmharic(rd.getLastNameAmharic());
+        dto.setFirstNameEnglish(rd.getFirstNameEnglish());
+        dto.setLastNameEnglish(rd.getLastNameEnglish());
+        dto.setEmail(rd.getEmail());
+        dto.setPhoneNumber(rd.getPhoneNumber());
+        dto.setHasPhoto(rd.getPhotograph() != null && rd.getPhotograph().length > 0);
+        dto.setHasNationalId(rd.getNationalIdImage() != null && rd.getNationalIdImage().length > 0);
+        dto.setEnabled(rd.getUser().isEnabled());
+        return dto;
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] getPhotographById(Long id) {
+        RegistrarDetail rd = registrarDetailRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Registrar not found with id: " + id));
+        byte[] photo = rd.getPhotograph();
+        if (photo == null || photo.length == 0) throw new ResourceNotFoundException("Photograph not available for registrar id: " + id);
+        return photo;
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] getNationalIdById(Long id) {
+        RegistrarDetail rd = registrarDetailRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Registrar not found with id: " + id));
+        byte[] nat = rd.getNationalIdImage();
+        if (nat == null || nat.length == 0) throw new ResourceNotFoundException("National ID not available for registrar id: " + id);
+        return nat;
+    }
+
+
+    @Transactional
+    public RegistrarDetail updateProfileByUser(User user, Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarUpdateRequest req,
+                                            MultipartFile nationalIdImage,
+                                            MultipartFile photograph) {
+        // Validate file sizes
+        validateFileSize(nationalIdImage, "National ID Image");
+        validateFileSize(photograph, "Photograph");
+        
+        RegistrarDetail rd = registrarDetailRepository.findByUser(user)
+                .orElseThrow(() -> new ResourceNotFoundException("Registrar profile not found for user: " + user.getUsername()));
+
+        if (req.getFirstNameAmharic() != null) rd.setFirstNameAmharic(req.getFirstNameAmharic());
+        if (req.getLastNameAmharic() != null) rd.setLastNameAmharic(req.getLastNameAmharic());
+        if (req.getFirstNameEnglish() != null) rd.setFirstNameEnglish(req.getFirstNameEnglish());
+        if (req.getLastNameEnglish() != null) rd.setLastNameEnglish(req.getLastNameEnglish());
+        if (req.getEmail() != null) rd.setEmail(req.getEmail());
+        if (req.getPhoneNumber() != null) rd.setPhoneNumber(req.getPhoneNumber());
+
+        try {
+            if (photograph != null && !photograph.isEmpty()) {
+                rd.setPhotograph(photograph.getBytes());
+            }
+            if (nationalIdImage != null && !nationalIdImage.isEmpty()) {
+                rd.setNationalIdImage(nationalIdImage.getBytes());
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to process uploaded files: " + e.getMessage());
+        }
+
+        return registrarDetailRepository.save(rd);
+    }
+
+    @Transactional
+    public RegistrarDetail updateProfileById(Long id, Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarUpdateRequest req,
+                                            MultipartFile nationalIdImage,
+                                            MultipartFile photograph) {
+        // Validate file sizes
+        validateFileSize(nationalIdImage, "National ID Image");
+        validateFileSize(photograph, "Photograph");
+        
+        RegistrarDetail rd = registrarDetailRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Registrar not found with id: " + id));
+
+        if (req.getFirstNameAmharic() != null) rd.setFirstNameAmharic(req.getFirstNameAmharic());
+        if (req.getLastNameAmharic() != null) rd.setLastNameAmharic(req.getLastNameAmharic());
+        if (req.getFirstNameEnglish() != null) rd.setFirstNameEnglish(req.getFirstNameEnglish());
+        if (req.getLastNameEnglish() != null) rd.setLastNameEnglish(req.getLastNameEnglish());
+        if (req.getEmail() != null) rd.setEmail(req.getEmail());
+        if (req.getPhoneNumber() != null) rd.setPhoneNumber(req.getPhoneNumber());
+
+        try {
+            if (photograph != null && !photograph.isEmpty()) {
+                rd.setPhotograph(photograph.getBytes());
+            }
+            if (nationalIdImage != null && !nationalIdImage.isEmpty()) {
+                rd.setNationalIdImage(nationalIdImage.getBytes());
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to process uploaded files: " + e.getMessage());
+        }
+
+        return registrarDetailRepository.save(rd);
+    }
+
+    // Helper method to validate file size
+    private void validateFileSize(MultipartFile file, String fieldName) {
+        if (file != null && !file.isEmpty()) {
+            long maxSize = 2 * 1024 * 1024; // 2MB in bytes
+            
+            if (file.getSize() > maxSize) {
+                throw new IllegalArgumentException(
+                    fieldName + " size exceeds maximum allowed size of 2MB. Current size: " + 
+                    (file.getSize() / (1024.0 * 1024.0)) + "MB"
+                );
+            }
+            
+            // Optional: Add minimum size check if needed
+            long minSize = 1024; // 1KB minimum (optional)
+            if (file.getSize() < minSize) {
+                throw new IllegalArgumentException(
+                    fieldName + " size is too small. Minimum size is 1KB."
+                );
+            }
+        }
+    }
+
+    @Transactional
+    public void deleteRegistrarById(Long id) {
+        RegistrarDetail rd = registrarDetailRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Registrar not found with id: " + id));
+
+        long enabledCount = registrarDetailRepository.findAll().stream()
+                .filter(r -> r.getUser() != null && r.getUser().isEnabled())
+                .count();
+
+        if (enabledCount <= 1 && rd.getUser() != null && rd.getUser().isEnabled()) {
+            throw new BadRequestException("Cannot delete the last enabled registrar account");
+        }
+
+        // Delete registrar detail first to avoid FK constraint on user
+        registrarDetailRepository.delete(rd);
+
+        if (rd.getUser() != null) {
+            userService.deleteUserById(rd.getUser().getId());
+        }
     }
 
     // Aggregates dashboard data.

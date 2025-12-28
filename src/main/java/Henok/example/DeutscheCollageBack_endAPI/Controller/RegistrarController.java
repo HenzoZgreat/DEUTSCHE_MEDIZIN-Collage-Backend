@@ -19,6 +19,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarResponse;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarUpdateRequest;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.RegistrarDetail;
+import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 
 // RegistrarController
 // Why: Handles HTTP requests for registrar endpoints, delegates to service, manages responses.
@@ -30,6 +36,7 @@ import java.util.Map;
 public class RegistrarController {
 
     private final RegistrarService registrarService;
+
 
 
     // Fetches dashboard data.
@@ -106,6 +113,123 @@ public class RegistrarController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to process final approval: " + e.getMessage()));
+        }
+    }
+
+    // GET /api/registrar/all - returns all userEnabled registrars (no password, no images)
+    @GetMapping("/all")
+    public ResponseEntity<?> getAllRegistrars() {
+        try {
+            List<RegistrarResponse> list = registrarService.getAllUserEnabledRegistrars();
+            return ResponseEntity.ok(list);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to retrieve registrars: " + e.getMessage()));
+        }
+    }
+
+    // GET /api/registrar/profile - get registrar profile by token
+    @GetMapping("/profile")
+    public ResponseEntity<?> getMyProfile(@AuthenticationPrincipal User user) {
+        try {
+            RegistrarResponse resp = registrarService.getProfileByUser(user);
+            return ResponseEntity.ok(resp);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Failed to load profile: " + e.getMessage()));
+        }
+    }
+
+    // GET /api/registrar/photo/{id}
+    @GetMapping(value = "/photo/{id}", produces = MediaType.IMAGE_JPEG_VALUE)
+    public ResponseEntity<?> getPhoto(@PathVariable Long id) {
+        try {
+            byte[] img = registrarService.getPhotographById(id);
+            return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(img);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Failed to retrieve photo: " + e.getMessage()));
+        }
+    }
+
+    // GET /api/registrar/nationalID/{id}
+    @GetMapping(value = "/nationalID/{id}", produces = MediaType.IMAGE_JPEG_VALUE)
+    public ResponseEntity<?> getNationalID(@PathVariable Long id) {
+        try {
+            byte[] img = registrarService.getNationalIdById(id);
+            return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(img);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Failed to retrieve national ID: " + e.getMessage()));
+        }
+    }
+
+    // PATCH /api/registrar/update - partial update using token
+    @PatchMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> updateMyProfile(
+            @AuthenticationPrincipal User user,
+            @RequestPart(name = "data") RegistrarUpdateRequest req,
+            @RequestPart(name = "photograph", required = false) MultipartFile photograph,
+            @RequestPart(name = "nationalIdImage", required = false) MultipartFile nationalIdImage) {
+        try {
+            RegistrarDetail updated = registrarService.updateProfileByUser(user, req, nationalIdImage, photograph);
+            RegistrarResponse resp = registrarService.getProfileByUser(user);
+            return ResponseEntity.ok(resp);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        } catch (BadRequestException | IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Failed to update profile: " + e.getMessage()));
+        }
+    }
+
+    // PATCH /api/registrar/update/{id} - partial update by id
+    @PatchMapping(value = "/update/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> updateById(
+            @PathVariable Long id,
+            @RequestPart(name = "data") RegistrarUpdateRequest req,
+            @RequestPart(name = "photograph", required = false) MultipartFile photograph,
+            @RequestPart(name = "nationalIdImage", required = false) MultipartFile nationalIdImage) {
+        try {
+            RegistrarDetail updated = registrarService.updateProfileById(id, req, nationalIdImage, photograph);
+            RegistrarResponse resp = new RegistrarResponse();
+            resp.setId(updated.getId());
+            resp.setUsername(updated.getUser() != null ? updated.getUser().getUsername() : null);
+            resp.setFirstNameAmharic(updated.getFirstNameAmharic());
+            resp.setLastNameAmharic(updated.getLastNameAmharic());
+            resp.setFirstNameEnglish(updated.getFirstNameEnglish());
+            resp.setLastNameEnglish(updated.getLastNameEnglish());
+            resp.setEmail(updated.getEmail());
+            resp.setPhoneNumber(updated.getPhoneNumber());
+            resp.setHasPhoto(updated.getPhotograph() != null && updated.getPhotograph().length > 0);
+            resp.setHasNationalId(updated.getNationalIdImage() != null && updated.getNationalIdImage().length > 0);
+            resp.setEnabled(updated.getUser() != null && updated.getUser().isEnabled());
+            return ResponseEntity.ok(resp);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        } catch (BadRequestException | IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Failed to update registrar: " + e.getMessage()));
+        }
+    }
+
+    // DELETE /api/registrar/{id}
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteRegistrar(@PathVariable Long id) {
+        try {
+            registrarService.deleteRegistrarById(id);
+            return ResponseEntity.ok(Map.of("message", "Registrar deleted"));
+        } catch (BadRequestException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Failed to delete registrar: " + e.getMessage()));
         }
     }
 }

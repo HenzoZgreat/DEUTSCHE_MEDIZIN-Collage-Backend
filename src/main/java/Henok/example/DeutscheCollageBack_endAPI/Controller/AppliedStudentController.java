@@ -78,6 +78,9 @@ public class AppliedStudentController {
         try {
             String statusStr = statusRequest.get("status");
             ApplicationStatus status = ApplicationStatus.valueOf(statusStr.toUpperCase());
+            if(status == ApplicationStatus.ACCEPTED){
+                throw new IllegalArgumentException("You Cant Accept an Applicant using this endpoint");
+            }
             appliedStudentService.updateApplicationStatus(id, status);
             return ResponseEntity.ok(new HashMap<String, Object>() {{
                 put("message", "Applicant status updated successfully to " + status);
@@ -193,7 +196,13 @@ public class AppliedStudentController {
 
         try {
             StudentDetails registeredStudent = studentService.acceptAppliedStudent(id, request, studentPhoto, document);
-            return ResponseEntity.ok(registeredStudent);
+            // Create lightweight success response
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Application accepted and student registered successfully");
+            response.put("username", registeredStudent.getUser().getUsername());
+            response.put("studentId", registeredStudent.getId());
+
+        return ResponseEntity.ok(response);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ErrorResponse(e.getMessage()));
