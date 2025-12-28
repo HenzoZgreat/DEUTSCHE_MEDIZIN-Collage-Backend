@@ -394,6 +394,9 @@ public class RegistrarService {
         // Step 1: Update registrarApproval on all assessments
         for (Assessment assessment : assessments) {
             assessment.setRegistrarApproval(status);
+            if (status == AssessmentStatus.REJECTED) {
+                assessment.setHeadApproval(AssessmentStatus.PENDING); // Revert head approval if rejected
+            }
             updatedAssessments.add(assessmentRepository.save(assessment));
         }
 

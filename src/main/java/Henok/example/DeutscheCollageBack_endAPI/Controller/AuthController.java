@@ -78,31 +78,31 @@ public class AuthController {
 
     // Registers a general user with specified role
     // Why: Allows creation of non-student users (e.g., staff)
-    @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@RequestBody UserRegisterRequest request) {
-        try {
-            User user = userService.registerUser(request);
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "User registered successfully with username: " + user.getUsername());
-            response.put("userId", user.getId().toString());
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new ErrorResponse(e.getMessage()));
-        } catch (DataIntegrityViolationException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(new ErrorResponse("User registration failed due to duplicate entry: " + e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ErrorResponse("An error occurred while registering the user: " + e.getMessage()));
-        }
-    }
+    // @PostMapping("/register")
+    // public ResponseEntity<?> registerUser(@RequestBody UserRegisterRequest request) {
+    //     try {
+    //         User user = userService.registerUser(request);
+    //         Map<String, Object> response = new HashMap<>();
+    //         response.put("message", "User registered successfully with username: " + user.getUsername());
+    //         response.put("userId", user.getId().toString());
+    //         return ResponseEntity.ok(response);
+    //     } catch (IllegalArgumentException e) {
+    //         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+    //                 .body(new ErrorResponse(e.getMessage()));
+    //     } catch (DataIntegrityViolationException e) {
+    //         return ResponseEntity.status(HttpStatus.CONFLICT)
+    //                 .body(new ErrorResponse("User registration failed due to duplicate entry: " + e.getMessage()));
+    //     } catch (Exception e) {
+    //         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+    //                 .body(new ErrorResponse("An error occurred while registering the user: " + e.getMessage()));
+    //     }
+    // }
 
     // Registers a student with full details and user account
     // Why: Creates StudentDetails and associated User with STUDENT role, returns username/password
     @PostMapping(value = "/register/student", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> registerStudent(
-            @RequestPart(name = "data") StudentRegisterRequest request,
+            @Valid @RequestPart(name = "data") StudentRegisterRequest request,
             @RequestPart(name = "studentPhoto", required = false) MultipartFile studentPhoto,
             @RequestPart(name = "document", required = false) MultipartFile document) {
 
@@ -134,7 +134,7 @@ public class AuthController {
     // Why: Creates TeacherDetails and associated User with TEACHER role, returns teacher Details
     @PostMapping(value = "/register/teacher", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> register(
-            @RequestPart("data") TeacherRegisterRequest request,
+            @Valid @RequestPart("data") TeacherRegisterRequest request,
             @RequestPart(name = "photograph", required = false) MultipartFile photograph,
             @RequestPart(name = "document", required = false) MultipartFile document) {
         try {
@@ -250,7 +250,7 @@ public class AuthController {
     // Why: Handles multipart form data for general manager registration
     @PostMapping(value = "/register/general-manager", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> registerGeneralManager(
-            @RequestPart(name = "data") GeneralManagerRegisterRequest request,
+            @Valid @RequestPart(name = "data") GeneralManagerRegisterRequest request,
             @RequestPart(name = "nationalIdImage", required = false) MultipartFile nationalIdImage,
             @RequestPart(name = "photograph", required = false) MultipartFile photograph) {
         try {
@@ -275,7 +275,7 @@ public class AuthController {
     // Why: Handles multipart form data for registrar registration
     @PostMapping(value = "/register/registrar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> registerRegistrar(
-            @RequestPart(name = "data") RegistrarRegisterRequest request,
+            @Valid @RequestPart(name = "data") RegistrarRegisterRequest request,
             @RequestPart(name = "nationalIdImage", required = false) MultipartFile nationalIdImage,
             @RequestPart(name = "photograph", required = false) MultipartFile photograph) {
         try {

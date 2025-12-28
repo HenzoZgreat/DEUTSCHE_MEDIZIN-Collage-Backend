@@ -8,7 +8,6 @@ import Henok.example.DeutscheCollageBack_endAPI.Enums.AssessmentStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
-import Henok.example.DeutscheCollageBack_endAPI.Service.DepartmentHeadService;
 import Henok.example.DeutscheCollageBack_endAPI.Service.RegistrarService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -92,12 +91,9 @@ public class RegistrarController {
                     authenticatedUser, teacherCourseAssignmentId, status);
 
             Map<String, Object> response = new HashMap<>();
-            response.put("message", "All assessments processed by registrar");
+            response.put("message", "All assessments are " + status.name() + " by registrar");
             response.put("count", updated.size());
             response.put("registrarAction", status.name());
-            if (status == AssessmentStatus.ACCEPTED) {
-                response.put("finalScoresReleased", true);
-            }
 
             return ResponseEntity.ok(response);
 
