@@ -26,7 +26,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/general-managers")
-@PreAuthorize("hasRole('GENERAL_MANAGER')")
 public class GeneralManagerController {
 
     private final GeneralManagerService generalManagerService;

@@ -57,7 +57,16 @@ public class SecurityConfig {
                                 "/api/semesters/**",
                                 "/api/filters/options").permitAll()
 
-                        .requestMatchers("/api/students/profile").hasRole("STUDENT")
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/auth/me",
+                                "/api/notifications/**",
+                                "/api/auth/me/change-password",
+                                "/api/courses/*").authenticated()
+
+                        //Student Endpoints
+                        .requestMatchers("/api/student/profile",
+                                "/api/student/dashboard",
+                                "/api/student/grade-reports").hasRole("STUDENT")
 
                         .requestMatchers(HttpMethod.GET, "/api/students/**").hasAnyRole("DEPARTMENT_HEAD", "REGISTRAR", "TEACHER", "DEAN", "VICE_DEAN", "GENERAL_MANAGER")
 
@@ -66,43 +75,88 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/batches/**",
                                 "/api/class-years/**",
-                                "/api/courses/**",
                                 "/api/course-categories/**",
                                 "/api/course-sources/**",
                                 "/api/student-course-scores/**",
                                 "/api/student-statuses/**",
                                 "/api/semesters/**",
-                                "/api/grading-systems/**",
-                                "/api/mark-intervals/**",
                                 "/api/bcsy/**",
                                 "/api/applicants/**",
                                 "/api/auth/registrar/students/*/reset-password",
-                                "/api/auth/register/student").hasRole("REGISTRAR")
-                        .requestMatchers("/api/courses/**").hasAnyRole("DEPARTMENT_HEAD", "REGISTRAR")
+                                "/api/auth/register/student",
+                               //---------------
+                                "/api/student-slips/**",
+                                "/api/students/slip-production",
+                                "/api/grade-report/**",
+                                "/api/students/*",
+                                "/api/students/*/enable",
+                                "/api/students/*/disable",
+                                "/api/students/fields",
+                                // ------------------------------------
+                                "/api/registrar/head-approved-scores",
+                                "/api/registrar/assignments/*/final-approve-all",
+                                "/api/registrar/profile",
+                                "/api/registrar/update",
+                                "/api/registrar/dashboard").hasRole("REGISTRAR")
+
+                        // ================ GeneralManager endpoints ==================
+                        .requestMatchers("/api/auth/register/general-manager",
+                                "/api/general-managers/**",
+                                "/api/deans/active",
+                                "/api/deans/*").hasRole("GENERAL_MANAGER")
+
+                        //---------------- Head and Registrar shared endpoints -----------------
+                        .requestMatchers("/api/courses",
+                                "/api/courses/single",
+                                "/api/courses/*",
+                                "/api/courses/*/prerequisites/*").hasAnyRole("DEPARTMENT_HEAD", "REGISTRAR")
+
+                        // ---------------GeneralManager and Registrar shared endpoints -----------------
+                        .requestMatchers("/api/registrar/photo/*",
+                                "/api/registrar/nationalID/*",
+                                "/api/registrar/update/*",
+                                "/api/registrar/all").hasAnyRole("GENERAL_MANAGER", "REGISTRAR")
+
+                        // ----------- Dean, Vice Dean and Registrar endpoints ----------------
                         .requestMatchers(
+                                "/api/departments",
                                 "/api/departments/**",
                                 "/api/program-levels/**",
-                                "/api/program-modality").hasAnyRole("DEAN", "VICE_DEAN", "REGISTRAR")
-                        .requestMatchers("/api/auth/register/registrar").hasAnyRole("GENERAL_MANAGER", "VICE_DEAN")
-                        .requestMatchers("/api/auth/register/general-manager").hasAnyRole("GENERAL_MANAGER")
-                        
+                                "/api/program-modality/**",
+                                "/api/mark-intervals/**",
+                                "/api/grading-systems/**").hasAnyRole("DEAN", "VICE_DEAN", "REGISTRAR")
+
+                        // --------------- Dean and ViceDeans shared endpoints -----------------
+                        .requestMatchers(
+                                "/api/department-heads",
+                                "/api/department-heads/*",
+                                "/api/department-heads/get-photo/*",
+                                "/api/department-heads/get-document/*",
+                                "/api/department-heads/*/reassign-department").hasAnyRole("DEAN", "VICE_DEAN")
+
+                        // --------------- GeneralManager and ViceDeans or Deans shared endpoints -----------------
+                        .requestMatchers("/api/auth/register/registrar").hasAnyRole("GENERAL_MANAGER", "VICE_DEAN", "DEAN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/registrar/**").hasRole("GENERAL_MANAGER")
+
+
                         // Department Head endpoints
                         .requestMatchers("/api/auth/register/teacher",
                                 "/api/auth/head/teachers/*/reset-password",
                                 "/api/department-heads/profile",
+                                "/api/department-heads/update",
                                 "/api/department-heads/dashboard",
                                 "/api/department-heads/profile/photo",
                                 "/api/department-heads/profile/document",
                                 "/api/department-heads/teachers",
                                 "/api/department-heads/my-courses",
-                                "api/department-heads/my-students",
+                                "/api/department-heads/my-students",
                                 "/api/department-heads/assessments/scores",
                                 "/api/department-heads/assessments/*/approve").hasRole("DEPARTMENT_HEAD")
                         .requestMatchers(HttpMethod.PUT,"/api/teachers/**").hasRole("DEPARTMENT_HEAD")
                         .requestMatchers(HttpMethod.DELETE,
                                 "/api/teachers/**",
-                                "/api/teachers/{teacherId}/course-assignments/**").hasRole("DEPARTMENT_HEAD")
-                        .requestMatchers(HttpMethod.POST, "/api/teachers/{teacherId}/course-assignments").hasRole("DEPARTMENT_HEAD")
+                                "/api/teachers/*/course-assignments/**").hasRole("DEPARTMENT_HEAD")
+                        .requestMatchers(HttpMethod.POST, "/api/teachers/*/course-assignments").hasRole("DEPARTMENT_HEAD")
 
                         
                         // Teacher endpoints
@@ -115,14 +169,12 @@ public class SecurityConfig {
                                        "/api/assessments/**", 
                                        "/api/student-assessments/**").hasRole("TEACHER")
 
-                        .requestMatchers(HttpMethod.GET, 
-                                "/api/auth/me", 
-                                "/api/auth/me/change-password").authenticated()
+
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exception -> exception
                         .accessDeniedHandler(customAccessDeniedHandler)  // ← This is key
-//                        .authenticationEntryPoint(new CustomAuthenticationEntryPoint()) // optional: for unauthenticated
+                        .authenticationEntryPoint(new CustomAuthenticationEntryPoint()) // optional: for unauthenticated
                 )
                 .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 

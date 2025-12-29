@@ -9,9 +9,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class StudentCourseScoreResponseDTO {
     private Long id;
-    private Long studentId;
+    private String studentId;
     private String studentName;
     private CourseInfo course;
+    private DepartmentInfo department;
+    private ModalityInfo modality;
+    private LevelInfo level;
     private BCYSInfo bcys;
     private CourseSourceInfo courseSource;
     private Double score;
@@ -22,6 +25,30 @@ public class StudentCourseScoreResponseDTO {
     @AllArgsConstructor
     public static class CourseInfo {
         private Long id;
+        private String displayName;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DepartmentInfo {
+        private Long id;
+        private String displayName;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ModalityInfo {
+        private String code;
+        private String displayName;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class LevelInfo {
+        private String id;
         private String displayName;
     }
 

@@ -1,6 +1,5 @@
 package Henok.example.DeutscheCollageBack_endAPI.Security;
 
-import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -10,7 +9,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,6 +17,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.util.Map;
+
 
 @Component
 public class JwtRequestFilter extends OncePerRequestFilter {
@@ -29,19 +30,25 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     @Autowired
     private UserService userService;
 
+    private static final ObjectMapper mapper = new ObjectMapper();
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
+
         final String authorizationHeader = request.getHeader("Authorization");
 
         String username = null;
         String jwt = null;
 
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         try {
-            if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-                jwt = authorizationHeader.substring(7);
-                username = jwtUtil.extractUsername(jwt);
-            }
+            jwt = authorizationHeader.substring(7);
+            username = jwtUtil.extractUsername(jwt);
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userService.loadUserByUsername(username);
@@ -52,15 +59,35 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
-            chain.doFilter(request, response);
         } catch (ExpiredJwtException e) {
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            response.setContentType("application/json");
-            response.getWriter().write(new ObjectMapper().writeValueAsString(new ErrorResponse("JWT token is expired")));
+            sendJsonUnauthorized(request, response, "JWT token has expired. Please log in again.");
+            return;
         } catch (JwtException e) {
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            response.setContentType("application/json");
-            response.getWriter().write(new ObjectMapper().writeValueAsString(new ErrorResponse("Invalid JWT token")));
+            sendJsonUnauthorized(request, response, "Invalid or malformed JWT token.");
+            return;
         }
+
+        chain.doFilter(request, response);
+    }
+
+    private void sendJsonUnauthorized(HttpServletRequest request, HttpServletResponse response, String message)
+            throws IOException {
+
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        String path = request.getRequestURI();
+
+        Map<String, Object> error = Map.of(
+                "timestamp", Instant.now().toString(),
+                "status", 401,
+                "error", "Unauthorized",
+                "message", message,
+                "path", path
+        );
+
+        response.getWriter().write(mapper.writeValueAsString(error));
+        response.getWriter().flush();
     }
 }

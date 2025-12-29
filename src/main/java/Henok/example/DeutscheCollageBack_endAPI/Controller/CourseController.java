@@ -1,6 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.CourseDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.CourseResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Course;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
@@ -10,7 +11,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @RestController
@@ -59,23 +62,42 @@ public class CourseController {
     @GetMapping
     public ResponseEntity<?> getAllCourses() {
         try {
-            List<Course> courses = courseService.getAllCourses();
+            List<CourseResponseDTO> courses = courseService.getAllCourses();
             return ResponseEntity.ok(courses);
         } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Failed to retrieve courses: " + e.getMessage()));
         }
     }
 
+    // New endpoint: Get minimal list of all courses (id, code, title only)
+    @GetMapping("/list")
+    public ResponseEntity<?> getCoursesMinimalList() {
+        try {
+            List<Map<String, Object>> courseList = courseService.getCoursesMinimalList();
+
+            if (courseList.isEmpty()) {
+                return ResponseEntity.ok(Collections.emptyList()); // 200 OK with empty array
+            }
+
+            return ResponseEntity.ok(courseList);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to retrieve course list: " + e.getMessage()));
+        }
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<?> getCourseById(@PathVariable Long id) {
         try {
-            Course course = courseService.getCourseById(id);
+            CourseResponseDTO course = courseService.getCourseDTOById(id);
             return ResponseEntity.ok(course);
         } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Failed to retrieve course: " + e.getMessage()));
@@ -85,7 +107,7 @@ public class CourseController {
     @GetMapping("/department/{departmentId}")
     public ResponseEntity<?> getCoursesByDepartment(@PathVariable Long departmentId) {
         try {
-            List<Course> courses = courseService.getCoursesByDepartment(departmentId);
+            List<CourseResponseDTO> courses = courseService.getCoursesByDepartment(departmentId);
             return ResponseEntity.ok(courses);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));

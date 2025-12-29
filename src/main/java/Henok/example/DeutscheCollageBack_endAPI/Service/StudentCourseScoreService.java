@@ -182,7 +182,7 @@ public class StudentCourseScoreService {
     private StudentCourseScoreResponseDTO mapToResponseDTO(StudentCourseScore score) {
         StudentCourseScoreResponseDTO dto = new StudentCourseScoreResponseDTO();
         dto.setId(score.getId());
-        dto.setStudentId(score.getStudent().getId());
+        dto.setStudentId(score.getStudent().getUsername());
 
         StudentDetails student = studentDetailsRepository.findByUser(score.getStudent())
                 .orElseThrow(() -> new ResourceNotFoundException("Student details not found for student id: " + score.getStudent().getId()));
@@ -195,6 +195,24 @@ public class StudentCourseScoreService {
                 score.getCourse().getCTitle()
         );
         dto.setCourse(courseInfo);
+
+        StudentCourseScoreResponseDTO.DepartmentInfo departmentInfo = new StudentCourseScoreResponseDTO.DepartmentInfo(
+                student.getDepartmentEnrolled().getDptID(),
+                student.getDepartmentEnrolled().getDeptName()
+        );
+        dto.setDepartment(departmentInfo);
+
+        StudentCourseScoreResponseDTO.ModalityInfo modalityInfo = new StudentCourseScoreResponseDTO.ModalityInfo(
+                student.getDepartmentEnrolled().getProgramModality().getModalityCode(),
+                student.getDepartmentEnrolled().getProgramModality().getModality()
+        );
+        dto.setModality(modalityInfo);
+
+        StudentCourseScoreResponseDTO.LevelInfo levelInfo = new StudentCourseScoreResponseDTO.LevelInfo(
+                student.getDepartmentEnrolled().getProgramModality().getProgramLevel().getCode(),
+                student.getDepartmentEnrolled().getProgramModality().getProgramLevel().getName()
+        );
+        dto.setLevel(levelInfo);
         
         StudentCourseScoreResponseDTO.BCYSInfo bcysInfo = new StudentCourseScoreResponseDTO.BCYSInfo(
                 score.getBatchClassYearSemester().getBcysID(),

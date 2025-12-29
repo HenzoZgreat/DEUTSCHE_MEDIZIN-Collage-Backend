@@ -1,6 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.CourseDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.CourseResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.ClassYear;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Course;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.CourseCategory;
@@ -89,12 +90,74 @@ public class CourseService {
         courseRepository.save(course);
     }
 
-    public List<Course> getAllCourses() {
+    // Inside CourseService class
+    private CourseResponseDTO toResponseDTO(Course course) {
+        List<CourseResponseDTO.PrerequisiteDTO> prereqDTOs = course.getPrerequisites().stream()
+                .map(prereq -> new CourseResponseDTO.PrerequisiteDTO(
+                        prereq.getCID(),
+                        prereq.getCCode(),
+                        prereq.getCTitle()
+                ))
+                .collect(Collectors.toList());
+
+        return new CourseResponseDTO(
+                course.getCID(),
+                course.getCTitle(),
+                course.getCCode(),
+                course.getTheoryHrs(),
+                course.getLabHrs(),
+                new CourseResponseDTO.RefDTO(
+                        course.getCategory().getCatID(),
+                        course.getCategory().getCatName()
+                ),
+                new CourseResponseDTO.RefDTO(
+                        course.getDepartment().getDptID(),
+                        course.getDepartment().getDeptName()
+                ),
+                new CourseResponseDTO.RefDTO(
+                        course.getClassYear().getId(),
+                        course.getClassYear().getClassYear()
+                ),
+                new CourseResponseDTO.SemesterRefDTO(
+                        course.getSemester().getAcademicPeriodCode(),
+                        course.getSemester().getAcademicPeriod()
+                ),
+                prereqDTOs
+        );
+    }
+
+    public List<CourseResponseDTO> getAllCourses() {
         List<Course> courses = courseRepository.findAll();
         if (courses.isEmpty()) {
             throw new ResourceNotFoundException("No courses found");
         }
-        return courses;
+        return courses.stream()
+                .map(this::toResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Returns a minimal list of all courses containing only id, cCode and cTitle.
+     * Uses Map to avoid creating a DTO and to prevent entity serialization issues.
+     */
+    public List<Map<String, Object>> getCoursesMinimalList() {
+        List<Course> courses = courseRepository.findAll();
+
+        return courses.stream()
+                .map(course -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", course.getCID());
+                    map.put("cCode", course.getCCode());
+                    map.put("cTitle", course.getCTitle());
+                    return map;
+                })
+                .collect(Collectors.toList());
+    }
+
+    public CourseResponseDTO getCourseDTOById(Long id) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+        return toResponseDTO(course);
     }
 
     public Course getCourseById(Long id) {
@@ -112,14 +175,16 @@ public class CourseService {
         return new ArrayList<>(prerequisites);
     }
 
-    public List<Course> getCoursesByDepartment(Long departmentId) {
+    public List<CourseResponseDTO> getCoursesByDepartment(Long departmentId) {
         Department department = departmentRepository.findById(departmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + departmentId));
         List<Course> courses = courseRepository.findByDepartment(department);
         if (courses.isEmpty()) {
             throw new ResourceNotFoundException("No courses found for department with id: " + departmentId);
         }
-        return courses;
+        return courses.stream()
+                .map(this::toResponseDTO)
+                .collect(Collectors.toList());
     }
 
     public void updateCourse(Long id, CourseDTO courseDTO) {
