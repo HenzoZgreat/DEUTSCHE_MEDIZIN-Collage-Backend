@@ -6,6 +6,7 @@ import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserReg
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Student.StudentProfileResponse;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentsListForSlipDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentDetailsDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentDetailsSummaryDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentListDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCGPADTO;
@@ -26,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -1044,6 +1046,141 @@ System.out.println("---------Finished Registering Applicant --------");
         return Arrays.stream(fields)
                 .map(Field::getName)
                 .collect(Collectors.toList());
+    }
+
+    //=================================================================================================
+    /**
+     * Retrieves a comprehensive summary of all students in the system.
+     * Excludes binary fields (photo/document) and maps foreign key entities to {id, name} format.
+     * Includes the student's username from the linked User entity.
+     *
+     * @return List of StudentDetailsSummaryDTO containing all required fields
+     * @throws ResourceNotFoundException if no students are found (optional – can be removed if empty list is acceptable)
+     */
+    public List<StudentDetailsSummaryDTO> getAllStudentsSummary() {
+        List<StudentDetails> students = studentDetailsRepository.findAll();
+
+        if (students.isEmpty()) {
+            // You can choose to return empty list instead of throwing
+            // throw new ResourceNotFoundException("No students found in the system");
+            return Collections.emptyList();
+        }
+
+        return students.stream()
+                .map(this::mapToSummaryDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Maps a StudentDetails entity to its summary DTO.
+     * Handles all foreign key mappings safely with null checks.
+     */
+    private StudentDetailsSummaryDTO mapToSummaryDTO(StudentDetails sd) {
+        StudentDetailsSummaryDTO dto = new StudentDetailsSummaryDTO();
+
+        // Primary identifiers
+        dto.setId(sd.getId());
+        dto.setUsername(sd.getUser() != null ? sd.getUser().getUsername() : null);
+
+        // Personal information
+        dto.setFirstNameAMH(sd.getFirstNameAMH());
+        dto.setFirstNameENG(sd.getFirstNameENG());
+        dto.setFatherNameAMH(sd.getFatherNameAMH());
+        dto.setFatherNameENG(sd.getFatherNameENG());
+        dto.setGrandfatherNameAMH(sd.getGrandfatherNameAMH());
+        dto.setGrandfatherNameENG(sd.getGrandfatherNameENG());
+        dto.setMotherNameAMH(sd.getMotherNameAMH());
+        dto.setMotherNameENG(sd.getMotherNameENG());
+        dto.setMotherFatherNameAMH(sd.getMotherFatherNameAMH());
+        dto.setMotherFatherNameENG(sd.getMotherFatherNameENG());
+
+        dto.setGender(sd.getGender());
+        dto.setAge(sd.getAge());
+        dto.setPhoneNumber(sd.getPhoneNumber());
+        dto.setDateOfBirthEC(sd.getDateOfBirthEC());
+        dto.setDateOfBirthGC(sd.getDateOfBirthGC());
+
+        // Place of birth (safe null handling)
+        dto.setPlaceOfBirthWoreda(toIdNameMap(sd.getPlaceOfBirthWoreda(),
+                w -> w.getWoredaCode(), w -> w.getWoreda()));
+        dto.setPlaceOfBirthZone(toIdNameMap(sd.getPlaceOfBirthZone(),
+                z -> z.getZoneCode(), z -> z.getZone()));
+        dto.setPlaceOfBirthRegion(toIdNameMap(sd.getPlaceOfBirthRegion(),
+                r -> r.getRegionCode(), r -> r.getRegion()));
+
+        // Current address
+        dto.setCurrentAddressWoreda(toIdNameMap(sd.getCurrentAddressWoreda(),
+                w -> w.getWoredaCode(), w -> w.getWoreda()));
+        dto.setCurrentAddressZone(toIdNameMap(sd.getCurrentAddressZone(),
+                z -> z.getZoneCode(), z -> z.getZone()));
+        dto.setCurrentAddressRegion(toIdNameMap(sd.getCurrentAddressRegion(),
+                r -> r.getRegionCode(), r -> r.getRegion()));
+
+        // Additional personal info
+        dto.setEmail(sd.getEmail());
+        dto.setMaritalStatus(sd.getMaritalStatus());
+
+        // Foreign entities with possible null values
+        dto.setImpairment(toIdNameMap(sd.getImpairment(),
+                i -> i.getImpairmentCode(), i -> i.getImpairment()));
+
+        dto.setSchoolBackground(toIdNameMap(sd.getSchoolBackground(),
+                SchoolBackground::getId, SchoolBackground::getBackground));
+
+        // Emergency contact
+        dto.setContactPersonFirstNameAMH(sd.getContactPersonFirstNameAMH());
+        dto.setContactPersonFirstNameENG(sd.getContactPersonFirstNameENG());
+        dto.setContactPersonLastNameAMH(sd.getContactPersonLastNameAMH());
+        dto.setContactPersonLastNameENG(sd.getContactPersonLastNameENG());
+        dto.setContactPersonPhoneNumber(sd.getContactPersonPhoneNumber());
+        dto.setContactPersonRelation(sd.getContactPersonRelation());
+
+        // Academic information
+        dto.setDateEnrolledEC(sd.getDateEnrolledEC());
+        dto.setDateEnrolledGC(sd.getDateEnrolledGC());
+
+        dto.setAcademicYear(toIdNameMap(sd.getAcademicYear(),
+                AcademicYear::getYearCode, ay -> ay.getAcademicYearGC()));
+
+        dto.setBatchClassYearSemester(toIdNameMap(sd.getBatchClassYearSemester(),
+                BatchClassYearSemester::getBcysID,
+                BatchClassYearSemester::getDisplayName));
+
+        dto.setStudentRecentStatus(toIdNameMap(sd.getStudentRecentStatus(),
+                s -> s.getId(), s -> s.getStatusName())); // assuming StudentStatus has getId() and getStatusName()
+
+        dto.setDepartmentEnrolled(toIdNameMap(sd.getDepartmentEnrolled(),
+                Department::getDptID, Department::getDeptName));
+
+        dto.setProgramModality(toIdNameMap(sd.getProgramModality(),
+                ProgramModality::getModalityCode, ProgramModality::getModality));
+
+        // Document & academic status
+        dto.setDocumentStatus(sd.getDocumentStatus());
+        dto.setGrade12Result(sd.getGrade12Result());
+        dto.setRemark(sd.getRemark());
+        dto.setTransfer(sd.isTransfer());
+        dto.setExitExamUserID(sd.getExitExamUserID());
+        dto.setExitExamScore(sd.getExitExamScore());
+        dto.setStudentPassExitExam(sd.isStudentPassExitExam());
+
+        return dto;
+    }
+
+    /**
+     * Generic helper to safely create {id, name} map for any entity.
+     * Prevents NullPointerException if the referenced entity is null.
+     */
+    private <T> Map<String, Object> toIdNameMap(T entity,
+                                               Function<T, Object> idExtractor,
+                                               Function<T, Object> nameExtractor) {
+        if (entity == null) {
+            return null;
+        }
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", idExtractor.apply(entity));
+        map.put("name", nameExtractor.apply(entity));
+        return map;
     }
 
 }

@@ -9,7 +9,6 @@ import Henok.example.DeutscheCollageBack_endAPI.Entity.Assessment;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.AssessmentStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
-import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.DepartmentHeadService;
 import jakarta.validation.Valid;

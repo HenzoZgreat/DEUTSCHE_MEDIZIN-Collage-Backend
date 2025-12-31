@@ -82,8 +82,8 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         Map<String, Object> error = Map.of(
                 "timestamp", Instant.now().toString(),
                 "status", 401,
-                "error", "Unauthorized",
-                "message", message,
+                "error", message,
+                "message", "Unauthorized access",
                 "path", path
         );
 

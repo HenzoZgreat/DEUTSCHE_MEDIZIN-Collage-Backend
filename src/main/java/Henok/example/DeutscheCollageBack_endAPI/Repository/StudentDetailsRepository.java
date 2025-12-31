@@ -1,6 +1,5 @@
 package Henok.example.DeutscheCollageBack_endAPI.Repository;
 
-import Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarDashboardDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.DocumentStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Gender;

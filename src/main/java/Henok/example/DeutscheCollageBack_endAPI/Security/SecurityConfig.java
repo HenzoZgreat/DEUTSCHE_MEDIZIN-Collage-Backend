@@ -63,13 +63,13 @@ public class SecurityConfig {
                                 "/api/auth/me/change-password",
                                 "/api/courses/*").authenticated()
 
+                        .requestMatchers(HttpMethod.GET, "/api/students/**").hasAnyRole("DEPARTMENT_HEAD", "REGISTRAR", "TEACHER", "DEAN", "VICE_DEAN", "GENERAL_MANAGER")
+
+
                         //Student Endpoints
                         .requestMatchers("/api/student/profile",
                                 "/api/student/dashboard",
                                 "/api/student/grade-reports").hasRole("STUDENT")
-
-                        .requestMatchers(HttpMethod.GET, "/api/students/**").hasAnyRole("DEPARTMENT_HEAD", "REGISTRAR", "TEACHER", "DEAN", "VICE_DEAN", "GENERAL_MANAGER")
-
 
                         // Registrar endpoints
                         .requestMatchers(
@@ -92,52 +92,13 @@ public class SecurityConfig {
                                 "/api/students/*/enable",
                                 "/api/students/*/disable",
                                 "/api/students/fields",
+                                "/api/registrar/all-students",
                                 // ------------------------------------
                                 "/api/registrar/head-approved-scores",
                                 "/api/registrar/assignments/*/final-approve-all",
                                 "/api/registrar/profile",
                                 "/api/registrar/update",
                                 "/api/registrar/dashboard").hasRole("REGISTRAR")
-
-                        // ================ GeneralManager endpoints ==================
-                        .requestMatchers("/api/auth/register/general-manager",
-                                "/api/general-managers/**",
-                                "/api/deans/active",
-                                "/api/deans/*").hasRole("GENERAL_MANAGER")
-
-                        //---------------- Head and Registrar shared endpoints -----------------
-                        .requestMatchers("/api/courses",
-                                "/api/courses/single",
-                                "/api/courses/*",
-                                "/api/courses/*/prerequisites/*").hasAnyRole("DEPARTMENT_HEAD", "REGISTRAR")
-
-                        // ---------------GeneralManager and Registrar shared endpoints -----------------
-                        .requestMatchers("/api/registrar/photo/*",
-                                "/api/registrar/nationalID/*",
-                                "/api/registrar/update/*",
-                                "/api/registrar/all").hasAnyRole("GENERAL_MANAGER", "REGISTRAR")
-
-                        // ----------- Dean, Vice Dean and Registrar endpoints ----------------
-                        .requestMatchers(
-                                "/api/departments",
-                                "/api/departments/**",
-                                "/api/program-levels/**",
-                                "/api/program-modality/**",
-                                "/api/mark-intervals/**",
-                                "/api/grading-systems/**").hasAnyRole("DEAN", "VICE_DEAN", "REGISTRAR")
-
-                        // --------------- Dean and ViceDeans shared endpoints -----------------
-                        .requestMatchers(
-                                "/api/department-heads",
-                                "/api/department-heads/*",
-                                "/api/department-heads/get-photo/*",
-                                "/api/department-heads/get-document/*",
-                                "/api/department-heads/*/reassign-department").hasAnyRole("DEAN", "VICE_DEAN")
-
-                        // --------------- GeneralManager and ViceDeans or Deans shared endpoints -----------------
-                        .requestMatchers("/api/auth/register/registrar").hasAnyRole("GENERAL_MANAGER", "VICE_DEAN", "DEAN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/registrar/**").hasRole("GENERAL_MANAGER")
-
 
                         // Department Head endpoints
                         .requestMatchers("/api/auth/register/teacher",
@@ -151,7 +112,7 @@ public class SecurityConfig {
                                 "/api/department-heads/my-courses",
                                 "/api/department-heads/my-students",
                                 "/api/department-heads/assessments/scores",
-                                "/api/department-heads/assessments/*/approve").hasRole("DEPARTMENT_HEAD")
+                                "/api/department-heads/assessments/*/approve-all").hasRole("DEPARTMENT_HEAD")
                         .requestMatchers(HttpMethod.PUT,"/api/teachers/**").hasRole("DEPARTMENT_HEAD")
                         .requestMatchers(HttpMethod.DELETE,
                                 "/api/teachers/**",
@@ -169,6 +130,65 @@ public class SecurityConfig {
                                        "/api/assessments/**", 
                                        "/api/student-assessments/**").hasRole("TEACHER")
 
+                        // --------------- Dean endpoints -----------------
+                        .requestMatchers("/api/deans/profile",
+                                "/api/deans/update",
+                                "/api/deans/dashboard",
+                                "/api/deans/get-all-students-cgpa",
+                                "/api/deans/department-heads",
+                                "/api/deans/program-levels/**",
+                                "/api/deans/program-modalities/**").hasRole("DEAN")
+
+                        // --------------- Vice Dean endpoints -----------------
+                        .requestMatchers("/api/vice-deans/profile",
+                                "/api/vice-deans/update",
+                                "/api/vice-deans/dashboard",
+                                "/api/vice-deans/get-all-students-cgpa").hasRole("VICE_DEAN")
+
+
+                        // ================ GeneralManager endpoints ==================
+                        .requestMatchers("/api/auth/register/general-manager",
+                                "/api/general-managers/**",
+                                "/api/deans/active",
+                                "/api/deans/*").hasRole("GENERAL_MANAGER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/registrar/**").hasRole("GENERAL_MANAGER")
+
+
+                        //---------------- Head and Registrar shared endpoints -----------------
+                        .requestMatchers("/api/courses",
+                                "/api/courses/single",
+                                "/api/courses/*",
+                                "/api/courses/*/prerequisites/*").hasAnyRole("DEPARTMENT_HEAD", "REGISTRAR")
+
+                        // ---------------GeneralManager and Registrar shared endpoints -----------------
+                        .requestMatchers("/api/registrar/photo/*",
+                                "/api/registrar/nationalID/*",
+                                "/api/registrar/update/*",
+                                "/api/registrar/all").hasAnyRole("GENERAL_MANAGER", "REGISTRAR")
+
+                        // ----------- Dean, Vice Dean and Registrar endpoints ----------------
+                        .requestMatchers(
+                                "/api/departments/**",
+                                "/api/program-levels/**",
+                                "/api/program-modality/**",
+                                "/api/mark-intervals/**",
+                                "/api/grading-systems/**").hasAnyRole("DEAN", "VICE_DEAN", "REGISTRAR")
+
+                        // --------------- Dean and ViceDeans shared endpoints -----------------
+                        .requestMatchers(
+                                "/api/department-heads/*",
+                                "/api/department-heads/get-photo/*",
+                                "/api/department-heads/get-document/*",
+                                "/api/department-heads/*/reassign-department").hasAnyRole("DEAN", "VICE_DEAN")
+
+                        // --------------- GeneralManager and ViceDeans or Deans shared endpoints -----------------
+                        .requestMatchers("/api/auth/register/registrar").hasAnyRole("GENERAL_MANAGER", "VICE_DEAN", "DEAN")
+
+                        // ---------------- GeneralManager and Dean shared endpoints -----------------
+                        .requestMatchers("/api/vice-deans/active",
+                                "/api/vice-deans/*",
+                                "/api/vice-deans/get-photo/*",
+                                "/api/vice-deans/get-document/*").hasAnyRole("GENERAL_MANAGER", "DEAN")
 
                         .anyRequest().authenticated()
                 )

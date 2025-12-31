@@ -9,6 +9,7 @@ import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.RegistrarService;
+import Henok.example.DeutscheCollageBack_endAPI.Service.StudentDetailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarResponse;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarUpdateRequest;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentDetailsSummaryDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.RegistrarDetail;
 import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
 import org.springframework.http.MediaType;
@@ -36,6 +38,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class RegistrarController {
 
     private final RegistrarService registrarService;
+    private final StudentDetailService studentDetailsService;
 
 
 
@@ -230,6 +233,24 @@ public class RegistrarController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse("Failed to delete registrar: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * GET endpoint to retrieve all students with full details (summary view).
+     * Protected endpoint – add proper role-based security as needed.
+     */
+    @GetMapping("/all-students")
+    public ResponseEntity<?> getAllStudentsSummary() {
+        try {
+            List<StudentDetailsSummaryDTO> students = studentDetailsService.getAllStudentsSummary();
+            return ResponseEntity.ok(students);
+        } catch (ResourceNotFoundException e) {
+            throw e; // Will be handled by global exception handler → 404 + ErrorResponse
+        } catch (Exception e) {
+            // Catch any unexpected error and wrap it gracefully
+            throw new RuntimeException("Failed to retrieve students: " + e.getMessage(), e);
+            // Your global handler will convert RuntimeException → 500 + ErrorResponse
         }
     }
 }
