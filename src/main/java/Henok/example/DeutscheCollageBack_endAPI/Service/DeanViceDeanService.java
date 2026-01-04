@@ -152,6 +152,7 @@ public class DeanViceDeanService {
 
         DeanViceDeanDetailDTO dto = new DeanViceDeanDetailDTO();
         dto.setId(details.getId());
+        dto.setUserId(details.getUser().getId());
         dto.setUsername(details.getUser().getUsername());
         dto.setFirstNameAMH(details.getFirstNameAMH());
         dto.setFirstNameENG(details.getFirstNameENG());
@@ -186,6 +187,7 @@ public class DeanViceDeanService {
     private DeanViceDeanListDTO mapToListDTO(DeanViceDeanDetails details) {
         DeanViceDeanListDTO dto = new DeanViceDeanListDTO();
         dto.setId(details.getId());
+        dto.setUserId(details.getUser().getId());
         dto.setUsername(details.getUser().getUsername());
         dto.setFirstNameAMH(details.getFirstNameAMH());
         dto.setFirstNameENG(details.getFirstNameENG());

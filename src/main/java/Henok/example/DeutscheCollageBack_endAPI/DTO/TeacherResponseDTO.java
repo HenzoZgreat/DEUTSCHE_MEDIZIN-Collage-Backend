@@ -12,6 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 public class TeacherResponseDTO {
 
+    private Long teacherId;
     private Long userId;
     private String username;
 

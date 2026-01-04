@@ -15,6 +15,7 @@ import java.util.Map;
 public class DepartmentHeadResponse {
 
     private Long id;
+    private Long userId;                       // from User
     private String username;                     // from User
     private String firstNameENG;
     private String firstNameAMH;

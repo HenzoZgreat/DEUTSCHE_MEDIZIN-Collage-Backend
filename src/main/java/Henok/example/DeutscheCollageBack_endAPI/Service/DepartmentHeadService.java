@@ -402,6 +402,7 @@ public class DepartmentHeadService {
     private DepartmentHeadResponse mapToResponse(DepartmentHeadDetails details) {
         DepartmentHeadResponse resp = new DepartmentHeadResponse();
         resp.setId(details.getId());
+        resp.setUserId(details.getUser().getId());
         resp.setUsername(details.getUser().getUsername());
         resp.setFirstNameENG(details.getFirstNameENG());
         resp.setFirstNameAMH(details.getFirstNameAMH());

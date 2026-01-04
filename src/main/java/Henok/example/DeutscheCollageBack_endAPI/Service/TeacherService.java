@@ -267,7 +267,9 @@ public class TeacherService {
     // TeacherService.java (updated toDetailDto method only)
     public TeacherResponseDTO toDetailDto(TeacherDetail t) {
         TeacherResponseDTO dto = new TeacherResponseDTO();
-        dto.setUserId(t.getId());
+        dto.setTeacherId(t.getId());
+
+        dto.setUserId(t.getUser().getId());
         dto.setUsername(t.getUser().getUsername());
 
         dto.setFirstNameAmharic(t.getFirstNameAmharic());

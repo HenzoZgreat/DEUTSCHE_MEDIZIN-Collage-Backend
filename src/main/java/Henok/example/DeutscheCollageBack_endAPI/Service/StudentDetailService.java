@@ -938,7 +938,10 @@ public StudentDetails acceptAppliedStudent(
     AppliedStudent applied = appliedStudentRepository.findById(appliedStudentId)
             .orElseThrow(() -> new ResourceNotFoundException("Applied student not found with id: " + appliedStudentId));
 
-
+    // Check If already Accepted
+    if (applied.getApplicationStatus() == ApplicationStatus.ACCEPTED) {
+        throw new IllegalStateException("Application has already been accepted for applied student with id: " + appliedStudentId);
+    }
     // Prepare StudentRegisterRequest using existing DTO
     StudentRegisterRequest registerRequest = new StudentRegisterRequest();
 

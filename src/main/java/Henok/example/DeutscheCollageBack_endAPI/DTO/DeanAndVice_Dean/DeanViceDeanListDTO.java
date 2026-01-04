@@ -12,6 +12,7 @@ import java.time.LocalDate;
 @Data
 public class DeanViceDeanListDTO {
     private Long id;
+    private Long userId;
     private String username; // From User
     private String firstNameAMH;
     private String firstNameENG;

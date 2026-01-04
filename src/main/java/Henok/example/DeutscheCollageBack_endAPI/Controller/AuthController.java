@@ -368,6 +368,139 @@ public class AuthController {
         }
     }
 
+    @PostMapping("/department-heads/{departmentHeadUserId}/reset-password")
+    public ResponseEntity<?> resetDepartmentHeadPassword(@PathVariable Long departmentHeadUserId, @RequestBody ResetPasswordRequest_NewPasswordOnly request) {
+        try {
+            if (request.getNewPassword() == null || request.getNewPassword().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ErrorResponse("New password cannot be empty"));
+            }
+
+            String username = SecurityContextHolder.getContext().getAuthentication().getName();
+            User caller = (User) userService.loadUserByUsername(username);
+
+            // Only Deans and Vice-Deans may change Department Head passwords
+            Role callerRole = caller.getRole();
+            if (callerRole != Role.DEAN && callerRole != Role.VICE_DEAN) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ErrorResponse("Insufficient privileges to reset department head password"));
+            }
+
+            userService.resetUserPassword(departmentHeadUserId, request.getNewPassword(), Role.DEPARTMENT_HEAD);
+
+            return ResponseEntity.ok(Map.of("message", "Department head password reset successfully"));
+
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse("User not found"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An error occurred while resetting the password: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/vice-deans/{viceDeanUserId}/reset-password")
+    public ResponseEntity<?> resetViceDeanPassword(@PathVariable Long viceDeanUserId, @RequestBody ResetPasswordRequest_NewPasswordOnly request) {
+        try {
+            if (request.getNewPassword() == null || request.getNewPassword().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ErrorResponse("New password cannot be empty"));
+            }
+
+            String username = SecurityContextHolder.getContext().getAuthentication().getName();
+            User caller = (User) userService.loadUserByUsername(username);
+
+            // Only Deans may change Vice-Dean passwords
+            if (caller.getRole() != Role.DEAN) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ErrorResponse("Insufficient privileges to reset vice-dean password"));
+            }
+
+            userService.resetUserPassword(viceDeanUserId, request.getNewPassword(), Role.VICE_DEAN);
+
+            return ResponseEntity.ok(Map.of("message", "Vice-Dean password reset successfully"));
+
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse("User not found"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An error occurred while resetting the password: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/deans/{deanUserId}/reset-password")
+    public ResponseEntity<?> resetDeanPassword(@PathVariable Long deanUserId, @RequestBody ResetPasswordRequest_NewPasswordOnly request) {
+        try {
+            if (request.getNewPassword() == null || request.getNewPassword().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ErrorResponse("New password cannot be empty"));
+            }
+
+            String username = SecurityContextHolder.getContext().getAuthentication().getName();
+            User caller = (User) userService.loadUserByUsername(username);
+
+            // Only General Managers may change Dean passwords
+            if (caller.getRole() != Role.GENERAL_MANAGER) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ErrorResponse("Insufficient privileges to reset dean password"));
+            }
+
+            userService.resetUserPassword(deanUserId, request.getNewPassword(), Role.DEAN);
+
+            return ResponseEntity.ok(Map.of("message", "Dean password reset successfully"));
+
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse("User not found"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An error occurred while resetting the password: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/registrars/{registrarUserId}/reset-password")
+    public ResponseEntity<?> resetRegistrarPassword(@PathVariable Long registrarUserId, @RequestBody ResetPasswordRequest_NewPasswordOnly request) {
+        try {
+            if (request.getNewPassword() == null || request.getNewPassword().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ErrorResponse("New password cannot be empty"));
+            }
+
+            String username = SecurityContextHolder.getContext().getAuthentication().getName();
+            User caller = (User) userService.loadUserByUsername(username);
+
+            // Only General Managers may change Registrar passwords
+            if (caller.getRole() != Role.GENERAL_MANAGER) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ErrorResponse("Insufficient privileges to reset registrar password"));
+            }
+
+            userService.resetUserPassword(registrarUserId, request.getNewPassword(), Role.REGISTRAR);
+
+            return ResponseEntity.ok(Map.of("message", "Registrar password reset successfully"));
+
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse("User not found"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An error occurred while resetting the password: " + e.getMessage()));
+        }
+    }
+
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUserProfile() {
         try {

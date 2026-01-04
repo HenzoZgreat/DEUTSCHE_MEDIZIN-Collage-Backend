@@ -18,7 +18,6 @@ public class AcceptApplicationRequest {
     @Size(min = 6, max = 128)
     private String password;
 
-    @NotBlank(message = "Enrollment date (EC) is required")
     private String dateEnrolledEC;
 
     @NotNull(message = "Enrollment date (GC) is required")
