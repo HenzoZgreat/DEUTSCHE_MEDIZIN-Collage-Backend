@@ -131,7 +131,8 @@ public class SecurityConfig {
                                        "/api/student-assessments/**").hasRole("TEACHER")
 
                         // --------------- Dean endpoints -----------------
-                        .requestMatchers("/api/auth/vice-deans/*/reset-password",
+                        .requestMatchers("/api/auth/register/vice-dean",
+                                "/api/auth/vice-deans/*/reset-password",
                                 "/api/deans/profile",
                                 "/api/deans/update",
                                 "/api/deans/dashboard",
@@ -141,7 +142,7 @@ public class SecurityConfig {
                                 "/api/deans/program-modalities/**").hasRole("DEAN")
 
                         // --------------- Vice Dean endpoints -----------------
-                        .requestMatchers("/api/auth/register/vice-dean",
+                        .requestMatchers(
                                 "/api/vice-deans/profile",
                                 "/api/vice-deans/update",
                                 "/api/vice-deans/dashboard",
@@ -181,7 +182,7 @@ public class SecurityConfig {
 
                         // --------------- Dean and ViceDeans shared endpoints -----------------
                         .requestMatchers("/api/auth/department-heads/*/reset-password",
-                                "/api/department-heads/*",
+                                "/api/department-heads/**",
                                 "/api/department-heads/get-photo/*",
                                 "/api/department-heads/get-document/*",
                                 "/api/department-heads/*/reassign-department").hasAnyRole("DEAN", "VICE_DEAN")

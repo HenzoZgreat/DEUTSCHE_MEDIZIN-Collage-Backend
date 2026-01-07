@@ -52,16 +52,16 @@ public class StudentDetails {
     @Column(nullable = false)
     private String grandfatherNameENG;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String motherNameAMH;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String motherNameENG;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String motherFatherNameAMH;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String motherFatherNameENG;
 
     // Demographic Information
@@ -69,7 +69,7 @@ public class StudentDetails {
     @Enumerated(EnumType.STRING)
     private Gender gender;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Integer age;
 
     @Column(nullable = false, unique = true)
@@ -78,33 +78,33 @@ public class StudentDetails {
     @Column(name = "date_of_birth_ec", nullable = true)
     private String dateOfBirthEC;
 
-    @Column(name = "date_of_birth_gc", nullable = false)
+    @Column(name = "date_of_birth_gc", nullable = true)
     private LocalDate dateOfBirthGC;
 
     // Place of Birth (Foreign Keys)
     @ManyToOne
-    @JoinColumn(name = "place_of_birth_woreda", nullable = false)
+    @JoinColumn(name = "place_of_birth_woreda", nullable = true)
     private Woreda placeOfBirthWoreda;
 
     @ManyToOne
-    @JoinColumn(name = "place_of_birth_zone", nullable = false)
+    @JoinColumn(name = "place_of_birth_zone", nullable = true)
     private Zone placeOfBirthZone;
 
     @ManyToOne
-    @JoinColumn(name = "place_of_birth_region", nullable = false)
+    @JoinColumn(name = "place_of_birth_region", nullable = true)
     private Region placeOfBirthRegion;
 
     // Current Address (Foreign Keys)
     @ManyToOne
-    @JoinColumn(name = "current_address_woreda", nullable = false)
+    @JoinColumn(name = "current_address_woreda", nullable = true)
     private Woreda currentAddressWoreda;
 
     @ManyToOne
-    @JoinColumn(name = "current_address_zone", nullable = false)
+    @JoinColumn(name = "current_address_zone", nullable = true)
     private Zone currentAddressZone;
 
     @ManyToOne
-    @JoinColumn(name = "current_address_region", nullable = false)
+    @JoinColumn(name = "current_address_region", nullable = true)
     private Region currentAddressRegion;
 
     // Additional Personal Information
@@ -127,19 +127,19 @@ public class StudentDetails {
     private byte[] studentPhoto;
 
     // Emergency Contact Information
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String contactPersonFirstNameAMH;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String contactPersonFirstNameENG;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String contactPersonLastNameAMH;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String contactPersonLastNameENG;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String contactPersonPhoneNumber;
 
     @Column

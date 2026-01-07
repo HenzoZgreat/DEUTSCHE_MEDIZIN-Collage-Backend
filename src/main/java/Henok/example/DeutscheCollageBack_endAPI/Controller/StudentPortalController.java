@@ -3,6 +3,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Controller;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.GradeReport.GradeReportRequestDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.GradeReport.GradeReportResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Student.StudentDashboardDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Student.StudentProfileResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
@@ -11,12 +12,18 @@ import Henok.example.DeutscheCollageBack_endAPI.Repository.StudentDetailsReposit
 import Henok.example.DeutscheCollageBack_endAPI.Repository.UserRepository;
 import Henok.example.DeutscheCollageBack_endAPI.Service.GradeReportService;
 import Henok.example.DeutscheCollageBack_endAPI.Service.StudentDashboardService;
+import Henok.example.DeutscheCollageBack_endAPI.Service.StudentDetailService;
+import Henok.example.DeutscheCollageBack_endAPI.Service.UserService;
+
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -25,15 +32,16 @@ public class StudentPortalController {
 
     @Autowired
     private StudentDashboardService studentDashboardService;
-
     @Autowired
     private GradeReportService gradeReportService;
-
     @Autowired
     private UserRepository userRepository;
-
     @Autowired
     private StudentDetailsRepository studentDetailsRepository;
+    @Autowired
+    private StudentDetailService studentDetailsService;
+    @Autowired
+    private UserService userService;
 
     /**
      * Gets the student dashboard with all relevant information.
@@ -63,6 +71,42 @@ public class StudentPortalController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Failed to retrieve dashboard: " + e.getMessage()));
+        }
+    }
+
+    // ------------[Get Authenticated Student's Full Profile] --------
+    @GetMapping("/profile")
+    public ResponseEntity<?> getMyStudentProfile() {
+        try {
+            // Extract username from JWT token (authenticated user)
+            String username = SecurityContextHolder.getContext().getAuthentication().getName();
+
+            // Load the User entity first
+            User user = (User) userService.loadUserByUsername(username);
+
+            // Ensure the user has STUDENT role - extra safety layer
+            if (user.getRole() != Role.STUDENT) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of(
+                                "error", "Access denied",
+                                "message", "This endpoint is only for students"
+                        ));
+            }
+
+            // Delegate to service to build full student profile DTO
+            StudentProfileResponse response = studentDetailsService.getStudentProfileByUser(user);
+
+            return ResponseEntity.ok(response);
+
+        } catch (UsernameNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "User not found"));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Student profile not found"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to load student profile"));
         }
     }
 
