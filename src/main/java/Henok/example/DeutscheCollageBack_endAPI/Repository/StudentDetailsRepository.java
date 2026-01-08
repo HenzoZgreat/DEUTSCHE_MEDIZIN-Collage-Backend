@@ -18,6 +18,8 @@ public interface StudentDetailsRepository extends JpaRepository<StudentDetails, 
 
     Optional<StudentDetails> findByUser(User student);
 
+    boolean existsByUserId(Long userId);
+
     boolean existsByPhoneNumber(String phoneNumber);
 
     boolean existsByExitExamUserID(String exitExamUserID);

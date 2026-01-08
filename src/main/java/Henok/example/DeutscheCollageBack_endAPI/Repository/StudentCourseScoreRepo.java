@@ -16,6 +16,31 @@ import java.util.Set;
 @Repository
 public interface StudentCourseScoreRepo extends JpaRepository<StudentCourseScore, Long> {
 
+    /**
+     * Checks if a score record already exists for the exact combination of:
+     * - student
+     * - course
+     * - batch/class/year/semester
+     * - course source
+     *
+     * Why this specific combination?
+     * In the college system, a student can take the same course only once
+     * within a specific batch/semester and source (e.g., regular, summer, retake).
+     * This composite uniqueness prevents duplicate score entries during bulk import
+     * and protects data integrity.
+     *
+     * @param student                the User entity representing the student
+     * @param course                 the Course entity
+     * @param batchClassYearSemester the BatchClassYearSemester entity
+     * @param courseSource           the CourseSource entity
+     * @return true if a record with this exact combination already exists
+     */
+    boolean existsByStudentAndCourseAndBatchClassYearSemesterAndCourseSource(
+            User student,
+            Course course,
+            BatchClassYearSemester batchClassYearSemester,
+            CourseSource courseSource);
+
     boolean existsByStudentAndCourseAndBatchClassYearSemester(User student, Course course, BatchClassYearSemester batchClassYearSemester);
 
     Optional<StudentCourseScore> findByStudentAndCourseAndBatchClassYearSemester(User student, Course course, BatchClassYearSemester batchClassYearSemester);

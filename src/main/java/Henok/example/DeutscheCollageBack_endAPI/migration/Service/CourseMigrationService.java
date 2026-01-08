@@ -12,7 +12,7 @@ import Henok.example.DeutscheCollageBack_endAPI.Repository.CourseCategoryRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.CourseRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.DepartmentRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.SemesterRepo;
-import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.BulkImportResponseDTO;
+import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.BulkImportCourseResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.CourseCreateDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -47,12 +47,12 @@ public class CourseMigrationService {
      * and recorded in failedCourses as "Title(Code)".
      */
     @Transactional
-    public BulkImportResponseDTO bulkImport(List<CourseCreateDTO> dtos) {
+    public BulkImportCourseResponseDTO bulkImport(List<CourseCreateDTO> dtos) {
         if (dtos == null || dtos.isEmpty()) {
             throw new BadRequestException("Import data cannot be empty");
         }
 
-        BulkImportResponseDTO response = new BulkImportResponseDTO();
+        BulkImportCourseResponseDTO response = new BulkImportCourseResponseDTO();
         List<Course> successfulCourses = new ArrayList<>();
         List<String> failedCourses = new ArrayList<>();
 

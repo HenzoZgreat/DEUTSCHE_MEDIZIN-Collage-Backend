@@ -1,13 +1,12 @@
 package Henok.example.DeutscheCollageBack_endAPI.migration.Controller;
 
 import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
-import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.BulkImportResponseDTO;
-import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.BulkImportResult;
-import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.CourseCreateDTO;
-import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.StudentImportDTO;
+import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.*;
 import Henok.example.DeutscheCollageBack_endAPI.migration.Service.BulkStudentImportService;
 import Henok.example.DeutscheCollageBack_endAPI.migration.Service.CourseMigrationService;
+import Henok.example.DeutscheCollageBack_endAPI.migration.Service.FactSheetBulkImportService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,6 +25,7 @@ public class BulkImportController {
 
     private final BulkStudentImportService bulkStudentImportService;
     private final CourseMigrationService courseService;
+    private final FactSheetBulkImportService factSheetBulkImportService;
 
     // -----------[Bulk Student Import]------------------
     // description - One-time endpoint for importing legacy students in bulk.
@@ -42,7 +42,7 @@ public class BulkImportController {
             throw new BadRequestException("Request body cannot be empty");
         }
 
-        BulkImportResult result = bulkStudentImportService.importStudents(dtos);
+        BulkImportStudentResult result = bulkStudentImportService.importStudents(dtos);
 
         Map<String, Object> response = new HashMap<>();
         response.put("successCount", result.getSuccessCount());
@@ -59,8 +59,33 @@ public class BulkImportController {
      * Only ADMIN can perform this operation.
      */
     @PostMapping("/courses/bulk")
-    public ResponseEntity<BulkImportResponseDTO> bulkImport(@RequestBody List<CourseCreateDTO> dtos) {
-        BulkImportResponseDTO response = courseService.bulkImport(dtos);
+    public ResponseEntity<BulkImportCourseResponseDTO> bulkImport(@RequestBody List<CourseCreateDTO> dtos) {
+        BulkImportCourseResponseDTO response = courseService.bulkImport(dtos);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/fact-sheet/bulk")
+    public ResponseEntity<?> bulkImportScores(@RequestBody List<StudentCourseScoreImportDTO> scoreList) {
+
+        // Why: All processing and logging is delegated to the service.
+        // Service returns success count and list of failed record identifiers.
+        BulkImportResult result = factSheetBulkImportService.bulkImportScores(scoreList);
+
+        if (result.getFailedRecords().isEmpty()) {
+            return ResponseEntity.ok()
+                    .body(Map.of(
+                            "message", "All " + result.getSuccessfulCount() + " scores imported successfully",
+                            "successfulCount", result.getSuccessfulCount()
+                    ));
+        }
+
+        return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
+                .body(Map.of(
+                        "message", result.getSuccessfulCount() + " scores imported successfully, " +
+                                result.getFailedRecords().size() + " records failed",
+                        "successfulCount", result.getSuccessfulCount(),
+                        "failedCount", result.getFailedRecords().size(),
+                        "failedRecords", result.getFailedRecords()
+                ));
     }
 }

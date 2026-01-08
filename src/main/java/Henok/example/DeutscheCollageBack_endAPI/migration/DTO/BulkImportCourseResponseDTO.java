@@ -12,7 +12,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class BulkImportResponseDTO {
+public class BulkImportCourseResponseDTO {
 
     // List of successfully created Course entities
     private int numberOfImportedCourses;

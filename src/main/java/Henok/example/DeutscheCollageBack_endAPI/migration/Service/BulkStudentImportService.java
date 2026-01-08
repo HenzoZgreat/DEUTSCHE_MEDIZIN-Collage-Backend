@@ -15,15 +15,13 @@ import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.RegionRepos
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.WoredaRepository;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.ZoneRepository;
 import Henok.example.DeutscheCollageBack_endAPI.Service.UserService;
-import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.BulkImportResult;
+import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.BulkImportStudentResult;
 import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.StudentImportDTO;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +30,7 @@ import java.time.LocalDate;
 import java.time.Period;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 
 // Bulk Student Import Service
@@ -44,6 +43,7 @@ public class BulkStudentImportService {
     private static final Long PLACEHOLDER_BATCH_ID = 86L;
 
     private final UserService userService;
+    private final UserRepository userRepository;
     private final StudentDetailsRepository studentDetailsRepository;
     private final DepartmentRepo departmentRepository;
     private final BatchClassYearSemesterRepo batchRepository;
@@ -62,7 +62,7 @@ public class BulkStudentImportService {
                 .orElseThrow(() -> new IllegalStateException("Placeholder BatchClassYearSemester ID " + PLACEHOLDER_BATCH_ID + " not found"));
     }
 
-    public BulkImportResult importStudents(List<StudentImportDTO> dtos) {
+    public BulkImportStudentResult importStudents(List<StudentImportDTO> dtos) {
         int success = 0;
         int failed = 0;
         List<String> failedUsernames = new ArrayList<>();
@@ -108,28 +108,45 @@ public class BulkStudentImportService {
         }
 
         log.info("Bulk import completed: {} successful, {} failed", success, failed);
-        return new BulkImportResult(success, failed, failedUsernames);
+        return new BulkImportStudentResult(success, failed, failedUsernames);
     }
 
-    // Each student in its own transaction → failure of one does NOT mark the outer transaction rollback-only
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void importSingleStudent(StudentImportDTO dto) {
         if (isBlank(dto.getUsername())) {
             throw new BadRequestException("Username is required");
         }
 
-        // Create User using your existing validated method
-        UserRegisterRequest userRequest = new UserRegisterRequest();
-        userRequest.setUsername(dto.getUsername());
-        userRequest.setPassword(DEFAULT_PASSWORD);
-        userRequest.setRole(Role.STUDENT);
+        // Check if User with this username already exists
+        Optional<User> existingUserOpt = userRepository.findByUsername(dto.getUsername());
 
-        User user = userService.registerUser(userRequest);
+        User user;
+        if (existingUserOpt.isPresent()) {
+            user = existingUserOpt.get();
+            log.info("User already exists for username: {} (ID: {}). Skipping user creation.", dto.getUsername(), user.getId());
 
+            // Check if StudentDetails already exists for this user
+            if (studentDetailsRepository.existsByUserId(user.getId())) {
+                log.info("StudentDetails already exists for user ID {}. Skipping entire record.", user.getId());
+                return; // Skip completely – nothing to do
+            }
+            // If we reach here: User exists, but no StudentDetails → proceed to create details only
+        } else {
+            // User does not exist → create new one using existing logic
+            UserRegisterRequest userRequest = new UserRegisterRequest();
+            userRequest.setUsername(dto.getUsername());
+            userRequest.setPassword(DEFAULT_PASSWORD);
+            userRequest.setRole(Role.STUDENT);
+
+            user = userService.registerUser(userRequest);
+            log.info("Created new User for username: {} (ID: {})", dto.getUsername(), user.getId());
+        }
+
+        // At this point: we have a valid User and no existing StudentDetails → create details
         StudentDetails details = new StudentDetails();
         details.setUser(user);
 
-        // Personal names
+        // === All the field mappings remain exactly the same ===
         details.setFirstNameENG(dto.getFirstNameENG());
         details.setFatherNameENG(dto.getFatherNameENG());
         details.setGrandfatherNameENG(dto.getGrandfatherNameENG());
@@ -137,7 +154,6 @@ public class BulkStudentImportService {
         details.setFatherNameAMH(dto.getFatherNameAMH());
         details.setGrandfatherNameAMH(dto.getGrandfatherNameAMH());
 
-        // Demographics – safe capitalization
         details.setGender(safeEnumValue(dto.getGender(), Gender.class));
         details.setMaritalStatus(safeEnumValue(dto.getMaritalStatus(), MaritalStatus.class));
         details.setPhoneNumber(dto.getPhoneNumber());
@@ -152,12 +168,10 @@ public class BulkStudentImportService {
             details.setDateEnrolledGC(LocalDate.parse(dto.getDateEnrolledGC()));
         }
 
-        // Foreign keys
         details.setDepartmentEnrolled(fetchById(departmentRepository, dto.getDepartmentEnrolledId(), "Department"));
         details.setStudentRecentStatus(fetchById(studentStatusRepository, dto.getStudentRecentStatusId(), "StudentStatus"));
         details.setSchoolBackground(fetchById(schoolBackgroundRepository, dto.getSchoolBackgroundId(), "SchoolBackground"));
 
-        // Batch – use placeholder if empty
         if (isNotBlank(dto.getBatchClassYearSemesterId())) {
             details.setBatchClassYearSemester(fetchById(batchRepository, dto.getBatchClassYearSemesterId(), "BatchClassYearSemester"));
         } else {
@@ -168,12 +182,10 @@ public class BulkStudentImportService {
                 ? programModalityRepository.findByModalityCode(dto.getProgramModalityCode()).orElse(null)
                 : null);
 
-        // Birth place
         details.setPlaceOfBirthRegion(regionRepository.findByRegionCode(dto.getPlaceOfBirthRegionCode()).orElse(null));
         details.setPlaceOfBirthZone(zoneRepository.findByZoneCode(dto.getPlaceOfBirthZoneCode()).orElse(null));
         details.setPlaceOfBirthWoreda(woredaRepository.findByWoredaCode(dto.getPlaceOfBirthWoredaCode()).orElse(null));
 
-        // Other fields
         details.setContactPersonFirstNameENG(dto.getContactPersonFirstNameENG());
         details.setContactPersonPhoneNumber(dto.getContactPersonPhoneNumber());
         details.setContactPersonRelation(dto.getContactPersonRelation());
@@ -191,6 +203,7 @@ public class BulkStudentImportService {
         details.setExitExamUserID(dto.getExitExamUserID());
 
         studentDetailsRepository.save(details);
+        log.info("StudentDetails created/updated for username: {}", dto.getUsername());
     }
 
     // Helper methods remain the same
