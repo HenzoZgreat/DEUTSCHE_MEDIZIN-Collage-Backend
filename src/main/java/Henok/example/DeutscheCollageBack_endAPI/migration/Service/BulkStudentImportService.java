@@ -41,7 +41,7 @@ public class BulkStudentImportService {
 
     private static final Logger log = LoggerFactory.getLogger(BulkStudentImportService.class);
     private static final String DEFAULT_PASSWORD = "stud1234";
-    private static final Long PLACEHOLDER_BATCH_ID = 18L;
+    private static final Long PLACEHOLDER_BATCH_ID = 86L;
 
     private final UserService userService;
     private final StudentDetailsRepository studentDetailsRepository;

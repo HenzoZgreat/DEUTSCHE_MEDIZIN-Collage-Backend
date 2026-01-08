@@ -39,5 +39,5 @@ public class CourseCreateDTO {
     private Long classYearId;
 
     // Optional: Semester ID (can be null)
-    private Long semesterId;
+    private String semesterId;
 }

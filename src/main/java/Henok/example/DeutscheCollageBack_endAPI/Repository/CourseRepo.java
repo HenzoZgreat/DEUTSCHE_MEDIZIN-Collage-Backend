@@ -7,9 +7,16 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface CourseRepo extends JpaRepository<Course, Long> {
     boolean existsBycCode(String cCode);
+    // Find course by its unique code - used for prerequisite resolution
+    Optional<Course> findByCCode(String code);
+
+    // Check if any of the provided codes already exist in DB
+    // Why: Prevents duplicate course codes during bulk import
+    boolean existsByCCodeIn(List<String> codes);
 
     List<Course> findByDepartment(Department department);
 
