@@ -1,5 +1,9 @@
 package Henok.example.DeutscheCollageBack_endAPI.migration.DTO;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,7 +15,7 @@ import java.util.List;
 public class BulkImportResponseDTO {
 
     // List of successfully created Course entities
-    private List<Course> importedCourses = new ArrayList<>();
+    private int numberOfImportedCourses;
 
     // List of courses that failed validation/import, formatted as "Title(Code)"
     // Why: Provides clear feedback to the caller about which records were skipped

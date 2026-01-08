@@ -12,15 +12,22 @@ import java.util.Optional;
 public interface CourseRepo extends JpaRepository<Course, Long> {
     boolean existsBycCode(String cCode);
     // Find course by its unique code - used for prerequisite resolution
-    Optional<Course> findByCCode(String code);
+    Optional<Course> findBycCode(String code);
 
-    // Check if any of the provided codes already exist in DB
-    // Why: Prevents duplicate course codes during bulk import
-    boolean existsByCCodeIn(List<String> codes);
 
     List<Course> findByDepartment(Department department);
 
     // Custom query to find distinct courses by a list of departments
     @Query("SELECT DISTINCT c FROM Course c WHERE c.department IN :departments")
     List<Course> findDistinctByDepartmentIn(@Param("departments") List<Department> departments);
+
+    // Check if a course with the same code AND same department already exists
+    // department can be null → handled with COALESCE in query
+    @Query("SELECT CASE WHEN COUNT(c) > 0 THEN true ELSE false END " +
+            "FROM Course c " +
+            "WHERE c.cCode = :code " +
+            "AND (c.department.id = :departmentId " +
+            "     OR (c.department IS NULL AND :departmentId IS NULL))")
+    boolean existsByCCodeAndDepartmentId(@Param("code") String code,
+                                         @Param("departmentId") Long departmentId);
 }

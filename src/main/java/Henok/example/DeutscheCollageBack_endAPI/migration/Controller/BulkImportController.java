@@ -1,9 +1,12 @@
 package Henok.example.DeutscheCollageBack_endAPI.migration.Controller;
 
 import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
+import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.BulkImportResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.BulkImportResult;
+import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.CourseCreateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.StudentImportDTO;
 import Henok.example.DeutscheCollageBack_endAPI.migration.Service.BulkStudentImportService;
+import Henok.example.DeutscheCollageBack_endAPI.migration.Service.CourseMigrationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,9 +22,10 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/migration")
 @RequiredArgsConstructor
-public class BulkStudentImportController {
+public class BulkImportController {
 
     private final BulkStudentImportService bulkStudentImportService;
+    private final CourseMigrationService courseService;
 
     // -----------[Bulk Student Import]------------------
     // description - One-time endpoint for importing legacy students in bulk.
@@ -46,6 +50,17 @@ public class BulkStudentImportController {
         response.put("failedUsernames", result.getFailedUsernames());
         response.put("message", "Bulk import completed");
 
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Bulk import endpoint.
+     * On failure of individual records, they are skipped and listed in failedCourses.
+     * Only ADMIN can perform this operation.
+     */
+    @PostMapping("/courses/bulk")
+    public ResponseEntity<BulkImportResponseDTO> bulkImport(@RequestBody List<CourseCreateDTO> dtos) {
+        BulkImportResponseDTO response = courseService.bulkImport(dtos);
         return ResponseEntity.ok(response);
     }
 }

@@ -12,18 +12,18 @@ import Henok.example.DeutscheCollageBack_endAPI.Repository.CourseCategoryRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.CourseRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.DepartmentRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.SemesterRepo;
+import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.BulkImportResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.CourseCreateDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 // CourseService.java
 // Service handling bulk course import with proper validation and prerequisite resolution.
 @Service
-public class CourseService {
+public class CourseMigrationService {
 
     @Autowired
     private CourseRepo courseRepository;
@@ -41,23 +41,10 @@ public class CourseService {
     private SemesterRepo semesterRepository;
 
     /**
-     * Bulk imports a list of courses.
-     * Steps:
-     * 1. Validate no duplicate codes in input and no conflicts with existing DB entries
-     * 2. Create and save all courses without prerequisites first (to get IDs)
-     * 3. Resolve and set prerequisites (from batch or existing DB)
-     * 4. Save again with prerequisites
-     *
-     * @param dtos List of CourseCreateDTO
-     * @return List of created Course entities
-     */
-    /**
-     * Bulk imports courses.
-     * If a single course fails validation (e.g., missing category, invalid reference, etc.),
-     * it is skipped, recorded as failed, and processing continues with the next course.
-     *
-     * @param dtos List of CourseCreateDTO
-     * @return BulkImportResponseDTO containing imported courses and list of failed ones
+     * Bulk imports courses with partial success.
+     * Uniqueness rule: (cCode + department) must be unique.
+     * If any individual course fails, it is skipped, logged via System.out.println,
+     * and recorded in failedCourses as "Title(Code)".
      */
     @Transactional
     public BulkImportResponseDTO bulkImport(List<CourseCreateDTO> dtos) {
@@ -69,35 +56,46 @@ public class CourseService {
         List<Course> successfulCourses = new ArrayList<>();
         List<String> failedCourses = new ArrayList<>();
 
-        // Map for quick lookup of courses created in this batch (by code)
-        Map<String, Course> codeToCourse = new HashMap<>();
+        // Track processed (code, departmentId) pairs in current batch to prevent intra-batch duplicates
+        Set<String> processedKeys = new HashSet<>();
 
-        // First pass: try to create each course individually
         for (CourseCreateDTO dto : dtos) {
+            String title = dto.getTitle() != null ? dto.getTitle().trim() : "Unknown";
+            String code = dto.getCode() != null ? dto.getCode().trim() : "";
+
             try {
                 // Basic required field validation
-                if (dto.getTitle() == null || dto.getTitle().trim().isEmpty() ||
-                        dto.getCode() == null || dto.getCode().trim().isEmpty() ||
+                if (dto.getTitle() == null || title.isEmpty() ||
+                        dto.getCode() == null || code.isEmpty() ||
                         dto.getCategoryId() == null) {
                     throw new BadRequestException("Title, code and categoryId are required");
                 }
 
-                String code = dto.getCode().trim();
+                Long departmentId = dto.getDepartmentId(); // can be null
 
-                // Skip if this code already exists in DB
-                if (courseRepository.existsByCCode(code)) {
-                    failedCourses.add(dto.getTitle().trim() + "(" + code + ")");
+                // Unique key for (code, department) combination
+                String uniquenessKey = code + "|" + (departmentId == null ? "null" : departmentId);
+
+                // Check intra-batch duplicate
+                if (processedKeys.contains(uniquenessKey)) {
+                    System.out.println("======================");
+                    System.out.println(title + "(" + code + "), Duplicate in import batch");
+                    System.out.println("======================");
+                    failedCourses.add(title + "(" + code + ")");
                     continue;
                 }
 
-                // Skip if code duplicates within the current batch
-                if (codeToCourse.containsKey(code)) {
-                    failedCourses.add(dto.getTitle().trim() + "(" + code + ")");
+                // Check database for existing (code + department)
+                if (courseRepository.existsByCCodeAndDepartmentId(code, departmentId)) {
+                    System.out.println("======================");
+                    System.out.println(title + "(" + code + "), Already exists in database with same department");
+                    System.out.println("======================");
+                    failedCourses.add(title + "(" + code + ")");
                     continue;
                 }
 
                 Course course = new Course();
-                course.setCTitle(dto.getTitle().trim());
+                course.setCTitle(title);
                 course.setCCode(code);
                 course.setTheoryHrs(dto.getTheoryHrs() != null ? dto.getTheoryHrs() : 0);
                 course.setLabHrs(dto.getLabHrs() != null ? dto.getLabHrs() : 0);
@@ -108,9 +106,9 @@ public class CourseService {
                 course.setCategory(category);
 
                 // Optional: Department
-                if (dto.getDepartmentId() != null) {
-                    Department dept = departmentRepository.findById(dto.getDepartmentId())
-                            .orElseThrow(() -> new ResourceNotFoundException("Department not found: " + dto.getDepartmentId()));
+                if (departmentId != null) {
+                    Department dept = departmentRepository.findById(departmentId)
+                            .orElseThrow(() -> new ResourceNotFoundException("Department not found: " + departmentId));
                     course.setDepartment(dept);
                 }
 
@@ -131,19 +129,22 @@ public class CourseService {
                 course.setPrerequisites(new HashSet<>());
 
                 successfulCourses.add(course);
-                codeToCourse.put(code, course);
+                processedKeys.add(uniquenessKey);
 
             } catch (Exception e) {
-                // Any validation or lookup failure → skip this course
-                failedCourses.add(dto.getTitle().trim() + "(" + dto.getCode().trim() + ")");
+                // Log any exception with the required format
+                System.out.println("======================");
+                System.out.println(title + "(" + code + "), " + e.getMessage());
+                System.out.println("======================");
+                failedCourses.add(title + "(" + code + ")");
             }
         }
 
-        // Save all valid courses (they now have IDs)
+        // Save successful courses
         if (!successfulCourses.isEmpty()) {
             courseRepository.saveAll(successfulCourses);
 
-            // Second pass: set prerequisites only for successfully imported courses
+            // Resolve prerequisites for successful courses
             for (Course course : successfulCourses) {
                 CourseCreateDTO originalDto = dtos.stream()
                         .filter(d -> d.getCode().equals(course.getCCode()))
@@ -153,13 +154,16 @@ public class CourseService {
                 if (originalDto != null && originalDto.getPrerequisiteCodes() != null) {
                     Set<Course> prereqs = new HashSet<>();
                     for (String prereqCode : originalDto.getPrerequisiteCodes()) {
-                        Course prereq = codeToCourse.get(prereqCode);
+                        Optional<Course> prereqInBatch = successfulCourses.stream()
+                                .filter(c -> c.getCCode().equals(prereqCode))
+                                .findFirst();
+
+                        Course prereq = prereqInBatch.orElse(null);
 
                         if (prereq == null) {
-                            prereq = courseRepository.findByCCode(prereqCode).orElse(null);
+                            prereq = courseRepository.findBycCode(prereqCode).orElse(null);
                         }
 
-                        // If prerequisite still not found → silently skip it (course already imported)
                         if (prereq != null) {
                             prereqs.add(prereq);
                         }
@@ -168,13 +172,11 @@ public class CourseService {
                 }
             }
 
-            // Final save with prerequisites
             courseRepository.saveAll(successfulCourses);
         }
 
-        response.setImportedCourses(successfulCourses);
+        response.setNumberOfImportedCourses(successfulCourses.size());
         response.setFailedCourses(failedCourses);
-
         return response;
     }
 }
