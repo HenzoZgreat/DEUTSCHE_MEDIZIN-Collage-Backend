@@ -15,4 +15,5 @@ public interface ZoneRepository extends JpaRepository<Zone, String> {
     Optional<Zone> findByZoneCode(String zoneCode);
 
     List<Zone> findByRegionRegionCode(String regionCode);
+
 }

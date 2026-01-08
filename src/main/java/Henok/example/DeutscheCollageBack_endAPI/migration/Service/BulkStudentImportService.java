@@ -1,0 +1,226 @@
+package Henok.example.DeutscheCollageBack_endAPI.migration.Service;
+
+import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.BatchClassYearSemester;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentDetails;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.DocumentStatus;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.Gender;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.MaritalStatus;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
+import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.ProgramModalityRepository;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.RegionRepository;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.WoredaRepository;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.ZoneRepository;
+import Henok.example.DeutscheCollageBack_endAPI.Service.UserService;
+import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.BulkImportResult;
+import Henok.example.DeutscheCollageBack_endAPI.migration.DTO.StudentImportDTO;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.Period;
+import java.util.ArrayList;
+import java.util.List;
+
+
+// Bulk Student Import Service
+@Service
+@RequiredArgsConstructor
+public class BulkStudentImportService {
+
+    private static final Logger log = LoggerFactory.getLogger(BulkStudentImportService.class);
+    private static final String DEFAULT_PASSWORD = "stud1234";
+    private static final Long PLACEHOLDER_BATCH_ID = 18L;
+
+    private final UserService userService;
+    private final StudentDetailsRepository studentDetailsRepository;
+    private final DepartmentRepo departmentRepository;
+    private final BatchClassYearSemesterRepo batchRepository;
+    private final StudentStatusRepo studentStatusRepository;
+    private final SchoolBackgroundRepository schoolBackgroundRepository;
+    private final ProgramModalityRepository programModalityRepository;
+    private final RegionRepository regionRepository;
+    private final ZoneRepository zoneRepository;
+    private final WoredaRepository woredaRepository;
+
+    private BatchClassYearSemester placeholderBatch;
+
+    @PostConstruct
+    public void init() {
+        placeholderBatch = batchRepository.findById(PLACEHOLDER_BATCH_ID)
+                .orElseThrow(() -> new IllegalStateException("Placeholder BatchClassYearSemester ID " + PLACEHOLDER_BATCH_ID + " not found"));
+    }
+
+    public BulkImportResult importStudents(List<StudentImportDTO> dtos) {
+        int success = 0;
+        int failed = 0;
+        List<String> failedUsernames = new ArrayList<>();
+
+        for (int i = 0; i < dtos.size(); i++) {
+            StudentImportDTO dto = dtos.get(i);
+            try {
+                // Detailed logging for each student
+                log.info("=======[{}]==========", dto.getUsername() != null ? dto.getUsername() : "UNKNOWN_USERNAME (row " + (i + 1) + ")");
+                log.info("First Name (ENG/AMH): {} / {}", dto.getFirstNameENG(), dto.getFirstNameAMH());
+                log.info("Father Name (ENG/AMH): {} / {}", dto.getFatherNameENG(), dto.getFatherNameAMH());
+                log.info("Grandfather Name (ENG/AMH): {} / {}", dto.getGrandfatherNameENG(), dto.getGrandfatherNameAMH());
+                log.info("Gender: {}", dto.getGender());
+                log.info("Marital Status: {}", dto.getMaritalStatus());
+                log.info("Phone: {}", dto.getPhoneNumber());
+                log.info("Date of Birth (GC): {}", dto.getDateOfBirthGC());
+                log.info("Date Enrolled (GC): {}", dto.getDateEnrolledGC());
+                log.info("Department ID: {}", dto.getDepartmentEnrolledId());
+                log.info("Student Status ID: {}", dto.getStudentRecentStatusId());
+                log.info("School Background ID: {}", dto.getSchoolBackgroundId());
+                log.info("Batch Class Year Semester ID: {}", dto.getBatchClassYearSemesterId());
+                log.info("Program Modality Code: {}", dto.getProgramModalityCode());
+                log.info("Place of Birth - Region/Zone/Woreda Codes: {} / {} / {}",
+                        dto.getPlaceOfBirthRegionCode(), dto.getPlaceOfBirthZoneCode(), dto.getPlaceOfBirthWoredaCode());
+                log.info("Is Transfer: {}", dto.getIsTransfer());
+                log.info("Document Status: {}", dto.getDocumentStatus());
+                log.info("Remark: {}", dto.getRemark());
+
+                importSingleStudent(dto);
+                success++;
+                log.info("Successfully imported student: {}", dto.getUsername());
+                log.info("========================================================");
+
+            } catch (Exception e) {
+                String username = dto.getUsername() != null ? dto.getUsername() : "UNKNOWN (row " + (i + 1) + ")";
+                log.error("FAILED to import student: {}", username);
+                log.error("Error message: {}", e.getMessage(), e);
+
+                failed++;
+                failedUsernames.add(username);
+            }
+            log.info("========================================================");
+        }
+
+        log.info("Bulk import completed: {} successful, {} failed", success, failed);
+        return new BulkImportResult(success, failed, failedUsernames);
+    }
+
+    // Each student in its own transaction → failure of one does NOT mark the outer transaction rollback-only
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void importSingleStudent(StudentImportDTO dto) {
+        if (isBlank(dto.getUsername())) {
+            throw new BadRequestException("Username is required");
+        }
+
+        // Create User using your existing validated method
+        UserRegisterRequest userRequest = new UserRegisterRequest();
+        userRequest.setUsername(dto.getUsername());
+        userRequest.setPassword(DEFAULT_PASSWORD);
+        userRequest.setRole(Role.STUDENT);
+
+        User user = userService.registerUser(userRequest);
+
+        StudentDetails details = new StudentDetails();
+        details.setUser(user);
+
+        // Personal names
+        details.setFirstNameENG(dto.getFirstNameENG());
+        details.setFatherNameENG(dto.getFatherNameENG());
+        details.setGrandfatherNameENG(dto.getGrandfatherNameENG());
+        details.setFirstNameAMH(dto.getFirstNameAMH());
+        details.setFatherNameAMH(dto.getFatherNameAMH());
+        details.setGrandfatherNameAMH(dto.getGrandfatherNameAMH());
+
+        // Demographics – safe capitalization
+        details.setGender(safeEnumValue(dto.getGender(), Gender.class));
+        details.setMaritalStatus(safeEnumValue(dto.getMaritalStatus(), MaritalStatus.class));
+        details.setPhoneNumber(dto.getPhoneNumber());
+
+        if (isNotBlank(dto.getDateOfBirthGC())) {
+            LocalDate birth = LocalDate.parse(dto.getDateOfBirthGC());
+            details.setDateOfBirthGC(birth);
+            details.setAge(Period.between(birth, LocalDate.now()).getYears());
+        }
+
+        if (isNotBlank(dto.getDateEnrolledGC())) {
+            details.setDateEnrolledGC(LocalDate.parse(dto.getDateEnrolledGC()));
+        }
+
+        // Foreign keys
+        details.setDepartmentEnrolled(fetchById(departmentRepository, dto.getDepartmentEnrolledId(), "Department"));
+        details.setStudentRecentStatus(fetchById(studentStatusRepository, dto.getStudentRecentStatusId(), "StudentStatus"));
+        details.setSchoolBackground(fetchById(schoolBackgroundRepository, dto.getSchoolBackgroundId(), "SchoolBackground"));
+
+        // Batch – use placeholder if empty
+        if (isNotBlank(dto.getBatchClassYearSemesterId())) {
+            details.setBatchClassYearSemester(fetchById(batchRepository, dto.getBatchClassYearSemesterId(), "BatchClassYearSemester"));
+        } else {
+            details.setBatchClassYearSemester(placeholderBatch);
+        }
+
+        details.setProgramModality(isNotBlank(dto.getProgramModalityCode())
+                ? programModalityRepository.findByModalityCode(dto.getProgramModalityCode()).orElse(null)
+                : null);
+
+        // Birth place
+        details.setPlaceOfBirthRegion(regionRepository.findByRegionCode(dto.getPlaceOfBirthRegionCode()).orElse(null));
+        details.setPlaceOfBirthZone(zoneRepository.findByZoneCode(dto.getPlaceOfBirthZoneCode()).orElse(null));
+        details.setPlaceOfBirthWoreda(woredaRepository.findByWoredaCode(dto.getPlaceOfBirthWoredaCode()).orElse(null));
+
+        // Other fields
+        details.setContactPersonFirstNameENG(dto.getContactPersonFirstNameENG());
+        details.setContactPersonPhoneNumber(dto.getContactPersonPhoneNumber());
+        details.setContactPersonRelation(dto.getContactPersonRelation());
+        details.setTransfer("TRUE".equalsIgnoreCase(dto.getIsTransfer()));
+        details.setDocumentStatus("TRUE".equalsIgnoreCase(dto.getDocumentStatus()) ? DocumentStatus.COMPLETE : DocumentStatus.INCOMPLETE);
+        details.setStudentPassExitExam("TRUE".equalsIgnoreCase(dto.getIsStudentPassExitExam()));
+        details.setRemark(dto.getRemark());
+
+        if (isNotBlank(dto.getExitExamScore())) {
+            details.setExitExamScore(Double.valueOf(dto.getExitExamScore()));
+        }
+        if (isNotBlank(dto.getGrade12Result())) {
+            details.setGrade12Result(Double.valueOf(dto.getGrade12Result()));
+        }
+        details.setExitExamUserID(dto.getExitExamUserID());
+
+        studentDetailsRepository.save(details);
+    }
+
+    // Helper methods remain the same
+    private <T> T fetchById(JpaRepository<T, Long> repo, String idStr, String entityName) {
+        if (isBlank(idStr)) return null;
+        try {
+            Long id = Long.parseLong(idStr.trim());
+            return repo.findById(id).orElse(null);
+        } catch (NumberFormatException e) {
+            log.warn("Invalid {} ID: {}", entityName, idStr);
+            return null;
+        }
+    }
+
+    private <T extends Enum<T>> T safeEnumValue(String value, Class<T> enumClass) {
+        if (isBlank(value)) return null;
+        try {
+            String normalized = value.trim().toUpperCase().replace(" ", "_").replace("-", "_");
+            return Enum.valueOf(enumClass, normalized);
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid {} value: {} (stored as null)", enumClass.getSimpleName(), value);
+            return null;
+        }
+    }
+
+    private boolean isBlank(String str) {
+        return str == null || str.trim().isEmpty();
+    }
+
+    private boolean isNotBlank(String str) {
+        return !isBlank(str);
+    }
+}

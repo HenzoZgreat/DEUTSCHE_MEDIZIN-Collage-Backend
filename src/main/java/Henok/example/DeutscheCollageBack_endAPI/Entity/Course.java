@@ -36,7 +36,7 @@ public class Course {
     private CourseCategory category;
 
     @ManyToOne
-    @JoinColumn(name = "departmentID", nullable = false)
+    @JoinColumn(name = "departmentID", nullable = true)
     private Department department;
 
     @ManyToMany
@@ -48,10 +48,10 @@ public class Course {
     private Set<Course> prerequisites = new HashSet<>();
 
     @ManyToOne
-    @JoinColumn(name = "class_year_id", nullable = false)
+    @JoinColumn(name = "class_year_id", nullable = true)
     private ClassYear classYear;
 
     @ManyToOne
-    @JoinColumn(name = "semester_id", nullable = false)
+    @JoinColumn(name = "semester_id", nullable = true)
     private Semester semester;
 }

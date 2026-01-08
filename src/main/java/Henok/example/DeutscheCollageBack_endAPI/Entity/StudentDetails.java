@@ -72,7 +72,7 @@ public class StudentDetails {
     @Column(nullable = true)
     private Integer age;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = true)
     private String phoneNumber;
 
     @Column(name = "date_of_birth_ec", nullable = true)
@@ -149,7 +149,7 @@ public class StudentDetails {
     @Column(name = "date_enrolled_ec", nullable = true)
     private String dateEnrolledEC;
 
-    @Column(name = "date_enrolled_gc", nullable = false)
+    @Column(name = "date_enrolled_gc", nullable = true)
     private LocalDate dateEnrolledGC;
 
 

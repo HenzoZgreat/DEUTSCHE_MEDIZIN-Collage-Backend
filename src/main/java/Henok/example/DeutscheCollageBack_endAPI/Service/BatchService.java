@@ -163,6 +163,8 @@ public class BatchService {
                         .forEach(semester -> combinations.add(
                                 new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null, defaultGradingSystem)
                         ));
+            }else if(classYearValue.startsWith("not")){
+                continue;
             } else {
                 // Other years (2, 3, 4, 5, 6): combine with S1 and S2
                 semesters.stream()
