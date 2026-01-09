@@ -33,7 +33,7 @@ public class StudentCourseScore {
     private CourseSource courseSource;
 
     @Column
-    private Double score;
+    private Double score = 0.0;
 
     @Column(nullable = false)
     private boolean isReleased = false;

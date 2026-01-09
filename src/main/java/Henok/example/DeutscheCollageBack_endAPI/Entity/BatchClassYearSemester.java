@@ -58,9 +58,15 @@ public class BatchClassYearSemester {
     // Database: Add foreign key constraint; index for performance on queries.
 
     public String getDisplayName() {
+        String batchName = batch != null ? batch.getBatchName() : null;
+        if (batchName == null || "0".equals(batchName)) {
+            return "Not learning";
+        }
+        String classYearStr = classYear != null ? classYear.getClassYear() : "";
+        String semesterStr = semester != null ? semester.getAcademicPeriodCode() : "";
         return String.format("%s-%s-%s",
-                batch.getBatchName(),
-                classYear.getClassYear(),
-                semester.getAcademicPeriodCode());
+                batchName,
+                classYearStr,
+                semesterStr);
     }
 }
