@@ -824,7 +824,7 @@ public class StudentDetailService {
     }
 
     // Maps StudentDetails entity to StudentDetailsDTO
-    // Why: Converts entity to DTO to include all fields safely
+// Why: Converts entity to DTO to include all fields safely, with null checks for nullable relationships
     private StudentDetailsDTO mapToDTO(StudentDetails student) {
         StudentDetailsDTO dto = new StudentDetailsDTO();
 
@@ -850,30 +850,30 @@ public class StudentDetailService {
         dto.setDateOfBirthEC(student.getDateOfBirthEC());
         dto.setDateOfBirthGC(student.getDateOfBirthGC());
 
-        // Place of Birth - ID + Name
-        dto.setPlaceOfBirthWoredaCode(student.getPlaceOfBirthWoreda().getWoredaCode());
-        dto.setPlaceOfBirthWoredaName(student.getPlaceOfBirthWoreda().getWoreda());
-        dto.setPlaceOfBirthZoneCode(student.getPlaceOfBirthZone().getZoneCode());
-        dto.setPlaceOfBirthZoneName(student.getPlaceOfBirthZone().getZone());
-        dto.setPlaceOfBirthRegionCode(student.getPlaceOfBirthRegion().getRegionCode());
-        dto.setPlaceOfBirthRegionName(student.getPlaceOfBirthRegion().getRegion());
+        // Place of Birth - ID + Name (null-safe)
+        dto.setPlaceOfBirthWoredaCode(student.getPlaceOfBirthWoreda() != null ? student.getPlaceOfBirthWoreda().getWoredaCode() : null);
+        dto.setPlaceOfBirthWoredaName(student.getPlaceOfBirthWoreda() != null ? student.getPlaceOfBirthWoreda().getWoreda() : null);
+        dto.setPlaceOfBirthZoneCode(student.getPlaceOfBirthZone() != null ? student.getPlaceOfBirthZone().getZoneCode() : null);
+        dto.setPlaceOfBirthZoneName(student.getPlaceOfBirthZone() != null ? student.getPlaceOfBirthZone().getZone() : null);
+        dto.setPlaceOfBirthRegionCode(student.getPlaceOfBirthRegion() != null ? student.getPlaceOfBirthRegion().getRegionCode() : null);
+        dto.setPlaceOfBirthRegionName(student.getPlaceOfBirthRegion() != null ? student.getPlaceOfBirthRegion().getRegion() : null);
 
-        // Current Address - ID + Name
-        dto.setCurrentAddressWoredaCode(student.getCurrentAddressWoreda().getWoredaCode());
-        dto.setCurrentAddressWoredaName(student.getCurrentAddressWoreda().getWoreda());
-        dto.setCurrentAddressZoneCode(student.getCurrentAddressZone().getZoneCode());
-        dto.setCurrentAddressZoneName(student.getCurrentAddressZone().getZone());
-        dto.setCurrentAddressRegionCode(student.getCurrentAddressRegion().getRegionCode());
-        dto.setCurrentAddressRegionName(student.getCurrentAddressRegion().getRegion());
+        // Current Address - ID + Name (null-safe)
+        dto.setCurrentAddressWoredaCode(student.getCurrentAddressWoreda() != null ? student.getCurrentAddressWoreda().getWoredaCode() : null);
+        dto.setCurrentAddressWoredaName(student.getCurrentAddressWoreda() != null ? student.getCurrentAddressWoreda().getWoreda() : null);
+        dto.setCurrentAddressZoneCode(student.getCurrentAddressZone() != null ? student.getCurrentAddressZone().getZoneCode() : null);
+        dto.setCurrentAddressZoneName(student.getCurrentAddressZone() != null ? student.getCurrentAddressZone().getZone() : null);
+        dto.setCurrentAddressRegionCode(student.getCurrentAddressRegion() != null ? student.getCurrentAddressRegion().getRegionCode() : null);
+        dto.setCurrentAddressRegionName(student.getCurrentAddressRegion() != null ? student.getCurrentAddressRegion().getRegion() : null);
 
         dto.setEmail(student.getEmail());
         dto.setMaritalStatus(student.getMaritalStatus().name());
 
-        // Impairment
+        // Impairment (null-safe)
         dto.setImpairmentCode(student.getImpairment() != null ? student.getImpairment().getImpairmentCode() : null);
         dto.setImpairmentDescription(student.getImpairment() != null ? student.getImpairment().getImpairment() : null);
 
-        // School Background
+        // School Background (required, so safe)
         dto.setSchoolBackgroundId(student.getSchoolBackground().getId());
         dto.setSchoolBackgroundName(student.getSchoolBackground().getBackground());
 
@@ -891,19 +891,23 @@ public class StudentDetailService {
         dto.setDateEnrolledEC(student.getDateEnrolledEC());
         dto.setDateEnrolledGC(student.getDateEnrolledGC());
 
+        // Batch Class Year Semester (required, safe)
         dto.setBatchClassYearSemesterId(student.getBatchClassYearSemester().getBcysID());
-        dto.setBatchClassYearSemesterName(student.getBatchClassYearSemester().getDisplayName()); // or getFullName()
+        dto.setBatchClassYearSemesterName(student.getBatchClassYearSemester().getDisplayName());
 
+        // Student Recent Status (required, safe)
         dto.setStudentRecentStatusId(student.getStudentRecentStatus().getId());
         dto.setStudentRecentStatusName(student.getStudentRecentStatus().getStatusName());
 
+        // Department Enrolled (required, safe)
         dto.setDepartmentEnrolledId(student.getDepartmentEnrolled().getDptID());
         dto.setDepartmentEnrolledName(student.getDepartmentEnrolled().getDeptName());
 
+        // Program Modality (required, safe)
         dto.setProgramModalityCode(student.getProgramModality().getModalityCode());
         dto.setProgramModalityName(student.getProgramModality().getModality());
 
-        // Academic Year
+        // Academic Year (null-safe)
         if (student.getAcademicYear() != null) {
             dto.setAcademicYearCode(student.getAcademicYear().getYearCode());
             dto.setAcademicYearGC(student.getAcademicYear().getAcademicYearGC());
@@ -923,7 +927,6 @@ public class StudentDetailService {
         return dto;
     }
 
-    // Method to add inside your existing StudentService
 
 // Method to add inside your existing StudentService
 
@@ -1157,6 +1160,10 @@ System.out.println("---------Finished Registering Applicant --------");
 
         dto.setProgramModality(toIdNameMap(sd.getProgramModality(),
                 ProgramModality::getModalityCode, ProgramModality::getModality));
+
+        dto.setProgramLevel(toIdNameMap(
+            sd.getProgramModality() != null ? sd.getProgramModality().getProgramLevel() : null,
+            ProgramLevel::getCode, ProgramLevel::getName));
 
         // Document & academic status
         dto.setDocumentStatus(sd.getDocumentStatus());

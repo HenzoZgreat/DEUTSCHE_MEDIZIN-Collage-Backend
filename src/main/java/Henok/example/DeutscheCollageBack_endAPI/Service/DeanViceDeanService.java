@@ -25,10 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 // DeanViceDeanService
@@ -41,6 +38,7 @@ import java.util.stream.Collectors;
 public class DeanViceDeanService {
 
     private final UserService userService; // existing service for user registration
+    private final NotificationService notificationService;
     private final UserRepository userRepository;
     private final DeanViceDeanDetailsRepository deanViceDeanDetailsRepository;
     private final StudentDetailsRepository studentDetailsRepository;
@@ -118,6 +116,34 @@ public class DeanViceDeanService {
                 .build();
 
         DeanViceDeanDetails saved = deanViceDeanDetailsRepository.save(details);
+
+        List<Role> targetRoles = Arrays.asList(
+                Role.DEPARTMENT_HEAD,
+                Role.REGISTRAR,
+                Role.FINANCIAL_STAFF,
+                Role.VICE_DEAN,
+                Role.DEAN,
+                Role.GENERAL_MANAGER
+        );
+
+        String message = saved.getUser().getRole().toString();
+        if(saved.getUser().getRole() == Role.VICE_DEAN){
+            message = "A new Vice-Dean has been registered: "
+                    + saved.getFirstNameENG() + " "
+                    + saved.getFatherNameENG() + " "
+                    + saved.getGrandfatherNameENG();
+        } else if (saved.getUser().getRole() == Role.DEAN) {
+            message = "A new Vice-Dean has been registered: "
+                    + saved.getFirstNameENG() + " "
+                    + saved.getFatherNameENG() + " "
+                    + saved.getGrandfatherNameENG();
+        }
+        notificationService.createNotification(
+                targetRoles,    // roles to notify
+                null,           // no single user
+                Role.DEPARTMENT_HEAD,  // sender role (or Role.REGISTRAR if admin does this)
+                message
+        );
 
         return saved.getId(); // return the details ID for confirmation
     }

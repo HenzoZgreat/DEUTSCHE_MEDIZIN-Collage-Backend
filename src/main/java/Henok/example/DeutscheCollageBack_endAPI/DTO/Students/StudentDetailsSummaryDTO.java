@@ -66,6 +66,8 @@ public class StudentDetailsSummaryDTO {
     private Map<String, Object> studentRecentStatus;  // assuming it has id & name
     private Map<String, Object> departmentEnrolled;   // {id: ..., name: "..."}
     private Map<String, Object> programModality;      // {code: "...", name: "..."}
+    private Map<String, Object> programLevel;      // {code: "...", name: "..."}
+
     
     private DocumentStatus documentStatus;
     private Double grade12Result;

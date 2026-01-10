@@ -181,7 +181,9 @@ public class SecurityConfig {
                                 "/api/grading-systems/**").hasAnyRole("DEAN", "VICE_DEAN", "REGISTRAR")
 
                         // --------------- Dean and ViceDeans shared endpoints -----------------
-                        .requestMatchers("/api/auth/department-heads/*/reset-password",
+                        .requestMatchers(
+                                "/api/auth/register/department-head",
+                                "/api/auth/department-heads/*/reset-password",
                                 "/api/department-heads/**",
                                 "/api/department-heads/get-photo/*",
                                 "/api/department-heads/get-document/*",
