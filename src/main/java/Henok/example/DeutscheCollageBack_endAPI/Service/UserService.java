@@ -15,6 +15,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 @Service
 public class UserService implements UserDetailsService {
 
@@ -159,6 +164,24 @@ public class UserService implements UserDetailsService {
             // Fallback for completely unexpected errors
             throw new RuntimeException("Unexpected error while deleting user with id: " + userId, e);
         }
+    }
+
+    // Retrieves only userId and username for all users with STUDENT role
+    // Why: Optimized query — avoids loading full User objects or related entities
+    // Returns List<Map<String, Object>> so no DTO is needed
+    // Uses projection to keep it lightweight
+    public List<Map<String, Object>> getAllStudentUsernamesAndIds() {
+        // Using a custom query with projection (very efficient)
+        List<Object[]> results = userRepository.findUserIdAndUsernameByRole(Role.STUDENT);
+
+        return results.stream()
+                .map(row -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("userId", row[0]);
+                    map.put("username", row[1]);
+                    return map;
+                })
+                .collect(Collectors.toList());
     }
 }
 

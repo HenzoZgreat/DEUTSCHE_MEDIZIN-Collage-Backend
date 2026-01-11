@@ -4,6 +4,7 @@ import Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarDashboard
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Service.TeacherService;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,7 +15,7 @@ import java.util.Optional;
 import java.util.Set;
 
 @Repository
-public interface StudentCourseScoreRepo extends JpaRepository<StudentCourseScore, Long> {
+public interface StudentCourseScoreRepo extends JpaRepository<StudentCourseScore, Long>, JpaSpecificationExecutor<StudentCourseScore> {
 
     /**
      * Checks if a score record already exists for the exact combination of:

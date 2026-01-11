@@ -98,21 +98,44 @@ public class StudentCourseScoreController {
         }
     }
 
+    /**
+     * GET /api/student-course-scores/all
+     *
+     * Returns paginated list of ALL student course scores with rich details.
+     * Supports multiple optional filters (all combinable).
+     *
+     * Security: Should be restricted to REGISTRAR / ADMIN roles via @PreAuthorize
+     */
     @GetMapping("/all")
     public ResponseEntity<?> getAllStudentCourseScores(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDir) {
+            @RequestParam(defaultValue = "asc") String sortDir,
+
+            // Optional filters (all nullable by default)
+            @RequestParam(required = false) Long courseId,
+            @RequestParam(required = false) Long bcysId,
+            @RequestParam(required = false) Long studentId,
+
+            // Optional: filter only released / unreleased scores
+            @RequestParam(required = false) Boolean isReleased) {
+
         try {
-            Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+            Sort sort = sortDir.equalsIgnoreCase("desc")
+                    ? Sort.by(sortBy).descending()
+                    : Sort.by(sortBy).ascending();
+
             Pageable pageable = PageRequest.of(page, size, sort);
-            PaginatedResponseDTO<StudentCourseScoreResponseDTO> paginatedResponse = 
-                    studentCourseScoreService.getAllStudentCourseScoresPaginated(pageable);
-            return ResponseEntity.ok(paginatedResponse);
+
+            PaginatedResponseDTO<StudentCourseScoreResponseDTO> response =
+                    studentCourseScoreService.getAllStudentCourseScoresPaginated(
+                            pageable, courseId, bcysId, studentId, isReleased);
+
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ErrorResponse("Failed to retrieve all student course scores: " + e.getMessage()));
+                    .body(new ErrorResponse("Failed to retrieve filtered student course scores: " + e.getMessage()));
         }
     }
 

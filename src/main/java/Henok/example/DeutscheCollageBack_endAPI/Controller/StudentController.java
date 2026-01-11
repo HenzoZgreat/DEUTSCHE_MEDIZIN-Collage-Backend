@@ -21,6 +21,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,26 @@ public class StudentController {
     @Autowired
     private UserService userService;
 
+
+    // Returns a list of all students with only their userId and username
+    // Why: Lightweight endpoint for admin/registrar dropdowns or quick reference
+    // No DTOs — returns List<Map<String, Object>> for simplicity
+    @GetMapping("/list/usernames")
+    public ResponseEntity<?> getAllStudentUsernames() {
+        try {
+            List<Map<String, Object>> students = userService.getAllStudentUsernamesAndIds();
+
+            if (students.isEmpty()) {
+                return ResponseEntity.ok(Collections.emptyList()); // or 404 if preferred
+            }
+
+            return ResponseEntity.ok(students);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An error occurred while retrieving student list"));
+        }
+    }
 
     // Retrieves all active students as DTOs
     // Why: For admin/registrar to view all active student records as DTOs

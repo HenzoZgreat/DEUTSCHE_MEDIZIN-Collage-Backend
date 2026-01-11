@@ -3,6 +3,8 @@ package Henok.example.DeutscheCollageBack_endAPI.Repository;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -22,4 +24,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByUsername(String username);
 
     long countByRole(Role role);
+
+    // Custom projection query — only fetches id and username
+    @Query("SELECT u.id, u.username FROM User u WHERE u.role = :role")
+    List<Object[]> findUserIdAndUsernameByRole(@Param("role") Role role);
 }

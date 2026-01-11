@@ -14,6 +14,7 @@ import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -161,12 +162,56 @@ public class StudentCourseScoreService {
                 .collect(Collectors.toList());
     }
 
-    public PaginatedResponseDTO<StudentCourseScoreResponseDTO> getAllStudentCourseScoresPaginated(Pageable pageable) {
-        Page<StudentCourseScore> scorePage = studentCourseScoreRepo.findAll(pageable);
+    /**
+     * Retrieves paginated student course scores with multiple optional filters.
+     * All filters are combined with AND logic.
+     * Null/empty values are ignored.
+     *
+     * @param pageable          Pagination & sorting info
+     * @param courseId          Optional: filter by specific course
+     * @param bcysId            Optional: filter by batch/class/year/semester
+     * @param studentId         Optional: filter by specific student
+     * @param isReleased        Optional: true = only released, false = only unreleased, null = all
+     * @return Paginated DTO with filtered & mapped results
+     */
+    public PaginatedResponseDTO<StudentCourseScoreResponseDTO> getAllStudentCourseScoresPaginated(
+            Pageable pageable,
+            Long courseId,
+            Long bcysId,
+            Long studentId,
+            Boolean isReleased) {
+
+        // Start with a specification that matches everything
+        Specification<StudentCourseScore> spec = Specification.where(null);
+        // Then chain the optional filters (using .and())
+        if (courseId != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("course").get("CID"), courseId));
+        }
+
+        if (bcysId != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("batchClassYearSemester").get("bcysID"), bcysId));
+        }
+
+        if (studentId != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("student").get("id"), studentId));
+        }
+
+        if (isReleased != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("released"), isReleased));
+        }
+
+        // Execute the query
+        Page<StudentCourseScore> scorePage = studentCourseScoreRepo.findAll(spec, pageable);
+
+        // Map to DTO (reuse your existing mapper)
         List<StudentCourseScoreResponseDTO> content = scorePage.getContent().stream()
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
-        
+
         PaginatedResponseDTO<StudentCourseScoreResponseDTO> response = new PaginatedResponseDTO<>();
         response.setContent(content);
         response.setPage(scorePage.getNumber());
@@ -175,10 +220,9 @@ public class StudentCourseScoreService {
         response.setTotalPages(scorePage.getTotalPages());
         response.setFirst(scorePage.isFirst());
         response.setLast(scorePage.isLast());
-        
+
         return response;
     }
-
     private StudentCourseScoreResponseDTO mapToResponseDTO(StudentCourseScore score) {
         StudentCourseScoreResponseDTO dto = new StudentCourseScoreResponseDTO();
         dto.setId(score.getId());
