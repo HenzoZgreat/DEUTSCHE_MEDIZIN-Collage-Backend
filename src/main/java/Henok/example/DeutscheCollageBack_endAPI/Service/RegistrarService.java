@@ -402,12 +402,12 @@ public class RegistrarService {
                 .collect(Collectors.toList());
         dto.setRecentApplicants(recentDTOs);
 
-        // Low score alerts - safe
-        List<Object[]> rawAlerts = studentCourseScoreRepository.findRawLowAverageStudents(50.0);
+        // Low score alerts - only active students, using username as studentId
+        List<Object[]> rawAlerts = studentCourseScoreRepository.findRawLowAverageActiveStudents(50.0);
         List<RegistrarDashboardDTO.StudentAlertDTO> alerts = rawAlerts.stream()
                 .map(row -> {
                     RegistrarDashboardDTO.StudentAlertDTO alert = new RegistrarDashboardDTO.StudentAlertDTO();
-                    alert.setStudentId((Long) row[0]);
+                    alert.setStudentId((String) row[0]);                    // username (String)
                     alert.setFullName((String) row[1]);
                     alert.setAvgScore(((Number) row[2]).doubleValue());
                     return alert;

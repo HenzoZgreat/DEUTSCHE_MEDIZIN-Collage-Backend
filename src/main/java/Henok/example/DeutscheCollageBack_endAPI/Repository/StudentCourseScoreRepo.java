@@ -121,15 +121,16 @@ public interface StudentCourseScoreRepo extends JpaRepository<StudentCourseScore
             "GROUP BY d.deptName")
     List<Object[]> findRawAverageScoresByDepartment();
 
-    // Returns List<Object[]> where each array is: [studentId (Long), fullName (String), avgScore (Double)]
-    // Why: Projects only needed columns; GROUP BY and HAVING work as before.
-    // Service layer will map to nested DTO for consistency.
-    @Query("SELECT u.id, CONCAT(sd.firstNameENG, ' ', sd.fatherNameENG), AVG(scs.score) " +
+    // Returns raw data for low average students
+    // Why: We project username (String), full name, avg score
+    // We join StudentDetails to filter only ACTIVE students
+    @Query("SELECT u.username, CONCAT(sd.firstNameENG, ' ', sd.fatherNameENG), AVG(scs.score) " +
             "FROM StudentCourseScore scs " +
             "JOIN scs.student u " +
-            "JOIN StudentDetails sd ON sd.user = u " +  // correct direction: StudentDetails -> User
+            "JOIN StudentDetails sd ON sd.user = u " +
             "WHERE scs.isReleased = true " +
-            "GROUP BY u.id, sd.firstNameENG, sd.fatherNameENG " +
+            "AND sd.studentRecentStatus.statusName = 'ACTIVE' " +  // Only active students
+            "GROUP BY u.username, sd.firstNameENG, sd.fatherNameENG " +
             "HAVING AVG(scs.score) < :threshold")
-    List<Object[]> findRawLowAverageStudents(@Param("threshold") Double threshold);
+    List<Object[]> findRawLowAverageActiveStudents(@Param("threshold") Double threshold);
 }

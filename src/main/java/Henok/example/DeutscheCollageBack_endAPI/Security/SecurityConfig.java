@@ -180,6 +180,10 @@ public class SecurityConfig {
                                 "/api/mark-intervals/**",
                                 "/api/grading-systems/**").hasAnyRole("DEAN", "VICE_DEAN", "REGISTRAR")
 
+                        // --------------- GeneralManager and ViceDeans or Deans shared endpoints -----------------
+                        .requestMatchers("/api/auth/register/registrar").hasAnyRole("GENERAL_MANAGER", "VICE_DEAN", "DEAN")
+                        .requestMatchers(HttpMethod.GET, "/api/department-heads/**").hasAnyRole("GENERAL_MANAGER", "VICE_DEAN", "DEAN")
+
                         // --------------- Dean and ViceDeans shared endpoints -----------------
                         .requestMatchers(
                                 "/api/auth/register/department-head",
@@ -189,8 +193,6 @@ public class SecurityConfig {
                                 "/api/department-heads/get-document/*",
                                 "/api/department-heads/*/reassign-department").hasAnyRole("DEAN", "VICE_DEAN")
 
-                        // --------------- GeneralManager and ViceDeans or Deans shared endpoints -----------------
-                        .requestMatchers("/api/auth/register/registrar").hasAnyRole("GENERAL_MANAGER", "VICE_DEAN", "DEAN")
 
                         // ---------------- GeneralManager and Dean shared endpoints -----------------
                         .requestMatchers("/api/vice-deans/active",

@@ -59,13 +59,32 @@ public class CourseController {
         }
     }
 
+    /**
+     * Get all courses with optional filtering by department, semester, class year, and category.
+     * All parameters are optional. If none provided → returns all courses.
+     * Returns CourseResponseDTO list (minimal safe representation)
+     */
     @GetMapping
-    public ResponseEntity<?> getAllCourses() {
+    public ResponseEntity<?> getAllCourses(
+            @RequestParam(required = false) Long departmentId,
+            @RequestParam(required = false) String semesterId,      // String because academicPeriodCode is String
+            @RequestParam(required = false) Long classYearId,
+            @RequestParam(required = false) Long categoryId) {
+
         try {
-            List<CourseResponseDTO> courses = courseService.getAllCourses();
+            List<CourseResponseDTO> courses = courseService.getAllCoursesFiltered(
+                    departmentId, semesterId, classYearId, categoryId);
+
+            if (courses.isEmpty()) {
+                return ResponseEntity.ok(Collections.emptyList());
+            }
+
             return ResponseEntity.ok(courses);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
                     .body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -73,17 +92,32 @@ public class CourseController {
         }
     }
 
-    // New endpoint: Get minimal list of all courses (id, code, title only)
+    /**
+     * Returns minimal list of courses (id, cCode, cTitle only) with optional filtering
+     * by department, class year and/or semester.
+     * All parameters are optional. If none provided → returns all courses.
+     */
     @GetMapping("/list")
-    public ResponseEntity<?> getCoursesMinimalList() {
+    public ResponseEntity<?> getCoursesMinimalList(
+            @RequestParam(required = false) Long departmentId,
+            @RequestParam(required = false) Long classYearId,
+            @RequestParam(required = false) Long semesterId) {
+
         try {
-            List<Map<String, Object>> courseList = courseService.getCoursesMinimalList();
+            List<Map<String, Object>> courseList = courseService.getCoursesMinimalListFiltered(
+                    departmentId, classYearId, semesterId);
 
             if (courseList.isEmpty()) {
-                return ResponseEntity.ok(Collections.emptyList()); // 200 OK with empty array
+                return ResponseEntity.ok(Collections.emptyList());
             }
 
             return ResponseEntity.ok(courseList);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Failed to retrieve course list: " + e.getMessage()));

@@ -50,7 +50,7 @@ public class RegistrarDashboardDTO {
 
     @Data
     public static class StudentAlertDTO {
-        private Long studentId;
+        private String studentId;          // username from User table
         private String fullName;
         private Double avgScore;
     }

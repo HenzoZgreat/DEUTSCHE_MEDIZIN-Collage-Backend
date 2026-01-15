@@ -14,6 +14,7 @@ import Henok.example.DeutscheCollageBack_endAPI.Repository.CourseRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.DepartmentRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.SemesterRepo;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -126,22 +127,77 @@ public class CourseService {
         );
     }
 
-    public List<CourseResponseDTO> getAllCourses() {
-        List<Course> courses = courseRepository.findAll();
-        if (courses.isEmpty()) {
-            throw new ResourceNotFoundException("No courses found");
+    /**
+     * Returns filtered list of courses using CourseResponseDTO.
+     * All parameters are optional (null = no filter on that field).
+     * Uses Specification for clean, dynamic, type-safe query building.
+     */
+    public List<CourseResponseDTO> getAllCoursesFiltered(
+            Long departmentId, String semesterId, Long classYearId, Long categoryId) {
+
+        // Build dynamic specification
+        Specification<Course> spec = Specification.where(null);
+
+        if (departmentId != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("department").get("dptID"), departmentId));
         }
+
+        if (semesterId != null && !semesterId.trim().isEmpty()) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("semester").get("academicPeriodCode"), semesterId));
+        }
+
+        if (classYearId != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("classYear").get("id"), classYearId));
+        }
+
+        if (categoryId != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("category").get("catID"), categoryId));
+        }
+
+        List<Course> courses = courseRepository.findAll(spec);
+
+        // If we want to keep the "no courses found" exception (your original behavior)
+        // if (courses.isEmpty()) {
+        //     throw new ResourceNotFoundException("No courses found matching the filters");
+        // }
+
+        // Most APIs prefer returning empty list instead of 404 for filtered lists
         return courses.stream()
                 .map(this::toResponseDTO)
                 .collect(Collectors.toList());
     }
 
     /**
-     * Returns a minimal list of all courses containing only id, cCode and cTitle.
-     * Uses Map to avoid creating a DTO and to prevent entity serialization issues.
+     * Returns minimal list of courses with optional filtering by department, class year, and semester.
+     * Uses Map<String, Object> to avoid DTO and entity serialization issues.
+     * All parameters are optional (null = no filter on that field).
      */
-    public List<Map<String, Object>> getCoursesMinimalList() {
-        List<Course> courses = courseRepository.findAll();
+    public List<Map<String, Object>> getCoursesMinimalListFiltered(
+            Long departmentId, Long classYearId, Long semesterId) {
+
+        // Build specification dynamically
+        Specification<Course> spec = Specification.where(null);
+
+        if (departmentId != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("department").get("dptID"), departmentId));
+        }
+
+        if (classYearId != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("classYear").get("id"), classYearId));
+        }
+
+        if (semesterId != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("semester").get("id"), semesterId));
+        }
+
+        List<Course> courses = courseRepository.findAll(spec);
 
         return courses.stream()
                 .map(course -> {
