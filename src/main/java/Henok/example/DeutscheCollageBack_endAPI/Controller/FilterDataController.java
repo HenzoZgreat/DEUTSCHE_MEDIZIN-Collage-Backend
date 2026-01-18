@@ -30,6 +30,7 @@ public class FilterDataController {
     @Autowired private CourseSourceRepo courseSourceRepository;
     @Autowired private StudentStatusRepo studentStatusRepository;
     @Autowired private BatchClassYearSemesterRepo batchClassYearSemesterRepository;
+    @Autowired private SchoolBackgroundRepository schoolBackgroundRepository;
 
 
     /**
@@ -188,6 +189,17 @@ public class FilterDataController {
                 })
                 .collect(Collectors.toList());
         response.put("batchClassYearSemesters", bcysList);
+
+        // SchoolBackgrounds: id, name
+        List<Map<String, Object>> schoolBackgrounds = schoolBackgroundRepository.findAll().stream()
+                .map(sb -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", sb.getId());
+                    map.put("name", sb.getBackground());
+                    return map;
+                })
+                .collect(Collectors.toList());
+        response.put("schoolBackgrounds", schoolBackgrounds);
 
         return ResponseEntity.ok(response);
 
