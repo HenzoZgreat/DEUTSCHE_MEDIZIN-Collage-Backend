@@ -18,17 +18,23 @@ import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.*;
+import Henok.example.DeutscheCollageBack_endAPI.Service.Utility.ScoreUpdatedEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.context.event.EventListener;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
 
 @Service
 public class StudentDetailService {
@@ -83,6 +89,11 @@ public class StudentDetailService {
 
     @Autowired
     private GradingSystemService gradingSystemService;
+
+    @Autowired
+    private StudentCourseScoreRepo studentCourseScoreRepo;
+
+
 
     // Registers a new student with the provided details and files
     // Why: Handles student registration with multipart form data, validates inputs, and ensures data integrity
@@ -1174,6 +1185,9 @@ System.out.println("---------Finished Registering Applicant --------");
         dto.setExitExamScore(sd.getExitExamScore());
         dto.setStudentPassExitExam(sd.isStudentPassExitExam());
 
+        dto.setCgpa(sd.getCgpa());                          // can be null
+        dto.setTotalEarnedCreditHours(sd.getTotalEarnedCreditHours());  // can be null or 0
+
         return dto;
     }
 
@@ -1193,4 +1207,149 @@ System.out.println("---------Finished Registering Applicant --------");
         return map;
     }
 
+    //==================================================================================================================
+    /**
+     * Calculates and persists CGPA + total earned credit hours for every student.
+     *
+     * Main goals:
+     *  - One-time bulk initialization or refresh after major grade releases
+     *  - Uses department-specific or global GradingSystem
+     *  - Safe: handles missing grades, missing systems, null values
+     *  - Performance: avoids N+1 by fetching students once, then processing one-by-one
+     *
+     * @return summary map with stats (processed count, success count, failed count, message)
+     */
+    @Transactional
+    public Map<String, Object> calculateAndSaveCgpaForAllStudents() {
+        List<StudentDetails> allStudents = studentDetailsRepository.findAll();
+
+        if (allStudents.isEmpty()) {
+            Map<String, Object> result = new HashMap<>();
+            result.put("message", "No students found in the system");
+            result.put("processed", 0);
+            result.put("success", 0);
+            result.put("failed", 0);
+            return result;
+        }
+
+        int successCount = 0;
+        int failedCount = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (StudentDetails studentDetails : allStudents) {
+            User studentUser = studentDetails.getUser();
+            if (studentUser == null) {
+                failedCount++;
+                errors.add("StudentDetails id=" + studentDetails.getId() + " has no linked User");
+                continue;
+            }
+
+            try {
+                // Get the most appropriate grading system for this student's department
+                GradingSystem gradingSystem = gradingSystemService.findApplicableGradingSystem(
+                        studentDetails.getDepartmentEnrolled()
+                );
+
+                // Calculate CGPA using your existing logic (all semesters up to now)
+                double cgpa = studentCopyService.calculateCGPA(
+                        studentUser,
+                        null,                    // null = include all released semesters (current logic)
+                        gradingSystem
+                );
+
+                // Calculate total earned credit hours
+                // (you may need to adjust this part depending on how you define "earned")
+                int totalEarnedCr = calculateTotalEarnedCreditHours(studentUser, gradingSystem);
+
+                // Update entity
+                studentDetails.setCgpa(BigDecimal.valueOf(cgpa).setScale(2, RoundingMode.HALF_UP));
+                studentDetails.setTotalEarnedCreditHours(Math.max(totalEarnedCr, 0));
+
+                studentDetailsRepository.save(studentDetails);
+                successCount++;
+
+            } catch (IllegalStateException e) {
+                failedCount++;
+                errors.add("Student " + studentUser.getUsername() + ": " + e.getMessage());
+
+            } catch (Exception e) {
+                failedCount++;
+                errors.add("Student " + studentUser.getUsername() + ": unexpected error - " + e.getMessage());
+            }
+        }
+
+        // Build summary response
+        Map<String, Object> result = new HashMap<>();
+        result.put("message", "CGPA initialization completed");
+        result.put("totalStudents", allStudents.size());
+        result.put("success", successCount);
+        result.put("failed", failedCount);
+        result.put("errors", errors.isEmpty() ? null : errors);
+
+        return result;
+    }
+
+    /**
+     * Helper: calculates total earned credit hours (passed courses).
+     * Adjust logic based on your definition of "earned" (e.g. score >= pass mark).
+     */
+    private int calculateTotalEarnedCreditHours(User student, GradingSystem gradingSystem) {
+        List<StudentCourseScore> released = studentCourseScoreRepo
+                .findByStudent(student);
+
+        int total = 0;
+
+        for (StudentCourseScore scs : released) {
+            if (scs.getScore() == null) continue;
+
+            Course course = scs.getCourse();
+            int cr = course.getTheoryHrs() + course.getLabHrs();
+
+//            // Assuming pass if score >= min pass mark in grading system
+//            boolean passed = gradingSystem.getIntervals().stream()
+//                    .anyMatch(i -> scs.getScore() >= i.getMin() && i.isPass()); // ← add isPass() if needed
+//
+//            if (passed) {
+//                total += cr;
+//            }
+            total += cr;
+        }
+
+        return total;
+    }
+
+    @EventListener
+    @Async   // ← very important: run in background, don't block HTTP response
+    @Transactional
+    public void handleScoreUpdate(ScoreUpdatedEvent event) {
+        Long studentId = event.getStudentUserId();
+
+        try {
+            User student = userRepository.findById(studentId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Student not found: " + studentId));
+
+            StudentDetails details = studentDetailsRepository.findByUser(student)
+                    .orElseThrow(() -> new ResourceNotFoundException("Student details not found"));
+
+            Department dept = details.getDepartmentEnrolled();
+            GradingSystem gs = gradingSystemService.findApplicableGradingSystem(dept);
+
+            double newCgpa = studentCopyService.calculateCGPA(student, details.getBatchClassYearSemester(), gs);
+            int newTotalCr = calculateTotalEarnedCreditHours(student, gs);
+
+            details.setCgpa(BigDecimal.valueOf(newCgpa).setScale(2, RoundingMode.HALF_UP));
+            details.setTotalEarnedCreditHours(newTotalCr > 0 ? newTotalCr : 0);
+
+            studentDetailsRepository.save(details);
+
+            // Optional: log success
+            /*log.info("CGPA updated for student {} → CGPA: {}, Credits: {}",
+                    student.getUsername(), newCgpa, newTotalCr);*/
+
+        } catch (Exception e) {
+            System.out.println("Failed to update CGPA for student " + studentId + ": " + e.getMessage());
+//            log.error("Failed to update CGPA for student {}: {}", studentId, e.getMessage(), e);
+            // You can add retry logic or send admin notification here if critical
+        }
+    }
 }

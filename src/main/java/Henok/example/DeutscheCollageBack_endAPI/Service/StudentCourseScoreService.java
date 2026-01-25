@@ -11,7 +11,9 @@ import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentUpdateDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
+import Henok.example.DeutscheCollageBack_endAPI.Service.Utility.ScoreUpdatedEvent;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -48,6 +50,9 @@ public class StudentCourseScoreService {
 
     @Autowired
     private StudentDetailsRepository studentDetailsRepository; // Assume exists for fetching student details
+
+    @Autowired
+    private ApplicationEventPublisher applicationEventPublisher;
 
     public void addCourse(StudentCourseScoreDTO dto) {
         if (dto == null) {
@@ -95,6 +100,11 @@ public class StudentCourseScoreService {
 
         studentCourseScore.setScore(score);
         studentCourseScoreRepo.save(studentCourseScore);
+
+        // Publish event AFTER successful save
+        applicationEventPublisher.publishEvent(
+                new ScoreUpdatedEvent(this, studentId)
+        );
     }
 
     public void releaseScore(Long studentId, Long courseId, Long batchClassYearSemesterId, boolean isReleased) {

@@ -151,8 +151,8 @@ public class StudentCopyService {
         // 9. Determine status
         String status = semesterGPA >= MINIMUM_PASSING_GPA ? "PASSED" : "FAILED";
 
-        // 10. Find AcademicYear for the classStart_GC date
-        AcademicYear academicYear = findAcademicYearForDate(batchClassYearSemester.getClassStart_GC());
+        // 10. Find AcademicYear
+        AcademicYear academicYear = batchClassYearSemester.getEntryYear();
 
         // 11. Build response DTO
         StudentCopyDTO dto = new StudentCopyDTO();

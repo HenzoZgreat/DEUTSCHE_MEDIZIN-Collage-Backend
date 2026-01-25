@@ -10,6 +10,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
@@ -176,6 +177,14 @@ public class StudentDetails {
     @ManyToOne
     @JoinColumn(name = "program_modality", nullable = false)
     private ProgramModality programModality;
+
+    // --------- New Added -------------
+    @Column(nullable = true, precision = 4, scale = 2)
+    private BigDecimal cgpa;                // can be null if no grades yet
+
+    @Column(nullable = true)
+    private Integer totalEarnedCreditHours; // null or 0 if no passed courses
+    //----------------------------------
 
     // Single PDF document for all required files (nullable)
     @Lob

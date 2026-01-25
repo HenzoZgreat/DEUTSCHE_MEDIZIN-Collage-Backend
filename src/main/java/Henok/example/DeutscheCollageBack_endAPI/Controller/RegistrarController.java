@@ -253,4 +253,32 @@ public class RegistrarController {
             // Your global handler will convert RuntimeException → 500 + ErrorResponse
         }
     }
+
+    /**
+     * Endpoint to initialize / recalculate and persist CGPA + total earned credit hours
+     * for ALL students based on released grades.
+     *
+     * - Intended for one-time use or admin-triggered refresh (e.g. after grade publication).
+     * - No request body required.
+     * - Uses the applicable GradingSystem per department.
+     * - Sets cgpa = 0.0 and totalEarnedCreditHours = 0 when no released grades exist.
+     * - Protected endpoint → should be restricted to admin/registrar roles.
+     */
+    @PostMapping("/admin/reload-records-all")
+    public ResponseEntity<Map<String, Object>> initializeCgpaForAllStudents() {
+        try {
+            Map<String, Object> result = studentDetailsService.calculateAndSaveCgpaForAllStudents();
+
+            return ResponseEntity.ok(result);
+
+        } catch (IllegalStateException e) {
+            throw new BadRequestException("Cannot initialize CGPA: " + e.getMessage());
+
+        } catch (Exception e) {
+            // Catch unexpected runtime issues (db connection, etc.)
+            throw new RuntimeException("Failed to initialize CGPA for all students: " + e.getMessage(), e);
+        }
+    }
+
+
 }

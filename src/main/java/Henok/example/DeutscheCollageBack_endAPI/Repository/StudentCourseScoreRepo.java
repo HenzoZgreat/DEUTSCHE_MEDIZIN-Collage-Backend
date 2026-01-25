@@ -136,4 +136,6 @@ public interface StudentCourseScoreRepo extends JpaRepository<StudentCourseScore
             "GROUP BY u.username, sd.firstNameENG, sd.fatherNameENG " +
             "HAVING AVG(scs.score) < :threshold")
     List<Object[]> findRawLowAverageActiveStudents(@Param("threshold") Double threshold);
+
+    List<StudentCourseScore> findByStudent(User student);
 }

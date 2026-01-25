@@ -1,6 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.DTO.Students;
 
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
 
@@ -76,4 +77,8 @@ public class StudentDetailsSummaryDTO {
     private String exitExamUserID;
     private Double exitExamScore;
     private boolean isStudentPassExitExam;
+
+    // New fields - stored directly in StudentDetails table
+    private BigDecimal cgpa;                  // e.g. 3.45
+    private Integer totalEarnedCreditHours;   // e.g. 92
 }
