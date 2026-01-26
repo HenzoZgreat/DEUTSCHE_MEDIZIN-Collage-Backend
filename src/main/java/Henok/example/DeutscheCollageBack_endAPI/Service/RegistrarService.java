@@ -44,6 +44,7 @@ public class RegistrarService {
     @Autowired private final StudentCourseScoreRepo studentCourseScoreRepo;
     @Autowired private final StudentAssessmentRepo studentAssessmentRepository;
     @Autowired private final TeacherCourseAssignmentRepository assignmentRepository;
+    @Autowired private final NotificationService notificationService;
     @Autowired private EntityManager entityManager;
 
 
@@ -421,12 +422,13 @@ public class RegistrarService {
         return dto;
     }
 
+    // Updated Service methods for registrar
     /**
-     * Retrieves scores grid for all assessments that have been APPROVED by the department head
-     * (headApproval = ACCEPTED) across ALL departments.
+     * Retrieves scores grid for all assessments that have been APPROVED by the dean
+     * (deanApproval = ACCEPTED) across ALL departments.
      *
      * Why this method:
-     * - Registrars have university-wide access → they can see head-approved assessments from every department
+     * - Registrars have university-wide access → they can see dean-approved assessments from every department
      * - No department filtering needed
      * - Shows full grid for registrar to review before final release
      *
@@ -434,7 +436,7 @@ public class RegistrarService {
      * @return List of AssessmentScoresResponse (one per teacher course assignment)
      */
     @Transactional(readOnly = true)
-    public List<AssessmentScoresResponse> getHeadApprovedAssessmentScoresForRegistrar(User authenticatedUser) {
+    public List<AssessmentScoresResponse> getDeanApprovedAssessmentScoresForRegistrar(User authenticatedUser) {
 
         // Optional: Verify registrar profile if you have a RegistrarDetails entity
         // If not, just rely on Role.REGISTRAR checked in SecurityConfig
@@ -442,17 +444,17 @@ public class RegistrarService {
         // RegistrarDetails registrar = registrarRepository.findByUser(authenticatedUser)
         //         .orElseThrow(() -> new ResourceNotFoundException("Registrar profile not found"));
 
-        // Get ALL assessments where headApproval = ACCEPTED (no department filter)
-        List<Assessment> headApprovedAssessments = assessmentRepository.findAll().stream()
-                .filter(a -> a.getHeadApproval() == AssessmentStatus.ACCEPTED)
+        // Get ALL assessments where deanApproval = ACCEPTED (no department filter)
+        List<Assessment> deanApprovedAssessments = assessmentRepository.findAll().stream()
+                .filter(a -> a.getDeanApproval() == AssessmentStatus.ACCEPTED)
                 .collect(Collectors.toList());
 
-        if (headApprovedAssessments.isEmpty()) {
+        if (deanApprovedAssessments.isEmpty()) {
             return Collections.emptyList(); // Clean empty response
         }
 
         // Group by teacher course assignment
-        Map<TeacherCourseAssignment, List<Assessment>> byAssignment = headApprovedAssessments.stream()
+        Map<TeacherCourseAssignment, List<Assessment>> byAssignment = deanApprovedAssessments.stream()
                 .collect(Collectors.groupingBy(Assessment::getTeacherCourseAssignment));
 
         // Build responses for each assignment
@@ -501,7 +503,7 @@ public class RegistrarService {
 
                         AssessmentScoresResponse.StudentScoreView view = new AssessmentScoresResponse.StudentScoreView();
                         view.setStudentId(student.getId());
-                        view.setStudentIdNumber(user.getUsername()); // or student.getStudentIdNumber() if available
+                        view.setStudentIdNumber(user.getUsername());
                         view.setFullNameENG(student.getFirstNameENG() + " " + student.getFatherNameENG() + " " + student.getGrandfatherNameENG());
                         view.setFullNameAMH(student.getFirstNameAMH() + " " + student.getFatherNameAMH() + " " + student.getGrandfatherNameAMH());
 
@@ -527,7 +529,19 @@ public class RegistrarService {
 
         return responses;
     }
-    // Add this method to your RegistrarService
+
+    /**
+     * Registrar approves or rejects all assessments in a course assignment.
+     *
+     * - Checks all are dean-approved first
+     * - On APPROVED: sets registrarApproval = ACCEPTED, updates StudentCourseScore totals, notifies Deans "Assessment has been approved"
+     * - On REJECTED: sets registrarApproval = REJECTED, reverts deanApproval to PENDING, notifies Deans "Assessment has been rejected"
+     *
+     * @param authenticatedUser The authenticated registrar
+     * @param teacherCourseAssignmentId The assignment to process
+     * @param status ACCEPTED or REJECTED
+     * @return List of updated assessments
+     */
     @Transactional
     public List<Assessment> registrarApproveOrRejectAllAssessments(
             User authenticatedUser,
@@ -539,8 +553,7 @@ public class RegistrarService {
             throw new IllegalArgumentException("Status must be ACCEPTED or REJECTED");
         }
 
-        // Verify registrar role/profile if you have one (optional – role checked in security config)
-        // Assuming registrar has User with Role.REGISTRAR – no extra profile needed
+        // Optional: Verify registrar profile
 
         // Load TeacherCourseAssignment
         TeacherCourseAssignment tca = assignmentRepository.findById(teacherCourseAssignmentId)
@@ -553,11 +566,11 @@ public class RegistrarService {
             throw new ResourceNotFoundException("No assessments found for this course assignment");
         }
 
-        // All must be head-approved before registrar can act
+        // Check all are dean-approved before registrar can act
         for (Assessment a : assessments) {
-            if (a.getHeadApproval() != AssessmentStatus.ACCEPTED) {
+            if (a.getDeanApproval() != AssessmentStatus.ACCEPTED) {
                 throw new IllegalArgumentException(
-                        "All assessments must be approved by department head first. Assessment '" + a.getAssTitle() + "' is pending head approval."
+                        "All assessments must be approved by dean first. Assessment '" + a.getAssTitle() + "' is pending dean approval."
                 );
             }
         }
@@ -568,7 +581,7 @@ public class RegistrarService {
         for (Assessment assessment : assessments) {
             assessment.setRegistrarApproval(status);
             if (status == AssessmentStatus.REJECTED) {
-                assessment.setHeadApproval(AssessmentStatus.PENDING); // Revert head approval if rejected
+                assessment.setDeanApproval(AssessmentStatus.PENDING); // Revert dean approval on reject
             }
             updatedAssessments.add(assessmentRepository.save(assessment));
         }
@@ -616,13 +629,40 @@ public class RegistrarService {
                     if (studentId != null) {
                         Double total = studentTotalScores.getOrDefault(studentId, 0.0);
                         scs.setScore(total);
-//                        scs.setIsReleased(true); // Final score is now officially released
+                        // scs.setIsReleased(true); // Final score is now officially released
                     }
                     studentCourseScoreRepository.save(scs);
                 }
             }
         }
 
+        // Step 3: Notify Deans of registrar's action
+        String actionMessage = status == AssessmentStatus.ACCEPTED ? "approved" : "rejected";
+        String message = createNotificationMessage(tca.getCourse(), tca, assessments.size(), actionMessage);
+
+        notificationService.createNotification(
+                List.of(Role.DEAN),
+                null,
+                Role.REGISTRAR,
+                message
+        );
+
         return updatedAssessments;
     }
+
+    private String createNotificationMessage(Course course, TeacherCourseAssignment tca, int count, String action) {
+        String courseCode = course.getCCode();
+        String courseTitle = course.getCTitle();
+        String teacherName = tca.getTeacher().getFirstNameEnglish() + " " + tca.getTeacher().getLastNameEnglish();
+
+        return String.format(
+                "Registrar has %s all %d assessments for course %s (%s) taught by %s. Please review if needed.",
+                action,
+                count,
+                courseCode,
+                courseTitle,
+                teacherName
+        );
+    }
+
 }

@@ -196,7 +196,7 @@ public class StudentCourseScoreService {
         // Then chain the optional filters (using .and())
         if (courseId != null) {
             spec = spec.and((root, query, cb) ->
-                    cb.equal(root.get("course").get("CID"), courseId));
+                    cb.equal(root.get("course").get("cID"), courseId));
         }
 
         if (bcysId != null) {

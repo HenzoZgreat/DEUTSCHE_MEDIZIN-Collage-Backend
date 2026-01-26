@@ -1,9 +1,13 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.AssessmentScoresResponse;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.DeanAndVice_Dean.*;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCGPADTO;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.Assessment;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.AssessmentStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
+import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.DeanViceDeanService;
 import Henok.example.DeutscheCollageBack_endAPI.Service.StudentDetailService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +19,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -234,4 +239,54 @@ public class DeanController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
     }
+
+    // Allows dean to view all head-approved assessments university-wide
+    // Why: Dean reviews before registrar sees them
+    @GetMapping("/head-approved-scores")
+    public ResponseEntity<?> getHeadApprovedAssessmentsForDean(@AuthenticationPrincipal User authenticatedUser) {
+
+        try {
+            List<AssessmentScoresResponse> responses = deanViceDeanService.getHeadApprovedAssessmentsForDean(authenticatedUser);
+            return ResponseEntity.ok(responses.isEmpty() ? Collections.emptyList() : responses);
+
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to retrieve head-approved assessments: " + e.getMessage()));
+        }
+    }
+
+    // Allows dean to approve or reject all assessments in a course assignment
+    // Why: Bulk action for efficiency
+    @PutMapping("/assignments/{teacherCourseAssignmentId}/approve-all")
+    public ResponseEntity<?> approveOrRejectAllAssessmentsInAssignment(
+            @AuthenticationPrincipal User authenticatedUser,
+            @PathVariable Long teacherCourseAssignmentId,
+            @RequestParam AssessmentStatus status) {
+
+        try {
+            List<Assessment> updated = deanViceDeanService.approveOrRejectAllAssessmentsInAssignment(
+                    authenticatedUser, teacherCourseAssignmentId, status);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "All assessments processed successfully");
+            response.put("count", updated.size());
+            response.put("statusApplied", status.name());
+
+            return ResponseEntity.ok(response);
+
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to process assessments: " + e.getMessage()));
+        }
+    }
+
 }

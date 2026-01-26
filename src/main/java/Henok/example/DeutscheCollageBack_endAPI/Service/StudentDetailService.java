@@ -1051,17 +1051,15 @@ System.out.println("---------Finished Registering Applicant --------");
     return st;
 }
 
-    // StudentDetailsService method
+    // StudentDetailsService - update this method
     public List<String> getAllFields() {
-        // Retrieve all declared fields of the StudentDetails entity using Java reflection.
-        // Why: This dynamically lists all parameters (fields) of the entity without hardcoding them,
-        // allowing flexibility if the entity changes in the future.
-        Field[] fields = StudentDetails.class.getDeclaredFields();
+        // Use the DTO class instead of the entity
+        Field[] fields = StudentDetailsSummaryDTO.class.getDeclaredFields();
 
-        // Convert fields to a list of their names.
-        // Why: Maps each Field object to its name property for easy return as a String list.
         return Arrays.stream(fields)
                 .map(Field::getName)
+                .filter(name -> !name.equals("user"))     // extra safety (optional)
+                .sorted()                                 // nicer output
                 .collect(Collectors.toList());
     }
 

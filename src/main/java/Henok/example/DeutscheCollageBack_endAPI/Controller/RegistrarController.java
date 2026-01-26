@@ -65,26 +65,28 @@ public class RegistrarController {
         }
     }
 
-    // Allows registrar to view all assessments that have been approved by department heads
-    // Why: Registrars need to review and potentially release final scores after department head approval
+
+
+    // Updated Controller method for registrar
+    // Allows registrar to view all assessments that have been approved by deans
+    // Why: Registrars need to review and potentially release final scores after dean approval
     // Security: Only REGISTRAR role reaches here (handled in SecurityConfig)
-    // Updated Controller method (replace or add alongside the previous one)
-    @GetMapping("/head-approved-scores")
-    public ResponseEntity<?> getHeadApprovedAssessmentScoresForRegistrar(@AuthenticationPrincipal User authenticatedUser) {
+    @GetMapping("/dean-approved-scores")
+    public ResponseEntity<?> getDeanApprovedAssessmentScoresForRegistrar(@AuthenticationPrincipal User authenticatedUser) {
 
         try {
-            List<AssessmentScoresResponse> responses = registrarService.getHeadApprovedAssessmentScoresForRegistrar(authenticatedUser);
+            List<AssessmentScoresResponse> responses = registrarService.getDeanApprovedAssessmentScoresForRegistrar(authenticatedUser);
 
             // Return empty list if none found
             return ResponseEntity.ok(responses.isEmpty() ? Collections.emptyList() : responses);
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to retrieve head-approved assessments: " + e.getMessage()));
+                    .body(Map.of("error", "Failed to retrieve dean-approved assessments: " + e.getMessage()));
         }
     }
 
-    // Add this method to RegistrarController
+    // Add this method to RegistrarController (unchanged except for potential notification in service)
     @PutMapping("/assignments/{teacherCourseAssignmentId}/final-approve-all")
     public ResponseEntity<?> registrarFinalApproveOrRejectAll(
             @AuthenticationPrincipal User authenticatedUser,
@@ -264,7 +266,7 @@ public class RegistrarController {
      * - Sets cgpa = 0.0 and totalEarnedCreditHours = 0 when no released grades exist.
      * - Protected endpoint → should be restricted to admin/registrar roles.
      */
-    @PostMapping("/admin/reload-records-all")
+    @PostMapping("/registrar/reload-records-all")
     public ResponseEntity<Map<String, Object>> initializeCgpaForAllStudents() {
         try {
             Map<String, Object> result = studentDetailsService.calculateAndSaveCgpaForAllStudents();

@@ -43,6 +43,10 @@ public class Assessment {
     @Enumerated(EnumType.STRING)
     private AssessmentStatus headApproval = AssessmentStatus.PENDING;
 
+    @Column(name = "dean_approval", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private AssessmentStatus deanApproval = AssessmentStatus.PENDING;
+
     @Column(name = "registrar_approval", nullable = false)
     @Enumerated(EnumType.STRING)
     private AssessmentStatus registrarApproval = AssessmentStatus.PENDING;

@@ -111,9 +111,9 @@ public class SecurityConfig {
                                 "/api/department-heads/teachers",
                                 "/api/department-heads/my-courses",
                                 "/api/department-heads/my-students",
-                                "/api/department-heads/assessments/scores",
-                                "/api/department-heads/assessments/*/approve-all").hasRole("DEPARTMENT_HEAD")
-                        .requestMatchers(HttpMethod.PUT,"/api/teachers/**").hasRole("DEPARTMENT_HEAD")
+                                "/api/department-heads/assessments/scores").hasRole("DEPARTMENT_HEAD")
+                        .requestMatchers(HttpMethod.PUT,"/api/teachers/**",
+                                "/api/department-heads/assignments/*/approve-all").hasRole("DEPARTMENT_HEAD")
                         .requestMatchers(HttpMethod.DELETE,
                                 "/api/teachers/**",
                                 "/api/teachers/*/course-assignments/**").hasRole("DEPARTMENT_HEAD")
@@ -139,7 +139,9 @@ public class SecurityConfig {
                                 "/api/deans/get-all-students-cgpa",
                                 "/api/deans/department-heads",
                                 "/api/deans/program-levels/**",
-                                "/api/deans/program-modalities/**").hasRole("DEAN")
+                                "/api/deans/program-modalities/**",
+                                "/api/deans/head-approved-scores",
+                                "/api/deans/assignments/*/approve-all").hasRole("DEAN")
 
                         // --------------- Vice Dean endpoints -----------------
                         .requestMatchers(

@@ -48,6 +48,7 @@ public class AssessmentScoresResponse {
         private LocalDateTime dueDate;
         private AssessmentStatus status;
         private AssessmentStatus headApproval;
+        private AssessmentStatus deanApproval;
         private AssessmentStatus registrarApproval;
     }
 

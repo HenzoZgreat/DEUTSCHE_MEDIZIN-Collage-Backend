@@ -1,19 +1,18 @@
 package Henok.example.DeutscheCollageBack_endAPI.Service;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.AssessmentScoresResponse;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.DeanAndVice_Dean.*;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.DeanViceDeanRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.DeanViceDeanDetails;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Region;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Woreda;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Zone;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.AssessmentStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
-import Henok.example.DeutscheCollageBack_endAPI.Repository.DeanViceDeanDetailsRepository;
-import Henok.example.DeutscheCollageBack_endAPI.Repository.DepartmentRepo;
+import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.*;
-import Henok.example.DeutscheCollageBack_endAPI.Repository.StudentDetailsRepository;
-import Henok.example.DeutscheCollageBack_endAPI.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -42,6 +41,10 @@ public class DeanViceDeanService {
     private final UserRepository userRepository;
     private final DeanViceDeanDetailsRepository deanViceDeanDetailsRepository;
     private final StudentDetailsRepository studentDetailsRepository;
+    private final AssessmentRepo assessmentRepository;
+    private final StudentCourseScoreRepo studentCourseScoreRepo;
+    private final StudentAssessmentRepo studentAssessmentRepository;
+    private final TeacherCourseAssignmentRepository assignmentRepository;
     private final DepartmentRepo departmentRepository;
     private final ProgramModalityRepository programModalityRepository;
     private final ProgramLevelRepository programLevelRepository;
@@ -567,5 +570,215 @@ public class DeanViceDeanService {
             throw new IllegalArgumentException("Role mismatch");
         }
         return details.getDocuments();
+    }
+
+    /**
+     * Retrieves scores grid for all assessments that have been APPROVED by department heads
+     * (headApproval = ACCEPTED) across the entire university.
+     *
+     * Why this method for deans:
+     * - Deans have university-wide access → no department filter
+     * - Filters only head-approved assessments for dean's review
+     * - Same DTO as registrar's view for consistency
+     *
+     * @param authenticatedUser The authenticated dean
+     * @return List of AssessmentScoresResponse (one per teacher course assignment)
+     */
+    @Transactional(readOnly = true)
+    public List<AssessmentScoresResponse> getHeadApprovedAssessmentsForDean(User authenticatedUser) {
+
+        // Verify dean profile (assuming DeanDetails exists)
+        DeanViceDeanDetails dean = deanViceDeanDetailsRepository.findByUser(authenticatedUser)
+                .orElseThrow(() -> new ResourceNotFoundException("Dean profile not found"));
+
+        // Get ALL assessments where headApproval = ACCEPTED (university-wide)
+        List<Assessment> headApprovedAssessments = assessmentRepository.findAll().stream()
+                .filter(a -> a.getHeadApproval() == AssessmentStatus.ACCEPTED)
+                .collect(Collectors.toList());
+
+        if (headApprovedAssessments.isEmpty()) {
+            return Collections.emptyList(); // Graceful empty response
+        }
+
+        // Group by teacher course assignment
+        Map<TeacherCourseAssignment, List<Assessment>> byAssignment = headApprovedAssessments.stream()
+                .collect(Collectors.groupingBy(Assessment::getTeacherCourseAssignment));
+
+        // Build responses for each assignment
+        List<AssessmentScoresResponse> responses = new ArrayList<>();
+        for (Map.Entry<TeacherCourseAssignment, List<Assessment>> entry : byAssignment.entrySet()) {
+            TeacherCourseAssignment tca = entry.getKey();
+            List<Assessment> assessments = entry.getValue();
+
+            AssessmentScoresResponse response = new AssessmentScoresResponse();
+            response.setTeacherCourseAssignmentId(tca.getId());
+            response.setTeacherName(tca.getTeacher().getFirstNameEnglish() + " " + tca.getTeacher().getLastNameEnglish());
+            response.setCourseCode(tca.getCourse().getCCode());
+            response.setCourseTitle(tca.getCourse().getCTitle());
+            response.setBatchClassYearSemester(tca.getBcys().getDisplayName());
+
+            // Build assessment infos – include deanApproval for dean's view
+            List<AssessmentScoresResponse.AssessmentInfo> assessmentInfos = assessments.stream()
+                    .sorted((a1, a2) -> a1.getCreatedAt().compareTo(a2.getCreatedAt()))
+                    .map(a -> {
+                        AssessmentScoresResponse.AssessmentInfo info = new AssessmentScoresResponse.AssessmentInfo();
+                        info.setAssessmentId(a.getAssID());
+                        info.setTitle(a.getAssTitle());
+                        info.setMaxScore(a.getMaxScore());
+                        info.setDueDate(a.getDueDate());
+                        info.setStatus(a.getAssStatus());
+                        info.setHeadApproval(a.getHeadApproval());
+                        info.setDeanApproval(a.getDeanApproval()); // New: show dean's own approval status
+                        info.setRegistrarApproval(a.getRegistrarApproval());
+                        return info;
+                    })
+                    .collect(Collectors.toList());
+            response.setAssessments(assessmentInfos);
+
+            // Get enrolled students for this course + BCYS
+            List<StudentCourseScore> courseScores = studentCourseScoreRepo.findByCourseAndBatchClassYearSemester(
+                    tca.getCourse(), tca.getBcys());
+
+            Set<User> uniqueUsers = courseScores.stream()
+                    .map(StudentCourseScore::getStudent)
+                    .collect(Collectors.toSet());
+
+            // Build student score views
+            List<AssessmentScoresResponse.StudentScoreView> studentViews = uniqueUsers.stream()
+                    .map(user -> {
+                        StudentDetails student = studentDetailsRepository.findByUser(user).orElse(null);
+                        if (student == null) return null;
+
+                        AssessmentScoresResponse.StudentScoreView view = new AssessmentScoresResponse.StudentScoreView();
+                        view.setStudentId(student.getId());
+                        view.setStudentIdNumber(user.getUsername());
+                        view.setFullNameENG(student.getFirstNameENG() + " " + student.getFatherNameENG() + " " + student.getGrandfatherNameENG());
+                        view.setFullNameAMH(student.getFirstNameAMH() + " " + student.getFatherNameAMH() + " " + student.getGrandfatherNameAMH());
+
+                        // Scores for each assessment
+                        List<AssessmentScoresResponse.SingleScore> scores = assessments.stream()
+                                .map(ass -> {
+                                    StudentAssessmentKey key = new StudentAssessmentKey(student.getId(), ass.getAssID());
+                                    Double score = studentAssessmentRepository.findById(key)
+                                            .map(StudentAssessment::getScore)
+                                            .orElse(null);
+                                    return new AssessmentScoresResponse.SingleScore(ass.getAssID(), score);
+                                })
+                                .collect(Collectors.toList());
+                        view.setScores(scores);
+                        return view;
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            response.setStudents(studentViews);
+            responses.add(response);
+        }
+
+        return responses;
+    }
+
+    /**
+     * Allows dean to approve or reject all assessments in a teacher course assignment.
+     *
+     * Approval rules:
+     * 1. All assessments must already be APPROVED by department head (headApproval = ACCEPTED)
+     * 2. Registrar must NOT have accepted yet (registrarApproval must be PENDING or REJECTED)
+     * 3. If dean REJECTS → sets deanApproval = REJECTED and reverts headApproval back to PENDING
+     * 4. If dean APPROVES → sets deanApproval = ACCEPTED and notifies registrars
+     *
+     * @param authenticatedUser The authenticated dean
+     * @param teacherCourseAssignmentId The assignment to process
+     * @param status ACCEPTED or REJECTED
+     * @return List of updated assessments
+     * @throws IllegalArgumentException if rules are violated
+     */
+    @Transactional
+    public List<Assessment> approveOrRejectAllAssessmentsInAssignment(
+            User authenticatedUser,
+            Long teacherCourseAssignmentId,
+            AssessmentStatus status) {
+
+        // Validate input status
+        if (status != AssessmentStatus.ACCEPTED && status != AssessmentStatus.REJECTED) {
+            throw new IllegalArgumentException("Status must be ACCEPTED or REJECTED");
+        }
+
+        // Verify dean profile
+        DeanViceDeanDetails dean = deanViceDeanDetailsRepository.findByUser(authenticatedUser)
+                .orElseThrow(() -> new ResourceNotFoundException("Dean profile not found"));
+
+        // Load the assignment
+        TeacherCourseAssignment tca = assignmentRepository.findById(teacherCourseAssignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher course assignment not found"));
+
+        // Get all assessments in this assignment
+        List<Assessment> assessments = assessmentRepository.findByTeacherCourseAssignment(tca);
+
+        if (assessments.isEmpty()) {
+            throw new ResourceNotFoundException("No assessments found for this course assignment");
+        }
+
+        // Rule 1: All must be head-approved
+        for (Assessment a : assessments) {
+            if (a.getHeadApproval() != AssessmentStatus.ACCEPTED) {
+                throw new IllegalArgumentException(
+                        "All assessments must be approved by department head first. " +
+                                "Assessment '" + a.getAssTitle() + "' has headApproval = " + a.getHeadApproval()
+                );
+            }
+        }
+
+        // Rule 2: Registrar must not have accepted yet
+        for (Assessment a : assessments) {
+            if (a.getRegistrarApproval() == AssessmentStatus.ACCEPTED) {
+                throw new IllegalArgumentException(
+                        "Cannot modify – registrar has already accepted assessment '" + a.getAssTitle() + "'"
+                );
+            }
+        }
+
+        List<Assessment> updatedAssessments = new ArrayList<>();
+
+        for (Assessment assessment : assessments) {
+            // Apply dean's decision
+            assessment.setDeanApproval(status);
+
+            // If dean REJECTS → revert head approval to PENDING
+            if (status == AssessmentStatus.REJECTED) {
+                assessment.setHeadApproval(AssessmentStatus.PENDING);
+            }
+
+            updatedAssessments.add(assessmentRepository.save(assessment));
+        }
+
+        // If dean APPROVES → notify registrars
+        if (status == AssessmentStatus.ACCEPTED) {
+            String message = createBulkNotificationMessage(tca.getCourse(), tca, assessments.size());
+
+            notificationService.createNotification(
+                    List.of(Role.REGISTRAR),
+                    null,
+                    Role.DEAN,
+                    message
+            );
+        }
+
+        return updatedAssessments;
+    }
+
+    // Helper for notification message
+    private String createBulkNotificationMessage(Course course, TeacherCourseAssignment tca, int count) {
+        String courseCode = course.getCCode();
+        String courseTitle = course.getCTitle();
+        String teacherName = tca.getTeacher().getFirstNameEnglish() + " " + tca.getTeacher().getLastNameEnglish();
+
+        return String.format(
+                "Dean has approved all %d assessments for course %s (%s) taught by %s. Please review for final release.",
+                count,
+                courseCode,
+                courseTitle,
+                teacherName
+        );
     }
 }
