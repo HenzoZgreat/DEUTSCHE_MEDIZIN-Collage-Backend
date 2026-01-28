@@ -64,6 +64,7 @@ public class StudentDetailsSummaryDTO {
 
     private Map<String, Object> academicYear;         // {yearCode: "...", name: "..."}
     private Map<String, Object> batchClassYearSemester;// {id: ..., name: "..."}
+    private Map<String, Object> recentBatch;  // {id: Long, name: String}
     private Map<String, Object> studentRecentStatus;  // assuming it has id & name
     private Map<String, Object> departmentEnrolled;   // {id: ..., name: "..."}
     private Map<String, Object> programModality;      // {code: "...", name: "..."}

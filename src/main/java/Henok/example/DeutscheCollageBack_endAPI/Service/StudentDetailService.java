@@ -1161,6 +1161,17 @@ System.out.println("---------Finished Registering Applicant --------");
                 BatchClassYearSemester::getBcysID,
                 BatchClassYearSemester::getDisplayName));
 
+        // Add recent batch info (from BatchClassYearSemester → Batch)
+        if (sd.getBatchClassYearSemester() != null && sd.getBatchClassYearSemester().getBatch() != null) {
+            Batch batch = sd.getBatchClassYearSemester().getBatch();
+            Map<String, Object> batchMap = new HashMap<>();
+            batchMap.put("id", batch.getId());
+            batchMap.put("name", batch.getBatchName());
+            dto.setRecentBatch(batchMap);
+        } else {
+            dto.setRecentBatch(null);
+        }
+
         dto.setStudentRecentStatus(toIdNameMap(sd.getStudentRecentStatus(),
                 s -> s.getId(), s -> s.getStatusName())); // assuming StudentStatus has getId() and getStatusName()
 

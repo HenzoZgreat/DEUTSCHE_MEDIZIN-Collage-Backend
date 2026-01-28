@@ -103,6 +103,7 @@ public class GradingSystemController {
     @PutMapping("/{id}/active-status")
     public ResponseEntity<?> updateActiveStatus(@PathVariable Long id, @RequestBody UpdateActiveStatusDTO request) {
         try {
+            System.out.println("Active status recieved : " + request.isActive());
             GradingSystemDTO updated = gradingSystemService.updateActiveStatus(id, request.isActive());
             return ResponseEntity.ok(updated);
         } catch (ResourceNotFoundException e) {

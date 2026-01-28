@@ -20,6 +20,10 @@ public class StudentCourseScoreBulkUpdateDTO {
         private Double score; // Optional - only update if not null
         private Long courseSourceId; // Optional - only update if not null
         private Boolean isReleased; // Optional - only update if not null
+
+        // ── Newly added fields ──
+        private Long courseId;              // Optional - change the course
+        private Long batchClassYearSemesterId; // Optional - change BCYS
     }
 }
 

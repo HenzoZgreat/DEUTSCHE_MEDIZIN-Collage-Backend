@@ -203,26 +203,40 @@ public class GradingSystemService {
     }
 
     /**
-     * Finds the latest grading system for a department.
-     * Prefers department-specific; falls back to global (department=null).
-     * @param department The department (can be null).
-     * @return The GradingSystem.
-     * @throws IllegalStateException if no suitable system found.
+     * Finds the currently active grading system for a department.
+     * Prefers department-specific active system; falls back to the active global system (department=null).
+     * Since only one grading system can be active per department (or globally),
+     * this method returns that single active record or throws exception if none exists.
+     *
+     * @param department The department (can be null for global systems)
+     * @return The active GradingSystem
+     * @throws IllegalStateException if no active grading system is found
      */
     public GradingSystem findApplicableGradingSystem(Department department) {
-        Pageable topOne = PageRequest.of(0, 1);
-        Page<GradingSystem> page = gradingSystemRepository.findLatestByDepartment(department, topOne);
-        if (!page.isEmpty()) {
-            return page.getContent().get(0);
+        // Try to find the active grading system for the given department (or global if department is null)
+        GradingSystem activeSystem = gradingSystemRepository.findActiveByDepartment(department)
+                .stream()
+                .findFirst()
+                .orElse(null);
+
+        if (activeSystem != null) {
+            return activeSystem;
         }
 
-        // Fallback to global
-        page = gradingSystemRepository.findLatestByDepartment(null, topOne);
-        if (!page.isEmpty()) {
-            return page.getContent().get(0);
+        // If department-specific not found and department was not null, try global active system
+        if (department != null) {
+            activeSystem = gradingSystemRepository.findActiveByDepartment(null)
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
         }
 
-        throw new IllegalStateException("No applicable grading system found for department");
+        if (activeSystem != null) {
+            return activeSystem;
+        }
+
+        throw new IllegalStateException("No active grading system found for department " +
+                (department != null ? department.getDptID() : "global"));
     }
 
     private void validateIntervals(List<MarkInterval> intervals) {

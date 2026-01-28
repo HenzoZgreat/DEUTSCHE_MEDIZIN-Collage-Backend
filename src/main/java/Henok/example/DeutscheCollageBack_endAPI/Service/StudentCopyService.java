@@ -50,7 +50,15 @@ public class StudentCopyService {
     @Autowired
     private AcademicYearUtilityService academicYearUtilityService;
 
+
+    // Constants for grade letter suffixes based on course source
+    private static final String SUFFIX_INTERNAL = "";          // sourceId = 1 (from within the school)
+    private static final String SUFFIX_REPEAT    = "**";       // sourceId = 2 (repeated course)
+    private static final String SUFFIX_EXTERNAL  = "*";        // sourceId = 3 (from outside the school)
+
     private static final double MINIMUM_PASSING_GPA = 2.0; // Minimum GPA to pass a semester
+
+
 
     /**
      * Generates a student copy (transcript) for a specific classyear and semester.
@@ -130,7 +138,16 @@ public class StudentCopyService {
             courseGrade.setCourseCode(course.getCCode());
             courseGrade.setCourseTitle(course.getCTitle());
             courseGrade.setTotalCrHrs(totalCrHrs);
-            courseGrade.setLetterGrade(letterGrade);
+
+            // Determine grade letter suffix based on course source
+            String suffix = SUFFIX_INTERNAL;
+            if (score.getCourseSource().getSourceID() == 2) {
+                suffix = SUFFIX_REPEAT;
+            } else if (score.getCourseSource().getSourceID() == 3) {
+                suffix = SUFFIX_EXTERNAL;
+            }
+
+            courseGrade.setLetterGrade(letterGrade + suffix);
             courseGrade.setGradePoint(gradePoint);
 
             courseGrades.add(courseGrade);

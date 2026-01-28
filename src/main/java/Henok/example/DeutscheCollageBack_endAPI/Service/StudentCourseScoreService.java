@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -211,7 +212,7 @@ public class StudentCourseScoreService {
 
         if (isReleased != null) {
             spec = spec.and((root, query, cb) ->
-                    cb.equal(root.get("released"), isReleased));
+                    cb.equal(root.get("isReleased"), isReleased));
         }
 
         // Execute the query
@@ -307,20 +308,69 @@ public class StudentCourseScoreService {
                 studentCourseScore.setScore(updateRequest.getScore());
             }
 
-            // Update source only if provided (not null)
-            if(updateRequest.getCourseSourceId() != null){
+            // Update courseSource only if provided
+            if (updateRequest.getCourseSourceId() != null) {
                 CourseSource newSource = courseSourceRepo.findById(updateRequest.getCourseSourceId())
                         .orElseThrow(() -> new ResourceNotFoundException("Course source not found with id: " + updateRequest.getCourseSourceId()));
                 studentCourseScore.setCourseSource(newSource);
             }
 
-            // Update isReleased only if provided (not null)
+            // Update isReleased only if provided
             if (updateRequest.getIsReleased() != null) {
                 studentCourseScore.setReleased(updateRequest.getIsReleased());
             }
 
+            // ── Newly added: Update course only if provided ──
+            if (updateRequest.getCourseId() != null) {
+                Course newCourse = courseRepo.findById(updateRequest.getCourseId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + updateRequest.getCourseId()));
+                studentCourseScore.setCourse(newCourse);
+            }
+
+            // ── Newly added: Update batchClassYearSemester only if provided ──
+            if (updateRequest.getBatchClassYearSemesterId() != null) {
+                BatchClassYearSemester newBcys = batchClassYearSemesterRepo.findById(updateRequest.getBatchClassYearSemesterId())
+                        .orElseThrow(() -> new ResourceNotFoundException("BatchClassYearSemester not found with id: " + updateRequest.getBatchClassYearSemesterId()));
+                studentCourseScore.setBatchClassYearSemester(newBcys);
+            }
+
             studentCourseScoreRepo.save(studentCourseScore);
         }
+    }
+
+    /**
+     * Deletes multiple StudentCourseScore records by their IDs.
+     *
+     * - Continues processing even if some IDs are not found
+     * - Counts and returns how many records were actually deleted
+     * - Why: Allows partial success (common in bulk operations)
+     * - No cascading delete assumed — only removes the score records themselves
+     *
+     * @param ids list of StudentCourseScore IDs to delete
+     * @return number of records actually deleted
+     * @throws IllegalArgumentException if ids list is null or empty
+     */
+    public int bulkDeleteByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new IllegalArgumentException("IDs list cannot be null or empty");
+        }
+
+        int deletedCount = 0;
+
+        for (Long id : ids) {
+            if (id == null || id <= 0) {
+                continue; // skip invalid IDs silently
+            }
+
+            Optional<StudentCourseScore> scoreOpt = studentCourseScoreRepo.findById(id);
+            if (scoreOpt.isPresent()) {
+                studentCourseScoreRepo.deleteById(id);
+                deletedCount++;
+            }
+            // If not found → silently skip (partial success pattern)
+        }
+
+        return deletedCount;
     }
 
 

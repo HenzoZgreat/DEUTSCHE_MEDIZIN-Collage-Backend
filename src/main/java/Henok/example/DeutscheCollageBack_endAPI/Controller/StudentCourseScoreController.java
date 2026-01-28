@@ -154,4 +154,40 @@ public class StudentCourseScoreController {
         }
     }
 
+    /**
+     * DELETE /api/student-course-scores/bulk-delete
+     *
+     * Deletes multiple student course score records by their IDs.
+     *
+     * - Only accessible to REGISTRAR or ADMIN roles (add @PreAuthorize in production)
+     * - Returns success message with count of deleted records
+     * - Handles partial failures gracefully (continues deleting valid IDs even if some fail)
+     * - Returns structured error if nothing could be deleted or major issue occurs
+     */
+    @DeleteMapping("/bulk-delete")
+    public ResponseEntity<?> bulkDeleteStudentCourseScores(@RequestBody List<Long> ids) {
+        try {
+            if (ids == null || ids.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(new ErrorResponse("No IDs provided for deletion"));
+            }
+
+            int deletedCount = studentCourseScoreService.bulkDeleteByIds(ids);
+
+            if (deletedCount == 0) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ErrorResponse("None of the provided IDs were found"));
+            }
+
+            return ResponseEntity.ok("Successfully deleted " + deletedCount + " record(s)");
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to perform bulk deletion: " + e.getMessage()));
+        }
+    }
+
 }
