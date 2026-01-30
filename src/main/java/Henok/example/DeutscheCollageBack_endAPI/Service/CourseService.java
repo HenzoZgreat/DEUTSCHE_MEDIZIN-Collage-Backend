@@ -205,6 +205,7 @@ public class CourseService {
                     map.put("id", course.getCID());
                     map.put("cCode", course.getCCode());
                     map.put("cTitle", course.getCTitle());
+                    map.put("department", course.getDepartment().getDeptName());
                     return map;
                 })
                 .collect(Collectors.toList());

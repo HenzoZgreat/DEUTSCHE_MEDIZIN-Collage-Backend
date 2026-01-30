@@ -138,4 +138,10 @@ public interface StudentCourseScoreRepo extends JpaRepository<StudentCourseScore
     List<Object[]> findRawLowAverageActiveStudents(@Param("threshold") Double threshold);
 
     List<StudentCourseScore> findByStudent(User student);
+
+    /**
+     * Counts how many course score records exist for this student.
+     * This represents the total number of courses the student has taken/been registered for.
+     */
+    long countByStudent(User student);
 }

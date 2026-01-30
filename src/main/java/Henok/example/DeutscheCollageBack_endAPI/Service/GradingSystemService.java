@@ -259,6 +259,7 @@ public class GradingSystemService {
         dto.setId(entity.getId());
         dto.setVersionName(entity.getVersionName());
         dto.setDepartmentId(entity.getDepartment() != null ? entity.getDepartment().getDptID() : null);
+        dto.setDepartmentName(entity.getDepartment() != null ? entity.getDepartment().getDeptName() : null);
         dto.setRemark(entity.getRemark()); // Include remark in DTO
         dto.setActive(entity.isActive()); // Include isActive status
         List<MarkIntervalDTO> intervalDTOs = entity.getIntervals().stream()

@@ -40,7 +40,7 @@ public class BulkStudentImportService {
 
     private static final Logger log = LoggerFactory.getLogger(BulkStudentImportService.class);
     private static final String DEFAULT_PASSWORD = "stud1234";
-    private static final Long PLACEHOLDER_BATCH_ID = 86L;
+    private static final Long PLACEHOLDER_BATCH_ID = 18L;
 
     private final UserService userService;
     private final UserRepository userRepository;
@@ -70,46 +70,50 @@ public class BulkStudentImportService {
         for (int i = 0; i < dtos.size(); i++) {
             StudentImportDTO dto = dtos.get(i);
             try {
-                // Detailed logging for each student
-                log.info("=======[{}]==========", dto.getUsername() != null ? dto.getUsername() : "UNKNOWN_USERNAME (row " + (i + 1) + ")");
-                log.info("First Name (ENG/AMH): {} / {}", dto.getFirstNameENG(), dto.getFirstNameAMH());
-                log.info("Father Name (ENG/AMH): {} / {}", dto.getFatherNameENG(), dto.getFatherNameAMH());
-                log.info("Grandfather Name (ENG/AMH): {} / {}", dto.getGrandfatherNameENG(), dto.getGrandfatherNameAMH());
-                log.info("Gender: {}", dto.getGender());
-                log.info("Marital Status: {}", dto.getMaritalStatus());
-                log.info("Phone: {}", dto.getPhoneNumber());
-                log.info("Date of Birth (GC): {}", dto.getDateOfBirthGC());
-                log.info("Date Enrolled (GC): {}", dto.getDateEnrolledGC());
-                log.info("Department ID: {}", dto.getDepartmentEnrolledId());
-                log.info("Student Status ID: {}", dto.getStudentRecentStatusId());
-                log.info("School Background ID: {}", dto.getSchoolBackgroundId());
-                log.info("Batch Class Year Semester ID: {}", dto.getBatchClassYearSemesterId());
-                log.info("Program Modality Code: {}", dto.getProgramModalityCode());
-                log.info("Place of Birth - Region/Zone/Woreda Codes: {} / {} / {}",
-                        dto.getPlaceOfBirthRegionCode(), dto.getPlaceOfBirthZoneCode(), dto.getPlaceOfBirthWoredaCode());
-                log.info("Is Transfer: {}", dto.getIsTransfer());
-                log.info("Document Status: {}", dto.getDocumentStatus());
-                log.info("Remark: {}", dto.getRemark());
+                System.out.println("=======[" + (dto.getUsername() != null ? dto.getUsername() : "UNKNOWN_USERNAME (row " + (i + 1) + ")") + "]==========");
+                System.out.println("First Name (ENG/AMH): " + dto.getFirstNameENG() + " / " + dto.getFirstNameAMH());
+                System.out.println("Father Name (ENG/AMH): " + dto.getFatherNameENG() + " / " + dto.getFatherNameAMH());
+                System.out.println("Grandfather Name (ENG/AMH): " + dto.getGrandfatherNameENG() + " / " + dto.getGrandfatherNameAMH());
+                System.out.println("Gender: " + dto.getGender());
+                System.out.println("Marital Status: " + dto.getMaritalStatus());
+                System.out.println("Phone: " + dto.getPhoneNumber());
+                System.out.println("Date of Birth (GC): " + dto.getDateOfBirthGC());
+                System.out.println("Date Enrolled (GC): " + dto.getDateEnrolledGC());
+                System.out.println("Department ID: " + dto.getDepartmentEnrolledId());
+                System.out.println("Student Status ID: " + dto.getStudentRecentStatusId());
+                System.out.println("School Background ID: " + dto.getSchoolBackgroundId());
+                System.out.println("Batch Class Year Semester ID: " + dto.getBatchClassYearSemesterId());
+                System.out.println("Program Modality Code: " + dto.getProgramModalityCode());
+                System.out.println("Place of Birth - Region/Zone/Woreda Codes: " +
+                        dto.getPlaceOfBirthRegionCode() + " / " +
+                        dto.getPlaceOfBirthZoneCode() + " / " +
+                        dto.getPlaceOfBirthWoredaCode());
+                System.out.println("Is Transfer: " + dto.getIsTransfer());
+                System.out.println("Document Status: " + dto.getDocumentStatus());
+                System.out.println("Remark: " + dto.getRemark());
 
                 importSingleStudent(dto);
                 success++;
-                log.info("Successfully imported student: {}", dto.getUsername());
-                log.info("========================================================");
+                System.out.println("Successfully imported student: " + dto.getUsername());
+                System.out.println("========================================================");
 
             } catch (Exception e) {
                 String username = dto.getUsername() != null ? dto.getUsername() : "UNKNOWN (row " + (i + 1) + ")";
-                log.error("FAILED to import student: {}", username);
-                log.error("Error message: {}", e.getMessage(), e);
+                System.out.println("FAILED to import student: " + username);
+                System.out.println("Error message: " + e.getMessage());
+                // Print full stack trace for debugging
+                e.printStackTrace();
 
                 failed++;
                 failedUsernames.add(username);
             }
-            log.info("========================================================");
+            System.out.println("========================================================");
         }
 
-        log.info("Bulk import completed: {} successful, {} failed", success, failed);
+        System.out.println("Bulk import completed: " + success + " successful, " + failed + " failed");
         return new BulkImportStudentResult(success, failed, failedUsernames);
     }
+
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void importSingleStudent(StudentImportDTO dto) {
@@ -123,30 +127,30 @@ public class BulkStudentImportService {
         User user;
         if (existingUserOpt.isPresent()) {
             user = existingUserOpt.get();
-            log.info("User already exists for username: {} (ID: {}). Skipping user creation.", dto.getUsername(), user.getId());
+            System.out.println("User already exists for username: " + dto.getUsername() + " (ID: " + user.getId() + "). Skipping user creation.");
 
             // Check if StudentDetails already exists for this user
             if (studentDetailsRepository.existsByUserId(user.getId())) {
-                log.info("StudentDetails already exists for user ID {}. Skipping entire record.", user.getId());
+                System.out.println("StudentDetails already exists for user ID " + user.getId() + ". Skipping entire record.");
                 return; // Skip completely – nothing to do
             }
             // If we reach here: User exists, but no StudentDetails → proceed to create details only
         } else {
-            // User does not exist → create new one using existing logic
+            // User does not exist → create new one
             UserRegisterRequest userRequest = new UserRegisterRequest();
             userRequest.setUsername(dto.getUsername());
             userRequest.setPassword(DEFAULT_PASSWORD);
             userRequest.setRole(Role.STUDENT);
 
             user = userService.registerUser(userRequest);
-            log.info("Created new User for username: {} (ID: {})", dto.getUsername(), user.getId());
+            System.out.println("Created new User for username: " + dto.getUsername() + " (ID: " + user.getId() + ")");
         }
 
-        // At this point: we have a valid User and no existing StudentDetails → create details
+        // Create StudentDetails
         StudentDetails details = new StudentDetails();
         details.setUser(user);
 
-        // === All the field mappings remain exactly the same ===
+        // === Field mappings (unchanged) ===
         details.setFirstNameENG(dto.getFirstNameENG());
         details.setFatherNameENG(dto.getFatherNameENG());
         details.setGrandfatherNameENG(dto.getGrandfatherNameENG());
@@ -155,7 +159,11 @@ public class BulkStudentImportService {
         details.setGrandfatherNameAMH(dto.getGrandfatherNameAMH());
 
         details.setGender(safeEnumValue(dto.getGender(), Gender.class));
-        details.setMaritalStatus(safeEnumValue(dto.getMaritalStatus(), MaritalStatus.class));
+        details.setMaritalStatus(
+                isBlank(dto.getMaritalStatus())
+                        ? MaritalStatus.SINGLE
+                        : safeEnumValue(dto.getMaritalStatus(), MaritalStatus.class)
+        );
         details.setPhoneNumber(dto.getPhoneNumber());
 
         if (isNotBlank(dto.getDateOfBirthGC())) {
@@ -203,7 +211,7 @@ public class BulkStudentImportService {
         details.setExitExamUserID(dto.getExitExamUserID());
 
         studentDetailsRepository.save(details);
-        log.info("StudentDetails created/updated for username: {}", dto.getUsername());
+        System.out.println("StudentDetails created/updated for username: " + dto.getUsername());
     }
 
     // Helper methods remain the same

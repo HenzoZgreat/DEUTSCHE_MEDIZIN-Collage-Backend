@@ -72,16 +72,13 @@ public class StudentCopyService {
         // 1. Get student details
         StudentDetails student = studentDetailsRepository.findById(request.getStudentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + request.getStudentId()));
-        System.out.println("passed StudentDetails");
 
         // 2. Get requested classyear and semester
         ClassYear classYear = classYearRepository.findById(request.getClassYearId())
                 .orElseThrow(() -> new ResourceNotFoundException("ClassYear not found with id: " + request.getClassYearId()));
-        System.out.println("passed ClassYear");
 
         Semester semester = semesterRepo.findById(request.getSemesterId())
                 .orElseThrow(() -> new ResourceNotFoundException("Semester not found with id: " + request.getSemesterId()));
-        System.out.println("passed Semester");
 
         // 3. Find BatchClassYearSemester matching student's batch + requested classyear + requested semester
         BatchClassYearSemester batchClassYearSemester = batchClassYearSemesterRepo
@@ -96,26 +93,21 @@ public class StudentCopyService {
                         ", classYear: " + classYear.getClassYear() +
                         ", semester: " + semester.getAcademicPeriodCode()
                 ));
-        System.out.println("passed BCYS");
 
         // 4. Get all courses for this student and batchClassYearSemester
         List<StudentCourseScore> courseScores = studentCourseScoreRepo
                 .findByStudentAndBatchClassYearSemester(student.getUser(), batchClassYearSemester);
 
-        System.out.println("all courses found successfully : ");
 
         // 5. Get grading system for student's department
         Department department = student.getDepartmentEnrolled();
         GradingSystem gradingSystem = gradingSystemService.findApplicableGradingSystem(department);
 
-        System.out.println("Grading system choosen : ");
 
         // 6. Build course grades list
-        System.out.println("Iterating through the courses ... ");
         List<CourseGradeDTO> courseGrades = new ArrayList<>();
         for (StudentCourseScore score : courseScores) {
             if (score.getScore() == null || !score.isReleased()) {
-                System.out.println("\t" + score.getCourse().getCTitle() + " --------- null or not released");
                 continue; // Skip courses without scores or not released
             }
 
@@ -152,18 +144,14 @@ public class StudentCopyService {
 
             courseGrades.add(courseGrade);
 
-            System.out.println("\t" + score.getCourse().getCTitle() + " ------- " + score.getScore() + " " + letterGrade);
         }
 
         // 7. Calculate Semester GPA
-        System.out.println("Calculating Semester Gpa ... ");
         double semesterGPA = calculateGPA(courseGrades);
         System.out.println(semesterGPA);
 
         // 8. Calculate Semester CGPA (cumulative from enrollment until requested semester)
-        System.out.println("Calulating CGPA ... ");
         double semesterCGPA = calculateCGPA(student.getUser(), batchClassYearSemester, gradingSystem);
-        System.out.println(semesterCGPA);
 
         // 9. Determine status
         String status = semesterGPA >= MINIMUM_PASSING_GPA ? "PASSED" : "FAILED";
@@ -259,11 +247,23 @@ public class StudentCopyService {
     }
 
     /**
-     * Calculates CGPA (Cumulative GPA) from enrollment until the requested semester.
-     * Includes all courses from all semesters up to and including the requested semester.
+     * Calculates the CGPA for a student.
+     *
+     * Behavior:
+     * - If requestedBCYS is null          → includes ALL released courses for the student
+     * - If requestedBCYS is provided      → includes only courses from semesters
+     *                                       whose classStart_GC is not after the requested semester's classStart_GC
+     *
+     * Only considers courses where isReleased = true and score is not null.
+     * Uses the provided GradingSystem to map scores to grade points.
+     *
+     * @param student the student user
+     * @param requestedBCYS the target semester (can be null to include everything)
+     * @param gradingSystem the grading system to use for grade point mapping
+     * @return calculated CGPA (0.0 if no valid courses or total credits = 0)
      */
     public double calculateCGPA(User student, BatchClassYearSemester requestedBCYS, GradingSystem gradingSystem) {
-        // Get all released course scores for the student, ordered by classStart_GC
+        // Fetch all released course scores, ordered by class start date
         List<StudentCourseScore> allScores = studentCourseScoreRepo
                 .findByStudentAndIsReleasedTrueOrderedByClassStart(student);
 
@@ -271,30 +271,31 @@ public class StudentCopyService {
             return 0.0;
         }
 
-        // Filter to include only courses up to and including the requested semester
-        // Compare by classStart_GC date
-        LocalDate requestedDate = requestedBCYS.getClassStart_GC();
-        if (requestedDate == null) {
-            // If requested BCYS doesn't have a date, include all courses
-            requestedDate = allScores.stream()
-                    .map(sc -> sc.getBatchClassYearSemester().getClassStart_GC())
-                    .filter(date -> date != null)
-                    .max(Comparator.naturalOrder())
-                    .orElse(null);
+        List<StudentCourseScore> relevantScores;
+
+        if (requestedBCYS == null) {
+            // No semester specified → include ALL released courses
+            relevantScores = allScores;
+        } else {
+            // Semester specified → filter by class start date
+            LocalDate requestedDate = requestedBCYS.getClassStart_GC();
+
+            if (requestedDate == null) {
+                // Fallback: if requested semester has no date, include everything (rare case)
+                relevantScores = allScores;
+            } else {
+                // Normal case: include only semesters started on or before requestedDate
+                relevantScores = allScores.stream()
+                        .filter(sc -> {
+                            LocalDate scoreSemesterStart = sc.getBatchClassYearSemester().getClassStart_GC();
+                            // Include if no date OR date is on or before requested date
+                            return scoreSemesterStart == null || !scoreSemesterStart.isAfter(requestedDate);
+                        })
+                        .collect(Collectors.toList());
+            }
         }
 
-        final LocalDate finalRequestedDate = requestedDate;
-        List<StudentCourseScore> relevantScores = allScores.stream()
-                .filter(sc -> {
-                    LocalDate scoreDate = sc.getBatchClassYearSemester().getClassStart_GC();
-                    if (scoreDate == null || finalRequestedDate == null) {
-                        return true; // Include if dates are null (shouldn't happen but handle it)
-                    }
-                    return !scoreDate.isAfter(finalRequestedDate);
-                })
-                .collect(Collectors.toList());
-
-        // Calculate total grade points and credit hours
+        // Now calculate grade points and total credits
         double totalGradePoints = 0.0;
         int totalCreditHours = 0;
 
@@ -304,9 +305,16 @@ public class StudentCopyService {
             }
 
             Course course = score.getCourse();
-            int totalCrHrs = course.getTheoryHrs() + course.getLabHrs();
+            if (course == null) {
+                continue; // safety
+            }
 
-            // Find matching mark interval
+            int totalCrHrs = course.getTheoryHrs() + course.getLabHrs();
+            if (totalCrHrs <= 0) {
+                continue; // avoid division issues or meaningless credits
+            }
+
+            // Find the matching grade interval
             MarkInterval interval = gradingSystem.getIntervals().stream()
                     .filter(i -> score.getScore() >= i.getMin() && score.getScore() <= i.getMax())
                     .findFirst()
@@ -317,6 +325,7 @@ public class StudentCopyService {
                 totalGradePoints += gradePoint;
                 totalCreditHours += totalCrHrs;
             }
+            // Note: if no interval matches → that course is ignored (common design)
         }
 
         if (totalCreditHours == 0) {

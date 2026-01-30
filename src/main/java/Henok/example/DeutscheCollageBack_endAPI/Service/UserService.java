@@ -4,9 +4,11 @@ import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserReg
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.NotificationRepository;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.NonTransientDataAccessException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -28,6 +30,8 @@ public class UserService implements UserDetailsService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -136,32 +140,36 @@ public class UserService implements UserDetailsService {
         userRepository.save(user);
     }
 
-    // Deletes a user by their ID from the users table
-    // Why: Provides a simple administrative operation to remove a user account permanently
-    // Important: This method performs a HARD DELETE directly on the User entity only.
-    // It does NOT check or cascade delete related records in other tables.
-    // Use with caution — foreign key constraints may prevent deletion if references exist.
+
+    // Deletes a user by ID along with all their associated notifications
+    // Why: Prevents foreign key constraint violations when deleting a User that has notifications
+    // Order: First delete notifications (child records), then delete the User (parent)
+    // All operations run in a single transaction — rollback on any failure
     @Transactional
     public void deleteUserById(Long userId) {
-        // Validate input
+        // 1. Input validation
         if (userId == null) {
             throw new IllegalArgumentException("User ID cannot be null");
         }
 
-        // Check if user exists
-        if (!userRepository.existsById(userId)) {
-            throw new ResourceNotFoundException("User not found with id: " + userId);
-        }
+        // 2. Check if user exists (early exit if not found)
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
         try {
-            userRepository.deleteById(userId);
+            // 3. Delete all notifications for this user first
+            // Why first? Notifications reference user_id (FK constraint)
+            notificationRepository.deleteByUser(user);
+
+            // 4. Now safe to delete the user
+            userRepository.delete(user);
 
         } catch (DataIntegrityViolationException e) {
-            // Most common case: foreign key constraint violation (e.g., StudentDetails references this User)
+            // Catch any remaining constraint violations (e.g. from other related tables)
             throw new DataIntegrityViolationException(
-                    "Cannot delete user because it is referenced by other records (e.g., student/teacher details)", e);
+                    "Cannot delete user — there are still references to this user in other tables", e);
         } catch (Exception e) {
-            // Fallback for completely unexpected errors
+            // Catch-all for unexpected runtime issues
             throw new RuntimeException("Unexpected error while deleting user with id: " + userId, e);
         }
     }

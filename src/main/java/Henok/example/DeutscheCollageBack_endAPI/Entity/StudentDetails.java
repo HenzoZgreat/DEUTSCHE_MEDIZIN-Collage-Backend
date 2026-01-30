@@ -112,7 +112,7 @@ public class StudentDetails {
     @Column
     private String email;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     @Enumerated(EnumType.STRING)
     private MaritalStatus maritalStatus;
 
@@ -184,6 +184,9 @@ public class StudentDetails {
 
     @Column(nullable = true)
     private Integer totalEarnedCreditHours; // null or 0 if no passed courses
+
+    @Column(nullable = true)
+    private Integer totalNumberOfCoursesTaken;
     //----------------------------------
 
     // Single PDF document for all required files (nullable)

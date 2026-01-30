@@ -117,6 +117,7 @@ public class StudentCourseScoreController {
             @RequestParam(required = false) Long courseId,
             @RequestParam(required = false) Long bcysId,
             @RequestParam(required = false) Long studentId,
+            @RequestParam(required = false) Long departmentId,          // ← new
 
             // Optional: filter only released / unreleased scores
             @RequestParam(required = false) Boolean isReleased) {
@@ -130,7 +131,9 @@ public class StudentCourseScoreController {
 
             PaginatedResponseDTO<StudentCourseScoreResponseDTO> response =
                     studentCourseScoreService.getAllStudentCourseScoresPaginated(
-                            pageable, courseId, bcysId, studentId, isReleased);
+                            pageable,
+                            departmentId,     // ← pass it
+                            courseId, bcysId, studentId, isReleased);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {

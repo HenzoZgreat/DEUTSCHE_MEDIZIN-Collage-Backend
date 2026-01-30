@@ -81,6 +81,11 @@ public class SlipService {
         // 1. Get distinct departments of these students in ONE query
         List<Department> departments = studentDetailsRepo.findDistinctDepartmentsByStudentIds(studentIds);
 
+//        System.out.println("the Distinct Departments are : ");
+//        for (Department department : departments) {
+//            System.out.println("\t" + department.getDeptName());
+//        }
+
         if (departments.isEmpty()) {
             throw new ResourceNotFoundException("No students found with provided IDs");
         }

@@ -82,4 +82,5 @@ public class StudentDetailsSummaryDTO {
     // New fields - stored directly in StudentDetails table
     private BigDecimal cgpa;                  // e.g. 3.45
     private Integer totalEarnedCreditHours;   // e.g. 92
+    private Integer totalCoursesRegistered;       // e.g.  thirty
 }

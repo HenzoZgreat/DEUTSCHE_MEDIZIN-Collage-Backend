@@ -32,10 +32,6 @@ public class BulkImportController {
     //               Receives a list of StudentImportDTO (no files, no photos/documents).
     //               Skips invalid records, continues with valid ones.
     //               Secured for admin only (adjust @PreAuthorize as needed).
-    // endpoint - POST /api/migration/students/bulk
-    // body - List<StudentImportDTO> (JSON array)
-    // success response - { "successCount": 150, "failedCount": 5, "message": "Bulk import completed" }
-    // ErrorResponse - { "error": "description of error" }
     @PostMapping("/students/bulk")
     public ResponseEntity<Map<String, Object>> bulkImportStudents(@RequestBody List<StudentImportDTO> dtos) {
         if (dtos == null || dtos.isEmpty()) {

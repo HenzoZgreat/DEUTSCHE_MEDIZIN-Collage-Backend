@@ -12,6 +12,9 @@ import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
 import Henok.example.DeutscheCollageBack_endAPI.Service.Utility.ScoreUpdatedEvent;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -187,38 +190,55 @@ public class StudentCourseScoreService {
      */
     public PaginatedResponseDTO<StudentCourseScoreResponseDTO> getAllStudentCourseScoresPaginated(
             Pageable pageable,
+            Long departmentId,           // ← new parameter
             Long courseId,
             Long bcysId,
             Long studentId,
             Boolean isReleased) {
 
-        // Start with a specification that matches everything
-        Specification<StudentCourseScore> spec = Specification.where(null);
-        // Then chain the optional filters (using .and())
+        // Start with empty / match-all specification
+        Specification<StudentCourseScore> spec = (root, query, cb) -> null;
+
+        // Department filter – join student → studentDetails → departmentEnrolled
+        if (departmentId != null) {
+            spec = spec.and((root, query, cb) -> {
+                Subquery<Long> subquery = query.subquery(Long.class);
+                Root<StudentDetails> subRoot = subquery.from(StudentDetails.class);
+                subquery.select(subRoot.get("user").get("id"));
+                subquery.where(
+                        cb.equal(subRoot.get("departmentEnrolled").get("dptID"), departmentId)
+                );
+
+                return cb.in(root.get("student").get("id")).value(subquery);
+            });
+        }
+
+        // Course filter
         if (courseId != null) {
             spec = spec.and((root, query, cb) ->
                     cb.equal(root.get("course").get("cID"), courseId));
         }
 
+        // BCYS filter
         if (bcysId != null) {
             spec = spec.and((root, query, cb) ->
                     cb.equal(root.get("batchClassYearSemester").get("bcysID"), bcysId));
         }
 
+        // Student filter
         if (studentId != null) {
             spec = spec.and((root, query, cb) ->
                     cb.equal(root.get("student").get("id"), studentId));
         }
 
+        // Released filter
         if (isReleased != null) {
             spec = spec.and((root, query, cb) ->
-                    cb.equal(root.get("isReleased"), isReleased));
+                    cb.equal(root.get("released"), isReleased));
         }
 
-        // Execute the query
         Page<StudentCourseScore> scorePage = studentCourseScoreRepo.findAll(spec, pageable);
 
-        // Map to DTO (reuse your existing mapper)
         List<StudentCourseScoreResponseDTO> content = scorePage.getContent().stream()
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());

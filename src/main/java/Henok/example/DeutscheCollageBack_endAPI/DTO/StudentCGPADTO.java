@@ -15,4 +15,6 @@ public class StudentCGPADTO {
     private String batchClassYearSemester;
     private String studentStatus;
     private Double cgpa;
+    private int completedCredits;
+    private int numberOfCoursesTaken;
 }

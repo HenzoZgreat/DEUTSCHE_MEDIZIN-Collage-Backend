@@ -21,12 +21,18 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     Optional<Notification> findByIdAndUser(Long id, User user);
 
     // Add to existing NotificationRepository interface
+    // Purpose: Retrieves the latest 5 notifications for a user, sorted by creation date descending.
+        // Why Pageable: Limits to 5 records efficiently at the database level.
+
+        // Purpose: Supports retrieving user-specific notifications and validating ownership for mark-as-read.
+        // Why findByIdAndUser: Ensures user can only mark their own notifications.
     @Query("SELECT n FROM Notification n WHERE n.user = :user ORDER BY n.createdAt DESC")
     List<Notification> findTop5ByUserOrderByCreatedAtDesc(@Param("user") User user, Pageable pageable);
 
-    // Purpose: Retrieves the latest 5 notifications for a user, sorted by creation date descending.
-    // Why Pageable: Limits to 5 records efficiently at the database level.
+    // Deletes all notifications that belong to the given user
+    // Why: Bulk delete is more efficient than loading all entities first
+    // Uses derived query — clean and readable
+    void deleteByUser(User user);
 
-    // Purpose: Supports retrieving user-specific notifications and validating ownership for mark-as-read.
-    // Why findByIdAndUser: Ensures user can only mark their own notifications.
+
 }
