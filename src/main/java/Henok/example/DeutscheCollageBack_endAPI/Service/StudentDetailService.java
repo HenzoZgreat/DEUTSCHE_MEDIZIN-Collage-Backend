@@ -501,7 +501,7 @@ public class StudentDetailService {
         if (request.getGender() == null) {
             throw new IllegalArgumentException("Gender cannot be null");
         }
-        if (request.getAge() == null || request.getAge() < 0) {
+        if (request.getAge() != null && request.getAge() < 0) {
             throw new IllegalArgumentException("Age must be a non-negative integer");
         }
         if (request.getPhoneNumber() == null || request.getPhoneNumber().isEmpty()) {
