@@ -139,11 +139,6 @@ public class BatchService {
         }
 
         // Fetch the latest grading system by effective date
-        Pageable topOne = PageRequest.of(0, 1);
-        Page<GradingSystem> page = gradingSystemRepository.findLatestByEffectiveDate(topOne);
-        GradingSystem defaultGradingSystem = page.getContent().stream()
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No grading system found"));
 
         List<BatchClassYearSemester> combinations = new ArrayList<>();
 
@@ -154,14 +149,14 @@ public class BatchService {
                 semesters.stream()
                         .filter(s -> s.getAcademicPeriodCode().equals("S1") || s.getAcademicPeriodCode().equals("S2") || s.getAcademicPeriodCode().equals("S3"))
                         .forEach(semester -> combinations.add(
-                                new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null, defaultGradingSystem)
+                                new BatchClassYearSemester(null, batch, classYear, semester)
                         ));
             } else if (classYearValue.startsWith("PC") || classYearValue.startsWith("C")) {
                 // Medical years (PC1, PC2, C1, C2, C3): combine with FS
                 semesters.stream()
                         .filter(s -> s.getAcademicPeriodCode().equals("FS"))
                         .forEach(semester -> combinations.add(
-                                new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null, defaultGradingSystem)
+                                new BatchClassYearSemester(null, batch, classYear, semester)
                         ));
             }else if(classYearValue.startsWith("not")){
                 continue;
@@ -170,7 +165,7 @@ public class BatchService {
                 semesters.stream()
                         .filter(s -> s.getAcademicPeriodCode().equals("S1") || s.getAcademicPeriodCode().equals("S2"))
                         .forEach(semester -> combinations.add(
-                                new BatchClassYearSemester(null, batch, classYear, semester, null, null, null, null, null, defaultGradingSystem)
+                                new BatchClassYearSemester(null, batch, classYear, semester)
                         ));
             }
         }

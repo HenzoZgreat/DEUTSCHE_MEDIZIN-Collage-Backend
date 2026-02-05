@@ -64,17 +64,7 @@ public interface StudentCourseScoreRepo extends JpaRepository<StudentCourseScore
             "WHERE scs.student = :student AND scs.batchClassYearSemester = :batchClassYearSemester")
     List<StudentCourseScore> findByStudentAndBatchClassYearSemester(@Param("student") User student, @Param("batchClassYearSemester") BatchClassYearSemester batchClassYearSemester);
 
-    /**
-     * Finds all released student course scores for a specific student, ordered by class start date.
-     * Used for CGPA calculation (all courses from enrollment until requested semester).
-     *
-     * @param student The student
-     * @return List of released StudentCourseScore ordered by classStart_GC
-     */
-    @Query("SELECT scs FROM StudentCourseScore scs " +
-            "WHERE scs.student = :student AND scs.isReleased = true " +
-            "ORDER BY scs.batchClassYearSemester.classStart_GC ASC")
-    List<StudentCourseScore> findByStudentAndIsReleasedTrueOrderedByClassStart(@Param("student") User student);
+
 
     // Custom query to find enrollments for a set of (course, bcys) pairs
     // Why: Avoids N+1 and efficiently gets all students taking teacher's courses

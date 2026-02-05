@@ -10,9 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,6 +24,8 @@ public class StudentDashboardService {
 
     @Autowired
     private StudentCourseScoreRepo studentCourseScoreRepo;
+    @Autowired
+    private DepartmentBCYSRepository departmentBCYSRepository;
 
     @Autowired
     private GradingSystemService gradingSystemService;
@@ -303,10 +303,23 @@ public class StudentDashboardService {
         }
         
         // Group scores by BCYS and find the most recent one
+        // Find the most recent BCYS based on the student's department-specific class start date
         BatchClassYearSemester mostRecentBCYS = allScores.stream()
-                .map(StudentCourseScore::getBatchClassYearSemester)
-                .filter(bcys -> bcys != null && bcys.getClassStart_GC() != null)
-                .max(Comparator.comparing(BatchClassYearSemester::getClassStart_GC))
+                .map(score -> {
+                    BatchClassYearSemester bcys = score.getBatchClassYearSemester();
+                    if (bcys == null) return null;
+
+                    Department studentDept = student.getDepartmentEnrolled();
+                    if (studentDept == null) return null;
+
+                    return departmentBCYSRepository.findByBcysAndDepartment(bcys, studentDept)
+                            .map(deptBCYS -> new AbstractMap.SimpleEntry<>(bcys, deptBCYS.getClassStartGC()))
+                            .orElse(null);
+                })
+                .filter(Objects::nonNull)
+                .filter(entry -> entry.getValue() != null)              // has valid date
+                .max(Comparator.comparing(entry -> entry.getValue()))   // max by date
+                .map(Map.Entry::getKey)                                 // get back the BCYS
                 .orElse(null);
         
         if (mostRecentBCYS == null) {

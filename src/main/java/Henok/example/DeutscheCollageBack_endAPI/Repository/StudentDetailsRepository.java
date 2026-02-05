@@ -33,7 +33,6 @@ public interface StudentDetailsRepository extends JpaRepository<StudentDetails, 
         JOIN FETCH s.batchClassYearSemester bcys
         JOIN FETCH bcys.classYear cy
         JOIN FETCH bcys.semester sem
-        LEFT JOIN FETCH bcys.entryYear ay
         WHERE s.id IN :ids
         """)
     List<StudentDetails> findAllByIdInWithRelations(@Param("ids") List<Long> ids);

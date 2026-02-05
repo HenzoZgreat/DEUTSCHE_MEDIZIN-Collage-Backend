@@ -18,4 +18,12 @@ public interface BatchClassYearSemesterRepo extends JpaRepository<BatchClassYear
      * @return Optional BatchClassYearSemester
      */
     Optional<BatchClassYearSemester> findByBatchAndClassYearAndSemester(Batch batch, ClassYear classYear, Semester semester);
+
+    // Check if combination already exists (for create)
+    boolean existsByBatchAndClassYearAndSemester(Batch batch, ClassYear classYear, Semester semester);
+
+    // Check if another BCYS (excluding current id) has the same combination (for update)
+    boolean existsByBatchAndClassYearAndSemesterAndBcysIDNot(
+            Batch batch, ClassYear classYear, Semester semester, Long bcysID
+    );
 }

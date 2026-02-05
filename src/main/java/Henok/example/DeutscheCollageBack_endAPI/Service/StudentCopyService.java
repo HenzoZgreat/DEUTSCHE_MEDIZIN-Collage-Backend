@@ -21,6 +21,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,6 +32,8 @@ public class StudentCopyService {
 
     @Autowired
     private BatchClassYearSemesterRepo batchClassYearSemesterRepo;
+    @Autowired
+    private DepartmentBCYSRepository departmentBCYSRepository;
 
     @Autowired
     private ClassYearRepository classYearRepository;
@@ -157,7 +160,14 @@ public class StudentCopyService {
         String status = semesterGPA >= MINIMUM_PASSING_GPA ? "PASSED" : "FAILED";
 
         // 10. Find AcademicYear
-        AcademicYear academicYear = batchClassYearSemester.getEntryYear();
+        DepartmentBCYS deptBCYS = departmentBCYSRepository
+                .findByBcysAndDepartment(batchClassYearSemester, department)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No DepartmentBCYS found for student department " + department.getDeptName() +
+                                " in BCYS id " + batchClassYearSemester.getBcysID()
+                ));
+
+        AcademicYear academicYear = deptBCYS.getAcademicYear();
 
         // 11. Build response DTO
         StudentCopyDTO dto = new StudentCopyDTO();
@@ -265,7 +275,7 @@ public class StudentCopyService {
     public double calculateCGPA(User student, BatchClassYearSemester requestedBCYS, GradingSystem gradingSystem) {
         // Fetch all released course scores, ordered by class start date
         List<StudentCourseScore> allScores = studentCourseScoreRepo
-                .findByStudentAndIsReleasedTrueOrderedByClassStart(student);
+                .findByStudentAndIsReleasedTrue(student);
 
         if (allScores.isEmpty()) {
             return 0.0;
@@ -278,7 +288,23 @@ public class StudentCopyService {
             relevantScores = allScores;
         } else {
             // Semester specified → filter by class start date
-            LocalDate requestedDate = requestedBCYS.getClassStart_GC();
+            LocalDate requestedDate;
+            if (requestedBCYS != null) {
+                Department studentDept = studentDetailsRepository.findByUser(student)
+                        .map(StudentDetails::getDepartmentEnrolled)
+                        .orElse(null);
+
+                if (studentDept != null) {
+                    Optional<DepartmentBCYS> deptBCYSOpt = departmentBCYSRepository
+                            .findByBcysAndDepartment(requestedBCYS, studentDept);
+
+                    requestedDate = deptBCYSOpt.map(DepartmentBCYS::getClassStartGC).orElse(null);
+                } else {
+                    requestedDate = null;
+                }
+            } else {
+                requestedDate = null;
+            }
 
             if (requestedDate == null) {
                 // Fallback: if requested semester has no date, include everything (rare case)
@@ -287,8 +313,17 @@ public class StudentCopyService {
                 // Normal case: include only semesters started on or before requestedDate
                 relevantScores = allScores.stream()
                         .filter(sc -> {
-                            LocalDate scoreSemesterStart = sc.getBatchClassYearSemester().getClassStart_GC();
-                            // Include if no date OR date is on or before requested date
+                            LocalDate scoreSemesterStart = null;
+                            Department studentDept = studentDetailsRepository.findByUser(student)
+                                    .map(StudentDetails::getDepartmentEnrolled)
+                                    .orElse(null);
+
+                            if (studentDept != null) {
+                                Optional<DepartmentBCYS> deptBCYSOpt = departmentBCYSRepository
+                                        .findByBcysAndDepartment(sc.getBatchClassYearSemester(), studentDept);
+
+                                scoreSemesterStart = deptBCYSOpt.map(DepartmentBCYS::getClassStartGC).orElse(null);
+                            }                            // Include if no date OR date is on or before requested date
                             return scoreSemesterStart == null || !scoreSemesterStart.isAfter(requestedDate);
                         })
                         .collect(Collectors.toList());

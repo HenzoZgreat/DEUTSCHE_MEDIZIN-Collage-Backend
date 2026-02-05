@@ -33,25 +33,6 @@ public class BatchClassYearSemester {
     @JoinColumn(name = "semester", nullable = false)
     private Semester semester;
 
-    @ManyToOne
-    @JoinColumn(name = "academic_year")
-    private AcademicYear entryYear;
-
-    @Column
-    private LocalDate classStart_GC;
-
-    @Column
-    private String classStart_EC;
-
-    @Column
-    private LocalDate classEnd_GC;
-
-    @Column
-    private String classEnd_EC;
-
-    @ManyToOne
-    @JoinColumn(name = "grading_system_id", nullable = false)
-    private GradingSystem gradingSystem; // The version used for this batch/year/semester
 
     // Explanation: This association preserves grades by using the historical version for calculations.
     // Why nullable=false: Ensures every batch has a grading system; set default in service layer.

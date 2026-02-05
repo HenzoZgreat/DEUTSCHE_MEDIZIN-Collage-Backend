@@ -15,7 +15,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Cohort {
+public class DepartmentBCYS {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -33,7 +33,7 @@ public class Cohort {
 
     // Academic year this cohort is running in
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "academic_year_code", nullable = false)
+    @JoinColumn(name = "academic_year_code")
     private AcademicYear academicYear;
 
     // Time boundaries for this specific cohort
@@ -55,6 +55,6 @@ public class Cohort {
 
         String base = bcys.getDisplayName(); // assumes old display name without dept
         String dept = department.getDepartmentCode() != null ? department.getDepartmentCode() : department.getDeptName();
-        return base + " - " + dept;
+        return  dept + "_" + base;
     }
 }

@@ -3,15 +3,13 @@ package Henok.example.DeutscheCollageBack_endAPI.Service;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.SlipCourseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.SlipPreviewRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentSlipPreviewDTO;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.BatchClassYearSemester;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.Course;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.Department;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.AcademicYear;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramModality;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.StudentDetails;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.BatchClassYearSemesterRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.CourseRepo;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.DepartmentBCYSRepository;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.StudentDetailsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,6 +26,7 @@ public class SlipService {
     private final StudentDetailsRepository studentDetailsRepo;
     private final CourseRepo courseRepo;
     private final BatchClassYearSemesterRepo bcysRepo;
+    private final DepartmentBCYSRepository departmentBCYSRepository;
 
     // Main method: Generate preview for multiple students
     public List<StudentSlipPreviewDTO> generateSlipPreviews(SlipPreviewRequest request) {
@@ -142,9 +141,11 @@ public class SlipService {
         dto.setSemesterId(bcys.getSemester().getAcademicPeriodCode());
         dto.setSemesterName(bcys.getSemester().getAcademicPeriod());
 
-        // Academic Year
-        AcademicYear ay = bcys.getEntryYear();
-        if (ay != null) {
+        // Academic Year from DepartmentBCYS link
+        AcademicYear ay = departmentBCYSRepository
+                .findByBcysAndDepartment(bcys, dept)
+                .map(DepartmentBCYS::getAcademicYear)
+                .orElse(null);        if (ay != null) {
             dto.setAcademicYearCode(ay.getYearCode());
             dto.setAcademicYearGC(ay.getAcademicYearGC());
             dto.setAcademicYearEC(ay.getAcademicYearEC());
