@@ -32,7 +32,6 @@ public class StudentCopyController {
     public ResponseEntity<?> generateStudentCopies(@RequestBody StudentCopyBulkRequestDTO request) {
         try {
             // Validate request
-            System.out.println("Received request: " + request);
             if (request == null) {
                 return ResponseEntity.badRequest()
                         .body(new ErrorResponse("Request cannot be null"));
@@ -50,7 +49,6 @@ public class StudentCopyController {
                         .body(new ErrorResponse("Student IDs list cannot be null or empty"));
             }
 
-            System.out.println("right Before service call with student IDs: " + request.getStudentIds());
             List<StudentCopyDTO> studentCopies = studentCopyService.generateStudentCopiesForMultipleStudents(
                     request.getStudentIds(),
                     request.getClassYearId(),

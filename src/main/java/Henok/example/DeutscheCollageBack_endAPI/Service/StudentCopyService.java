@@ -149,25 +149,28 @@ public class StudentCopyService {
 
         }
 
+//        System.out.println("Calculating Semester GPA");
         // 7. Calculate Semester GPA
         double semesterGPA = calculateGPA(courseGrades);
-        System.out.println(semesterGPA);
+//        System.out.println("Success GPA = " + semesterGPA);
 
+//        System.out.println("Calculatinr Cgpa");
         // 8. Calculate Semester CGPA (cumulative from enrollment until requested semester)
         double semesterCGPA = calculateCGPA(student.getUser(), batchClassYearSemester, gradingSystem);
+//        System.out.println("Success, CGPA = " + semesterCGPA);
+
 
         // 9. Determine status
         String status = semesterGPA >= MINIMUM_PASSING_GPA ? "PASSED" : "FAILED";
 
-        // 10. Find AcademicYear
-        DepartmentBCYS deptBCYS = departmentBCYSRepository
-                .findByBcysAndDepartment(batchClassYearSemester, department)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "No DepartmentBCYS found for student department " + department.getDeptName() +
-                                " in BCYS id " + batchClassYearSemester.getBcysID()
-                ));
+//        System.out.println("Finding Academic year ...");
 
-        AcademicYear academicYear = deptBCYS.getAcademicYear();
+        // 10. Find AcademicYear
+        AcademicYear academicYear = departmentBCYSRepository
+                .findByBcysAndDepartment(batchClassYearSemester, department)
+                .map(DepartmentBCYS::getAcademicYear)
+                .orElse(null);
+//        System.out.println("Success, Academic Year = " + (academicYear != null ? academicYear.getAcademicYearGC() : "N/A"));
 
         // 11. Build response DTO
         StudentCopyDTO dto = new StudentCopyDTO();
