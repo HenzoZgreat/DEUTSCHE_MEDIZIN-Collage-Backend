@@ -1,13 +1,17 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.AssessmentScoresResponse;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.FormTemplateListDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarDashboardDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Assessment;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.FormTemplate;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.AssessmentStatus;
+import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
 import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
+import Henok.example.DeutscheCollageBack_endAPI.Service.FormTemplateService;
 import Henok.example.DeutscheCollageBack_endAPI.Service.RegistrarService;
 import Henok.example.DeutscheCollageBack_endAPI.Service.StudentDetailService;
 import lombok.RequiredArgsConstructor;
@@ -16,16 +20,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.IOException;
+import java.util.*;
+
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarResponse;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarUpdateRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentDetailsSummaryDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.RegistrarDetail;
 import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
 import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.MultipartFile;
 
 // RegistrarController
@@ -39,6 +43,7 @@ public class RegistrarController {
 
     private final RegistrarService registrarService;
     private final StudentDetailService studentDetailsService;
+    private final FormTemplateService formTemplateService;
 
 
 
@@ -283,4 +288,130 @@ public class RegistrarController {
     }
 
 
+    @PostMapping(value = "/form-templates", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> createFormTemplate(
+            @RequestPart("file") MultipartFile file,
+            @RequestPart("name") String name,
+            @RequestPart(value = "description", required = false) String description,
+            @RequestPart(value = "forRoles", required = false) Set<Role> forRoles) {
+
+        try {
+            // Call service - this is where most validations happen
+            FormTemplate created = formTemplateService.createFormTemplate(
+                    file, name, description, forRoles
+            );
+
+            // Build safe response (no large binary content)
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", created.getId());
+            response.put("name", created.getName());
+            response.put("description", created.getDescription());
+            response.put("forRoles", created.getForRoles());
+            response.put("createdAt", created.getCreatedAt());
+            response.put("updatedAt", created.getUpdatedAt());
+            response.put("message", "Form template created successfully");
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+        } catch (BadRequestException e) {
+            // Client sent invalid data (most common case)
+            ErrorResponse error = new ErrorResponse(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+
+        } catch (ResourceNotFoundException e) {
+            // Usually not expected here, but good to handle if service throws it
+            ErrorResponse error = new ErrorResponse(e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+
+        } catch (MultipartException e) {
+            // File upload / reading issues (e.g. file too large, malformed multipart)
+            ErrorResponse error = new ErrorResponse("Failed to process uploaded file: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+
+        } catch (Exception e) {
+            // Catch-all for unexpected errors (null pointer, database issues, etc.)
+            // In production: you should log this exception
+            // log.error("Unexpected error while creating form template", e);
+
+            ErrorResponse error = new ErrorResponse("An unexpected error occurred while creating the form template");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
+    // ----------- Partial update of a form template ------------------
+    @PutMapping(value = "/form-templates/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> updateFormTemplate(
+            @PathVariable Long id,
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            @RequestPart(value = "name", required = false) String name,
+            @RequestPart(value = "description", required = false) String description,
+            @RequestPart(value = "forRoles", required = false) Set<Role> forRoles) {
+
+        try {
+            FormTemplate updated = formTemplateService.updateFormTemplate(id, file, name, description, forRoles);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", updated.getId());
+            response.put("name", updated.getName());
+            response.put("description", updated.getDescription());
+            response.put("forRoles", updated.getForRoles());
+            response.put("createdAt", updated.getCreatedAt());
+            response.put("updatedAt", updated.getUpdatedAt());
+            response.put("message", "Form template updated successfully");
+
+            return ResponseEntity.ok(response);
+
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
+
+        } catch (BadRequestException e) {
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse(e.getMessage()));
+
+        } catch (Exception e) {
+            // log.error("Unexpected error during form template update", e);
+            return ResponseEntity.internalServerError()
+                    .body(new ErrorResponse("An unexpected error occurred while updating the form template"));
+        }
+    }
+
+    // ----------- Get all form templates with optional role-based filtering ------------------
+    @GetMapping("/form-templates")
+    public ResponseEntity<?> getAllFormTemplates(
+            @RequestParam(value = "roles", required = false) Set<Role> roles) {
+
+        try {
+            List<FormTemplateListDTO> templates = formTemplateService.getAllFormTemplates(roles);
+            return ResponseEntity.ok(templates);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An unexpected error occurred while retrieving form templates"));
+        }
+    }
+
+    // ----------- Delete a form template by ID ------------------
+    @DeleteMapping("/form-templates/{id}")
+    public ResponseEntity<Map<String, String>> deleteFormTemplate(@PathVariable Long id) {
+
+        try {
+            formTemplateService.deleteFormTemplate(id);
+
+            Map<String, String> response = Map.of(
+                    "message", "Form template deleted successfully"
+            );
+
+            return ResponseEntity.ok(response);
+
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+
+        } catch (Exception e) {
+            // log.error("Unexpected error during form template deletion", e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "An unexpected error occurred while deleting the form template"));
+        }
+    }
 }

@@ -8,6 +8,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -58,5 +59,17 @@ public class GlobalValidationHandler {
 
         Map<String, String> response = Map.of("error", "Validation failed: " + errorMessage);
         return ResponseEntity.badRequest().body(response);
+    }
+
+    // for multi-part files when the required part is missing (e.g., "data" JSON part or "file" part)
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ErrorResponse> handleMissingPart(MissingServletRequestPartException ex) {
+
+        String partName = ex.getRequestPartName();
+        String message = "Required field '" + (partName != null ? partName : "unknown") + "' is missing in the request";
+
+        return ResponseEntity
+                .badRequest()
+                .body(new ErrorResponse(message));
     }
 }

@@ -98,7 +98,8 @@ public class SecurityConfig {
                                 "/api/registrar/assignments/*/final-approve-all",
                                 "/api/registrar/profile",
                                 "/api/registrar/update",
-                                "/api/registrar/dashboard").hasRole("REGISTRAR")
+                                "/api/registrar/dashboard",
+                                "/api/registrar/form-templates/**").hasRole("REGISTRAR")
 
                         // Department Head endpoints
                         .requestMatchers("/api/auth/register/teacher",

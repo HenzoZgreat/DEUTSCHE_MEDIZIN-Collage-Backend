@@ -1,5 +1,6 @@
 package Henok.example.DeutscheCollageBack_endAPI.Controller;
 
+import Henok.example.DeutscheCollageBack_endAPI.DTO.FormTemplateListDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Passwords.ResetPasswordRequest_OldPasswordNeeded;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Passwords.ResetPasswordRequest_NewPasswordOnly;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.ProfileResponse;
@@ -7,6 +8,7 @@ import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.*;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.TeacherRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
+import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.BatchClassYearSemesterRepo;
@@ -15,6 +17,7 @@ import Henok.example.DeutscheCollageBack_endAPI.Service.*;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +25,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -29,7 +34,10 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -48,6 +56,8 @@ public class AuthController {
 
     @Autowired    private BatchClassYearSemesterRepo batchClassYearSemesterRepository;
     @Autowired    private ProfileService profileService;
+
+    @Autowired    private FormTemplateService formTemplateService;
 
 
     // Authenticates a user and generates a JWT token
@@ -75,28 +85,6 @@ public class AuthController {
                     .body(new ErrorResponse("Authentication failed: " + e.getMessage()));
         }
     }
-
-    // Registers a general user with specified role
-    // Why: Allows creation of non-student users (e.g., staff)
-    // @PostMapping("/register")
-    // public ResponseEntity<?> registerUser(@RequestBody UserRegisterRequest request) {
-    //     try {
-    //         User user = userService.registerUser(request);
-    //         Map<String, Object> response = new HashMap<>();
-    //         response.put("message", "User registered successfully with username: " + user.getUsername());
-    //         response.put("userId", user.getId().toString());
-    //         return ResponseEntity.ok(response);
-    //     } catch (IllegalArgumentException e) {
-    //         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-    //                 .body(new ErrorResponse(e.getMessage()));
-    //     } catch (DataIntegrityViolationException e) {
-    //         return ResponseEntity.status(HttpStatus.CONFLICT)
-    //                 .body(new ErrorResponse("User registration failed due to duplicate entry: " + e.getMessage()));
-    //     } catch (Exception e) {
-    //         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-    //                 .body(new ErrorResponse("An error occurred while registering the user: " + e.getMessage()));
-    //     }
-    // }
 
     // Registers a student with full details and user account
     // Why: Creates StudentDetails and associated User with STUDENT role, returns username/password
@@ -549,4 +537,53 @@ public class AuthController {
                     .body(new ErrorResponse("Failed to retrieve document: " + e.getMessage()));
         }
     }
+
+    @GetMapping("/form-templates/{id}/download")
+    public ResponseEntity<?> downloadFormTemplate(
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        try {
+            FormTemplateService.FormTemplateFileResponse fileResponse = formTemplateService.getFormTemplateFile(id, authentication);
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileResponse.filename() + "\"")
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .body(fileResponse.content());
+
+        } catch (ResourceNotFoundException | BadRequestException e) {
+            return ResponseEntity.status(
+                    e instanceof ResourceNotFoundException ? HttpStatus.NOT_FOUND : HttpStatus.FORBIDDEN
+            ).body(new ErrorResponse(e.getMessage()));
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(new ErrorResponse("An unexpected error occurred while downloading the form"));
+        }
+    }
+
+    // Returns list of form templates that are allowed for the current authenticated user's role(s)
+    // Uses the same service method as the public / all endpoint
+    // Automatically filters based on the sender's roles — no query param needed
+    @GetMapping("/form-templates/my-forms")
+    public ResponseEntity<?> getMyFormTemplates(@AuthenticationPrincipal UserDetails userDetails) {
+
+        try {
+            // Extract roles from the authenticated user
+            Set<Role> userRoles = userDetails.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .map(role -> Role.valueOf(role.replace("ROLE_", "")))
+                    .collect(Collectors.toSet());
+
+            List<FormTemplateListDTO> templates = formTemplateService.getAllFormTemplates(userRoles);
+
+            return ResponseEntity.ok(templates);
+
+        } catch (Exception e) {
+            // log.error("Unexpected error while retrieving user's form templates", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An unexpected error occurred while retrieving your form templates"));
+        }
+    }
+
 }
