@@ -234,7 +234,7 @@ public class StudentCourseScoreService {
         // Released filter
         if (isReleased != null) {
             spec = spec.and((root, query, cb) ->
-                    cb.equal(root.get("released"), isReleased));
+                    cb.equal(root.get("isReleased"), isReleased));
         }
 
         Page<StudentCourseScore> scorePage = studentCourseScoreRepo.findAll(spec, pageable);
