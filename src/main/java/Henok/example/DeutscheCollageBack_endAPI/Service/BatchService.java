@@ -4,7 +4,6 @@ import Henok.example.DeutscheCollageBack_endAPI.DTO.BatchDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Batch;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.BatchClassYearSemester;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.ClassYear;
-import Henok.example.DeutscheCollageBack_endAPI.Entity.GradingSystem;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Semester;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.BatchRepo;
@@ -13,9 +12,7 @@ import Henok.example.DeutscheCollageBack_endAPI.Repository.GradingSystemReposito
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.SemesterRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;

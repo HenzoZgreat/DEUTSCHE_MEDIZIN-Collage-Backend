@@ -3,6 +3,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Error;
 
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import jakarta.validation.ConstraintViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -70,6 +71,39 @@ public class GlobalValidationHandler {
 
         return ResponseEntity
                 .badRequest()
+                .body(new ErrorResponse(message));
+    }
+
+    // ── NEW: Handle your custom exceptions ────────────────────────────────────
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(ex.getMessage()));
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ErrorResponse> handleBadRequest(BadRequestException ex) {
+        return ResponseEntity
+                .badRequest()
+                .body(new ErrorResponse(ex.getMessage()));
+    }
+
+    // ── NEW: Catch-all for unexpected runtime errors (fallback) ──────────────
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
+        // Log the full stack trace (for debugging)
+        ex.printStackTrace();  // or use SLF4J logger
+
+        String message = "An unexpected error occurred";
+        if (ex.getMessage() != null && !ex.getMessage().isBlank()) {
+            message += ": " + ex.getMessage();
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ErrorResponse(message));
     }
 }

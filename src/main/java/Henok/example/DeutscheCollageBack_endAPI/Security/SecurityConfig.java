@@ -39,7 +39,10 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/auth/login",
-                                "/api/applicants/register", "/api/auth/register", "/").permitAll()
+                                "/api/applicants/register",
+                                "/api/auth/register", "/",
+                                "/swagger-ui.html",
+                                "/swagger-ui/index.html").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/enums/**",
                                 "/api/country/**",
@@ -99,7 +102,8 @@ public class SecurityConfig {
                                 "/api/registrar/profile",
                                 "/api/registrar/update",
                                 "/api/registrar/dashboard",
-                                "/api/registrar/form-templates/**").hasRole("REGISTRAR")
+                                "/api/registrar/form-templates/**",
+                                "/api/registrar/progression-sequences/**").hasRole("REGISTRAR")
 
                         // Department Head endpoints
                         .requestMatchers("/api/auth/register/teacher",
@@ -120,7 +124,7 @@ public class SecurityConfig {
                                 "/api/teachers/*/course-assignments/**").hasRole("DEPARTMENT_HEAD")
                         .requestMatchers(HttpMethod.POST, "/api/teachers/*/course-assignments").hasRole("DEPARTMENT_HEAD")
 
-                        
+
                         // Teacher endpoints
                         .requestMatchers("/api/teachers/profile",
                                        "/api/teachers/update",
@@ -128,7 +132,7 @@ public class SecurityConfig {
                                        "/api/teachers/courses/*/students",
                                        "/api/teachers/my-courses",
                                        "/api/teachers/dashboard",
-                                       "/api/assessments/**", 
+                                       "/api/assessments/**",
                                        "/api/student-assessments/**").hasRole("TEACHER")
 
                         // --------------- Dean endpoints -----------------

@@ -1215,22 +1215,35 @@ System.out.println("---------Finished Registering Applicant --------");
 
     //==================================================================================================================
     /**
-     * Calculates and persists CGPA + total earned credit hours for every student.
+     * Calculates and persists CGPA + total registered credit hours + total courses taken
+     * for every student in the system.
      *
      * Main goals:
-     *  - One-time bulk initialization or refresh after major grade releases
-     *  - Uses department-specific or global GradingSystem
-     *  - Safe: handles missing grades, missing systems, null values
-     *  - Performance: avoids N+1 by fetching students once, then processing one-by-one
+     * - One-time bulk refresh or initialization (usually after grade release periods)
+     * - Uses department-specific or fallback GradingSystem
+     * - Safe: skips invalid students, handles missing data gracefully
+     * - Atomic per student (inner try-catch + save)
      *
-     * @return summary map with stats (processed count, success count, failed count, message)
+     * Performance notes:
+     * - Fetches all students once (good)
+     * - For very large institutions, consider batching or async processing later
+     * - Grading system lookup is per student — could be pre-cached per department if bottleneck
+     *
+     * @return summary map with stats (totalStudents, success, failed, message, errors if any)
      */
     @Transactional
     public Map<String, Object> calculateAndSaveCgpaForAllStudents() {
+
         List<StudentDetails> allStudents = studentDetailsRepository.findAll();
 
         if (allStudents.isEmpty()) {
-            return Map.of("error","No students found in the system");
+            Map<String, Object> result = new HashMap<>();
+            result.put("message", "No students found in the system");
+            result.put("totalStudents", 0);
+            result.put("success", 0);
+            result.put("failed", 0);
+            result.put("errors", null);
+            return result;
         }
 
         int successCount = 0;
@@ -1238,6 +1251,7 @@ System.out.println("---------Finished Registering Applicant --------");
         List<String> errors = new ArrayList<>();
 
         for (StudentDetails studentDetails : allStudents) {
+
             User studentUser = studentDetails.getUser();
             if (studentUser == null) {
                 failedCount++;
@@ -1246,27 +1260,35 @@ System.out.println("---------Finished Registering Applicant --------");
             }
 
             try {
+                // Get the applicable grading system once per student
                 GradingSystem gradingSystem = gradingSystemService.findApplicableGradingSystem(
                         studentDetails.getDepartmentEnrolled()
                 );
 
-                // CGPA
-                double cgpa = studentCopyService.calculateCGPA(studentUser, null, gradingSystem);
-                studentDetails.setCgpa(BigDecimal.valueOf(cgpa).setScale(2, RoundingMode.HALF_UP));
-
-                // Total earned credit hours (your current logic)
-                int totalEarnedCr = calculateTotalRegisteredCreditHours(studentUser);
-                studentDetails.setTotalEarnedCreditHours(Math.max(totalEarnedCr, 0));
-
-                // ── NEW ── Total number of courses taken
-                long courseCount = studentCourseScoreRepo.countByStudent(studentUser);
-                studentDetails.setTotalNumberOfCoursesTaken(
-                        courseCount > 0 ? (int) courseCount : 0
+                // Calculate CGPA using full history (null = all released semesters)
+                double cgpa = studentCopyService.calculateCGPA(
+                        studentUser,
+                        null,               // full history
+                        gradingSystem
                 );
-                // or alternatively: .setTotalNumberOfCoursesTaken((int) courseCount);
-                // (decide if 0 should be stored as 0 or null)
 
+                // Update CGPA with 2 decimal places
+                studentDetails.setCgpa(
+                        BigDecimal.valueOf(cgpa)
+                                .setScale(2, RoundingMode.HALF_UP)
+                );
+
+                // Total registered (attempted) credit hours - no pass check
+                int totalRegisteredCr = calculateTotalRegisteredCreditHours(studentUser);
+                studentDetails.setTotalEarnedCreditHours(Math.max(totalRegisteredCr, 0));
+
+                // Total number of courses the student has ever been registered for
+                long courseCount = studentCourseScoreRepo.countByStudent(studentUser);
+                studentDetails.setTotalNumberOfCoursesTaken((int) courseCount); // 0 if none
+
+                // Persist changes
                 studentDetailsRepository.save(studentDetails);
+
                 successCount++;
 
             } catch (IllegalStateException e) {
@@ -1274,10 +1296,14 @@ System.out.println("---------Finished Registering Applicant --------");
                 errors.add("Student " + studentUser.getUsername() + ": " + e.getMessage());
             } catch (Exception e) {
                 failedCount++;
-                errors.add("Student " + studentUser.getUsername() + ": unexpected error - " + e.getMessage());
+                String msg = "Student " + studentUser.getUsername() + ": unexpected error - " + e.getMessage();
+                errors.add(msg);
+                // Optional: log full stack trace in production
+                // log.error(msg, e);
             }
         }
 
+        // Build consistent response (same shape even on partial failure)
         Map<String, Object> result = new HashMap<>();
         result.put("message", "CGPA + course count refresh completed");
         result.put("totalStudents", allStudents.size());
@@ -1289,31 +1315,23 @@ System.out.println("---------Finished Registering Applicant --------");
     }
 
     /**
-     * Calculates the total credit hours the student has been registered for / attempted.
-     * Sums theory + lab hours from ALL StudentCourseScore records for this student.
-     *
-     * Important:
-     * - Counts ALL course registrations (even if score is missing or not yet released)
-     * - Does NOT check if the student passed the course
-     * - Does NOT filter by isReleased
-     *
-     * Used for: total attempted/registered credit load (not necessarily earned/passed)
+     * Calculates total credit hours from all courses the student has ever been registered for.
+     * Sums theoryHrs + labHrs for every row in student_course_score for this student.
+     * No filtering by score presence, release status, or pass/fail result.
      */
     private int calculateTotalRegisteredCreditHours(User student) {
-        // Note: we don't need GradingSystem anymore for this calculation
-        List<StudentCourseScore> allRegistrations = studentCourseScoreRepo.findByStudent(student);
+        List<StudentCourseScore> registrations = studentCourseScoreRepo.findByStudent(student);
 
-        int totalCredits = 0;
+        int total = 0;
 
-        for (StudentCourseScore registration : allRegistrations) {
-            Course course = registration.getCourse();
-            if (course == null) continue; // safety (should not happen)
-
-            int courseCredits = course.getTheoryHrs() + course.getLabHrs();
-            totalCredits += courseCredits;
+        for (StudentCourseScore reg : registrations) {
+            Course c = reg.getCourse();
+            if (c != null) {
+                total += c.getTheoryHrs() + c.getLabHrs();
+            }
         }
 
-        return totalCredits;
+        return total;
     }
 
     @EventListener

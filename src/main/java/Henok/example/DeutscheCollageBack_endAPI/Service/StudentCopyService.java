@@ -18,10 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,27 +26,22 @@ public class StudentCopyService {
 
     @Autowired
     private StudentDetailsRepository studentDetailsRepository;
-
     @Autowired
     private BatchClassYearSemesterRepo batchClassYearSemesterRepo;
     @Autowired
     private DepartmentBCYSRepository departmentBCYSRepository;
-
     @Autowired
     private ClassYearRepository classYearRepository;
-
     @Autowired
     private SemesterRepo semesterRepo;
-
+    @Autowired
+    private ProgressionSequenceRepository progressionSequenceRepository;
     @Autowired
     private StudentCourseScoreRepo studentCourseScoreRepo;
-
     @Autowired
     private GradingSystemService gradingSystemService;
-
     @Autowired
     private AcademicYearRepo academicYearRepo;
-
     @Autowired
     private AcademicYearUtilityService academicYearUtilityService;
 
@@ -72,102 +64,81 @@ public class StudentCopyService {
      */
     @Transactional(readOnly = true)
     public StudentCopyDTO generateStudentCopy(StudentCopyRequestDTO request) {
-        // 1. Get student details
+
+        // 1. Get student
         StudentDetails student = studentDetailsRepository.findById(request.getStudentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + request.getStudentId()));
 
-        // 2. Get requested classyear and semester
+        // 2. Get requested classYear and semester
         ClassYear classYear = classYearRepository.findById(request.getClassYearId())
                 .orElseThrow(() -> new ResourceNotFoundException("ClassYear not found with id: " + request.getClassYearId()));
 
         Semester semester = semesterRepo.findById(request.getSemesterId())
                 .orElseThrow(() -> new ResourceNotFoundException("Semester not found with id: " + request.getSemesterId()));
 
-        // 3. Find BatchClassYearSemester matching student's batch + requested classyear + requested semester
-        BatchClassYearSemester batchClassYearSemester = batchClassYearSemesterRepo
-                .findByBatchAndClassYearAndSemester(
-                        student.getBatchClassYearSemester().getBatch(),
-                        classYear,
-                        semester
+        // 3. CRITICAL FIX: Find the ACTUAL historical BCYS the student studied in
+        //    (this works even when current batch in StudentDetails is 0 or different)
+        BatchClassYearSemester historicalBCYS = studentCourseScoreRepo
+                .findByStudentAndIsReleasedTrue(student.getUser()).stream()
+                .map(StudentCourseScore::getBatchClassYearSemester)
+                .filter(bcys ->
+                        bcys.getClassYear().getId().equals(classYear.getId()) &&
+                                bcys.getSemester().getAcademicPeriodCode().equals(semester.getAcademicPeriodCode())
                 )
+                .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "BatchClassYearSemester not found for batch: " + 
-                        student.getBatchClassYearSemester().getBatch().getBatchName() +
-                        ", classYear: " + classYear.getClassYear() +
-                        ", semester: " + semester.getAcademicPeriodCode()
+                        "No historical record found for student in ClassYear " + classYear.getClassYear() +
+                                " Semester " + semester.getAcademicPeriodCode()
                 ));
 
-        // 4. Get all courses for this student and batchClassYearSemester
+        // 4. Get all courses for this historical BCYS
         List<StudentCourseScore> courseScores = studentCourseScoreRepo
-                .findByStudentAndBatchClassYearSemester(student.getUser(), batchClassYearSemester);
+                .findByStudentAndBatchClassYearSemester(student.getUser(), historicalBCYS);
 
-
-        // 5. Get grading system for student's department
+        // 5. Get grading system
         Department department = student.getDepartmentEnrolled();
         GradingSystem gradingSystem = gradingSystemService.findApplicableGradingSystem(department);
 
-
-        // 6. Build course grades list
+        // 6. Build course grades (unchanged)
         List<CourseGradeDTO> courseGrades = new ArrayList<>();
         for (StudentCourseScore score : courseScores) {
-            if (score.getScore() == null || !score.isReleased()) {
-                continue; // Skip courses without scores or not released
-            }
+            if (score.getScore() == null || !score.isReleased()) continue;
 
             Course course = score.getCourse();
             int totalCrHrs = course.getTheoryHrs() + course.getLabHrs();
 
-            // Find matching mark interval for the score
             MarkInterval interval = gradingSystem.getIntervals().stream()
                     .filter(i -> score.getScore() >= i.getMin() && score.getScore() <= i.getMax())
                     .findFirst()
-                    .orElseThrow(() -> new IllegalStateException(
-                            "No matching interval for score: " + score.getScore() + 
-                            " in grading system: " + gradingSystem.getVersionName()
-                    ));
+                    .orElseThrow(() -> new IllegalStateException("No matching interval for score: " + score.getScore()));
 
             String letterGrade = interval.getGradeLetter();
             Double gradePoint = totalCrHrs * interval.getGivenValue();
 
-            CourseGradeDTO courseGrade = new CourseGradeDTO();
-            courseGrade.setCourseCode(course.getCCode());
-            courseGrade.setCourseTitle(course.getCTitle());
-            courseGrade.setTotalCrHrs(totalCrHrs);
+            // Suffix logic
+            String suffix = "";
+            if (score.getCourseSource().getSourceID() == 2) suffix = "**";
+            else if (score.getCourseSource().getSourceID() == 3) suffix = "*";
 
-            // Determine grade letter suffix based on course source
-            String suffix = SUFFIX_INTERNAL;
-            if (score.getCourseSource().getSourceID() == 2) {
-                suffix = SUFFIX_REPEAT;
-            } else if (score.getCourseSource().getSourceID() == 3) {
-                suffix = SUFFIX_EXTERNAL;
-            }
+            CourseGradeDTO cg = new CourseGradeDTO();
+            cg.setCourseCode(course.getCCode());
+            cg.setCourseTitle(course.getCTitle());
+            cg.setTotalCrHrs(totalCrHrs);
+            cg.setLetterGrade(letterGrade + suffix);
+            cg.setGradePoint(gradePoint);
 
-            courseGrade.setLetterGrade(letterGrade + suffix);
-            courseGrade.setGradePoint(gradePoint);
-
-            courseGrades.add(courseGrade);
-
+            courseGrades.add(cg);
         }
 
-//        System.out.println("Calculating Semester GPA");
-        // 7. Calculate Semester GPA
+        // 7. Calculate GPA & CGPA (already using the new ProgressionSequence version)
         double semesterGPA = calculateGPA(courseGrades);
-//        System.out.println("Success GPA = " + semesterGPA);
+        double semesterCGPA = calculateCGPA(student.getUser(), historicalBCYS, gradingSystem);   // ← now correct
 
-//        System.out.println("Calculatinr Cgpa");
-        // 8. Calculate Semester CGPA (cumulative from enrollment until requested semester)
-        double semesterCGPA = calculateCGPA(student.getUser(), batchClassYearSemester, gradingSystem);
-//        System.out.println("Success, CGPA = " + semesterCGPA);
-
-
-        // 9. Determine status
         String status = semesterGPA >= MINIMUM_PASSING_GPA ? "PASSED" : "FAILED";
-
-//        System.out.println("Finding Academic year ...");
 
         // 10. Find AcademicYear
         AcademicYear academicYear = departmentBCYSRepository
-                .findByBcysAndDepartment(batchClassYearSemester, department)
+                .findByBcysAndDepartment(historicalBCYS, department)
                 .map(DepartmentBCYS::getAcademicYear)
                 .orElse(null);
 //        System.out.println("Success, Academic Year = " + (academicYear != null ? academicYear.getAcademicYearGC() : "N/A"));
@@ -259,24 +230,36 @@ public class StudentCopyService {
         return totalGradePoints / totalCreditHours;
     }
 
+
     /**
-     * Calculates the CGPA for a student.
+     * Calculates CGPA for a student using released course scores.
      *
-     * Behavior:
-     * - If requestedBCYS is null          → includes ALL released courses for the student
-     * - If requestedBCYS is provided      → includes only courses from semesters
-     *                                       whose classStart_GC is not after the requested semester's classStart_GC
+     * Progression ordering rules:
+     * - If requestedBCYS is null               → includes ALL released courses
+     * - If requestedBCYS is provided           → includes only courses whose progression
+     *                                            sequence number <= requested sequence number
      *
-     * Only considers courses where isReleased = true and score is not null.
-     * Uses the provided GradingSystem to map scores to grade points.
+     * Sequence lookup priority:
+     * 1. Department-specific rule (student's current department)
+     * 2. Global rule (department = null)
+     *
+     * If no sequence rule exists for a BCYS (specific or global) → course is included (conservative)
+     *
+     * Special handling:
+     * - If requested BCYS batch name = "0" (graduated/not learning) → full history
      *
      * @param student the student user
-     * @param requestedBCYS the target semester (can be null to include everything)
-     * @param gradingSystem the grading system to use for grade point mapping
-     * @return calculated CGPA (0.0 if no valid courses or total credits = 0)
+     * @param requestedBCYS target semester for cumulative calculation (null = all)
+     * @param gradingSystem grading intervals to convert raw score → grade point
+     * @return CGPA rounded to 2 decimal places (0.0 if no valid credits)
      */
     public double calculateCGPA(User student, BatchClassYearSemester requestedBCYS, GradingSystem gradingSystem) {
-        // Fetch all released course scores, ordered by class start date
+        // 1. Get student's current department
+        Department studentDept = studentDetailsRepository.findByUser(student)
+                .map(StudentDetails::getDepartmentEnrolled)
+                .orElse(null);
+
+        // 2. Fetch all released scores
         List<StudentCourseScore> allScores = studentCourseScoreRepo
                 .findByStudentAndIsReleasedTrue(student);
 
@@ -284,94 +267,151 @@ public class StudentCopyService {
             return 0.0;
         }
 
-        List<StudentCourseScore> relevantScores;
-
+        // 3. If no requested BCYS → full history
         if (requestedBCYS == null) {
-            // No semester specified → include ALL released courses
-            relevantScores = allScores;
-        } else {
-            // Semester specified → filter by class start date
-            LocalDate requestedDate;
-            if (requestedBCYS != null) {
-                Department studentDept = studentDetailsRepository.findByUser(student)
-                        .map(StudentDetails::getDepartmentEnrolled)
-                        .orElse(null);
+            return calculateFromScores(allScores, gradingSystem);
+        }
 
-                if (studentDept != null) {
-                    Optional<DepartmentBCYS> deptBCYSOpt = departmentBCYSRepository
-                            .findByBcysAndDepartment(requestedBCYS, studentDept);
+        // 4. Special case: graduated / not learning (batch = 0)
+        if (requestedBCYS.getBatch() != null && "0".equals(requestedBCYS.getBatch().getBatchName())) {
+            return calculateFromScores(allScores, gradingSystem);
+        }
 
-                    requestedDate = deptBCYSOpt.map(DepartmentBCYS::getClassStartGC).orElse(null);
-                } else {
-                    requestedDate = null;
-                }
-            } else {
-                requestedDate = null;
-            }
+        // 5. Determine requested sequence number
+        Integer requestedSequence = getProgressionSequenceNumber(
+                studentDept,
+                requestedBCYS.getClassYear(),
+                requestedBCYS.getSemester()
+        );
 
-            if (requestedDate == null) {
-                // Fallback: if requested semester has no date, include everything (rare case)
-                relevantScores = allScores;
-            } else {
-                // Normal case: include only semesters started on or before requestedDate
-                relevantScores = allScores.stream()
-                        .filter(sc -> {
-                            LocalDate scoreSemesterStart = null;
-                            Department studentDept = studentDetailsRepository.findByUser(student)
-                                    .map(StudentDetails::getDepartmentEnrolled)
-                                    .orElse(null);
+        // If no sequence found for requested → include everything (fail open)
+        if (requestedSequence == null) {
+            return calculateFromScores(allScores, gradingSystem);
+        }
 
-                            if (studentDept != null) {
-                                Optional<DepartmentBCYS> deptBCYSOpt = departmentBCYSRepository
-                                        .findByBcysAndDepartment(sc.getBatchClassYearSemester(), studentDept);
+        // 6. Pre-load all possible sequences for faster lookup (department + global)
+        Map<String, Integer> sequenceMap = buildSequenceMap(studentDept);
 
-                                scoreSemesterStart = deptBCYSOpt.map(DepartmentBCYS::getClassStartGC).orElse(null);
-                            }                            // Include if no date OR date is on or before requested date
-                            return scoreSemesterStart == null || !scoreSemesterStart.isAfter(requestedDate);
-                        })
-                        .collect(Collectors.toList());
+        // 7. Filter scores
+        List<StudentCourseScore> relevantScores = allScores.stream()
+                .filter(score -> {
+                    BatchClassYearSemester scoreBCYS = score.getBatchClassYearSemester();
+
+                    // Optional strict batch matching (uncomment if needed)
+                    // if (!scoreBCYS.getBatch().getId().equals(requestedBCYS.getBatch().getId())) {
+                    //     return false;
+                    // }
+
+                    Integer scoreSeq = getSequenceFromMap(
+                            sequenceMap,
+                            studentDept,
+                            scoreBCYS.getClassYear(),
+                            scoreBCYS.getSemester()
+                    );
+
+                    // If no sequence → include (conservative)
+                    if (scoreSeq == null) {
+                        return true;
+                    }
+
+                    return scoreSeq <= requestedSequence;
+                })
+                .collect(Collectors.toList());
+
+        // 8. Calculate final CGPA
+        return calculateFromScores(relevantScores, gradingSystem);
+    }
+
+    /**
+     * Helper: Builds a map of (classYearId + "_" + semesterCode) → sequenceNumber
+     * Includes both department-specific and global rules (global overrides missing specific)
+     */
+    private Map<String, Integer> buildSequenceMap(Department dept) {
+        Map<String, Integer> map = new HashMap<>();
+
+        // Global rules first (lower priority)
+        List<ProgressionSequence> globals = progressionSequenceRepository.findByDepartmentIsNull();
+        for (ProgressionSequence g : globals) {
+            String key = g.getClassYear().getId() + "_" + g.getSemester().getAcademicPeriodCode();
+            map.put(key, g.getSequenceNumber());
+        }
+
+        // Department-specific rules (override globals if exist)
+        if (dept != null) {
+            List<ProgressionSequence> specifics = progressionSequenceRepository.findByDepartment(dept);
+            for (ProgressionSequence s : specifics) {
+                String key = s.getClassYear().getId() + "_" + s.getSemester().getAcademicPeriodCode();
+                map.put(key, s.getSequenceNumber());
             }
         }
 
-        // Now calculate grade points and total credits
+        return map;
+    }
+
+    /**
+     * Helper: Gets sequence number with department → global fallback
+     */
+    private Integer getProgressionSequenceNumber(Department dept, ClassYear cy, Semester sem) {
+        if (cy == null || sem == null) {
+            return null;
+        }
+
+        // Try specific
+        if (dept != null) {
+            Optional<ProgressionSequence> specific = progressionSequenceRepository
+                    .findByDepartmentAndClassYearAndSemester(dept, cy, sem);
+            if (specific.isPresent()) {
+                return specific.get().getSequenceNumber();
+            }
+        }
+
+        // Fallback to global
+        Optional<ProgressionSequence> global = progressionSequenceRepository
+                .findByDepartmentIsNullAndClassYearAndSemester(cy, sem);
+        return global.map(ProgressionSequence::getSequenceNumber).orElse(null);
+    }
+
+    /**
+     * Helper: Looks up sequence from pre-built map
+     */
+    private Integer getSequenceFromMap(Map<String, Integer> map, Department dept, ClassYear cy, Semester sem) {
+        if (cy == null || sem == null) {
+            return null;
+        }
+        String key = cy.getId() + "_" + sem.getAcademicPeriodCode();
+        return map.get(key);
+    }
+
+    /**
+     * Core calculation logic (extracted for reuse)
+     */
+    private double calculateFromScores(List<StudentCourseScore> scores, GradingSystem gradingSystem) {
         double totalGradePoints = 0.0;
         int totalCreditHours = 0;
 
-        for (StudentCourseScore score : relevantScores) {
-            if (score.getScore() == null) {
-                continue;
-            }
+        for (StudentCourseScore scs : scores) {
+            if (scs.getScore() == null) continue;
 
-            Course course = score.getCourse();
-            if (course == null) {
-                continue; // safety
-            }
+            Course course = scs.getCourse();
+            if (course == null) continue;
 
-            int totalCrHrs = course.getTheoryHrs() + course.getLabHrs();
-            if (totalCrHrs <= 0) {
-                continue; // avoid division issues or meaningless credits
-            }
+            int crHrs = course.getTheoryHrs() + course.getLabHrs();
+            if (crHrs <= 0) continue;
 
-            // Find the matching grade interval
             MarkInterval interval = gradingSystem.getIntervals().stream()
-                    .filter(i -> score.getScore() >= i.getMin() && score.getScore() <= i.getMax())
+                    .filter(i -> scs.getScore() >= i.getMin() && scs.getScore() <= i.getMax())
                     .findFirst()
                     .orElse(null);
 
             if (interval != null) {
-                double gradePoint = totalCrHrs * interval.getGivenValue();
-                totalGradePoints += gradePoint;
-                totalCreditHours += totalCrHrs;
+                totalGradePoints += crHrs * interval.getGivenValue();
+                totalCreditHours += crHrs;
             }
-            // Note: if no interval matches → that course is ignored (common design)
         }
 
-        if (totalCreditHours == 0) {
-            return 0.0;
-        }
-
-        return totalGradePoints / totalCreditHours;
+        return totalCreditHours == 0 ? 0.0 : totalGradePoints / totalCreditHours;
     }
+
 
     /**
      * Generates a simplified student copy (without student information) for grade reports.
@@ -447,16 +487,5 @@ public class StudentCopyService {
         return studentCopies;
     }
 
-    /**
-     * Finds the AcademicYear that contains the given date.
-     */
-    private AcademicYear findAcademicYearForDate(java.time.LocalDate date) {
-        if (date == null) {
-            return null;
-        }
-
-        List<AcademicYear> allAcademicYears = academicYearRepo.findAll();
-        return academicYearUtilityService.findAcademicYearByDate(date, allAcademicYears);
-    }
 }
 

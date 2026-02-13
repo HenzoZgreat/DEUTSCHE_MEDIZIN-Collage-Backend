@@ -8,9 +8,8 @@ import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCopy.StudentCopyReque
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramLevel;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Semester;
-import Henok.example.DeutscheCollageBack_endAPI.Repository.BatchClassYearSemesterRepo;
-import Henok.example.DeutscheCollageBack_endAPI.Repository.StudentCourseScoreRepo;
-import Henok.example.DeutscheCollageBack_endAPI.Repository.StudentDetailsRepository;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.SemesterRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Service.Utility.ClassYearSemesterOrderingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -25,23 +24,23 @@ public class GradeReportService {
 
     @Autowired
     private StudentDetailsRepository studentDetailsRepository;
-
     @Autowired
     private StudentCourseScoreRepo studentCourseScoreRepo;
-
     @Autowired
     private BatchClassYearSemesterRepo batchClassYearSemesterRepo;
-
     @Autowired
     private StudentCopyService studentCopyService;
-
     @Autowired
-    private ClassYearSemesterOrderingService orderingService;
+    private ProgressionSequenceRepository progressionSequenceRepository;
+    @Autowired
+    private ClassYearRepository classYearRepository;
+    @Autowired
+    private SemesterRepo semesterRepo;
 
     /**
      * Generates grade reports for multiple students.
-     * Each grade report contains student information and student copies for all semesters they have taken.
-     * 
+     * Optimized: skips invalid IDs early, continues on per-student errors.
+     *
      * @param request The request containing list of student IDs
      * @return GradeReportResponseDTO containing grade reports for all valid students
      */
@@ -51,11 +50,11 @@ public class GradeReportService {
             throw new IllegalArgumentException("Student IDs list cannot be null or empty");
         }
 
-        List<GradeReportDTO> gradeReports = new ArrayList<>();
+        List<GradeReportDTO> gradeReports = new ArrayList<>(request.getStudentIds().size());
 
         for (Long studentId : request.getStudentIds()) {
             if (studentId == null) {
-                continue; // Skip null student IDs
+                continue;
             }
 
             try {
@@ -63,12 +62,9 @@ public class GradeReportService {
                 if (gradeReport != null) {
                     gradeReports.add(gradeReport);
                 }
-            } catch (IllegalArgumentException e) {
-                // Skip students with invalid data, continue with others
-                continue;
             } catch (Exception e) {
-                // Skip students that don't exist or have errors
-                // Log error if needed, but continue with other students
+                // Silently skip failed students (as per original)
+                // Optional: log.error("Failed to generate report for student {}: {}", studentId, e.getMessage());
                 continue;
             }
         }
@@ -80,106 +76,68 @@ public class GradeReportService {
 
     /**
      * Generates a grade report for a single student.
-     * 
+     * Optimized: pre-fetches all released scores once, groups efficiently, skips redundant queries.
+     *
      * @param studentId The student ID
      * @return GradeReportDTO or null if student doesn't exist or has no records
      */
+    @Transactional(readOnly = true)
     private GradeReportDTO generateGradeReportForStudent(Long studentId) {
-        if (studentId == null) {
-            throw new IllegalArgumentException("Student ID cannot be null");
-        }
-
-        // Get student details
         StudentDetails student = studentDetailsRepository.findById(studentId).orElse(null);
-        if (student == null) {
-            return null; // Skip if student doesn't exist
-        }
-
-        if (student.getUser() == null) {
-            return null; // Skip if student has no user account
-        }
-
-        // Get all released course scores for the student
-        List<StudentCourseScore> allReleasedScores;
-        try {
-            allReleasedScores = studentCourseScoreRepo.findByStudentAndIsReleasedTrue(student.getUser());
-        } catch (Exception e) {
-            // If error fetching scores, return null to skip this student
+        if (student == null || student.getUser() == null) {
             return null;
         }
 
-        if (allReleasedScores == null || allReleasedScores.isEmpty()) {
-            return null; // Skip if student has no released scores
+        User studentUser = student.getUser();
+
+        // Fetch all released scores once (source of truth for history)
+        List<StudentCourseScore> allReleasedScores = studentCourseScoreRepo
+                .findByStudentAndIsReleasedTrue(studentUser);
+
+        if (allReleasedScores.isEmpty()) {
+            return null;
         }
 
-        // Get unique ClassYear + Semester combinations from the released scores
-        Map<String, ClassYearSemesterPair> uniqueCombinations = new HashMap<>();
-        for (StudentCourseScore score : allReleasedScores) {
-            BatchClassYearSemester bcys = score.getBatchClassYearSemester();
-            ClassYear classYear = bcys.getClassYear();
-            Semester semester = bcys.getSemester();
-            
-            String key = classYear.getId() + "_" + semester.getAcademicPeriodCode();
-            if (!uniqueCombinations.containsKey(key)) {
-                uniqueCombinations.put(key, new ClassYearSemesterPair(classYear, semester));
-            }
-        }
+        // Group by historical BCYS efficiently (one pass)
+        Map<BatchClassYearSemester, List<StudentCourseScore>> scoresByBCYS = allReleasedScores.stream()
+                .collect(Collectors.groupingBy(StudentCourseScore::getBatchClassYearSemester));
 
-        // Generate simplified student copies for each unique combination
-        List<SimplifiedStudentCopyDTO> studentCopies = new ArrayList<>();
-        Batch studentBatch = student.getBatchClassYearSemester().getBatch();
+        // Prepare simplified copies
+        List<SimplifiedStudentCopyDTO> studentCopies = new ArrayList<>(scoresByBCYS.size());
 
-        for (ClassYearSemesterPair pair : uniqueCombinations.values()) {
+        Department studentDept = student.getDepartmentEnrolled();
+
+        for (Map.Entry<BatchClassYearSemester, List<StudentCourseScore>> entry : scoresByBCYS.entrySet()) {
+            BatchClassYearSemester historicalBCYS = entry.getKey();
+
             try {
-                // Find BatchClassYearSemester for student's batch + this classYear + semester
-                BatchClassYearSemester bcys = batchClassYearSemesterRepo
-                        .findByBatchAndClassYearAndSemester(studentBatch, pair.classYear, pair.semester)
-                        .orElse(null);
+                StudentCopyRequestDTO request = new StudentCopyRequestDTO();
+                request.setStudentId(studentId);
+                request.setClassYearId(historicalBCYS.getClassYear().getId());
+                request.setSemesterId(historicalBCYS.getSemester().getAcademicPeriodCode());
 
-                if (bcys != null) {
-                    // Generate simplified student copy for this semester (without student info)
-                    StudentCopyRequestDTO copyRequest = new StudentCopyRequestDTO();
-                    copyRequest.setStudentId(studentId);
-                    copyRequest.setClassYearId(pair.classYear.getId());
-                    copyRequest.setSemesterId(pair.semester.getAcademicPeriodCode());
-
-                    SimplifiedStudentCopyDTO studentCopy = studentCopyService.generateSimplifiedStudentCopy(copyRequest);
-                    studentCopies.add(studentCopy);
+                SimplifiedStudentCopyDTO copy = studentCopyService.generateSimplifiedStudentCopy(request);
+                if (copy != null) {
+                    studentCopies.add(copy);
                 }
             } catch (Exception e) {
-                // Skip this semester if there's an error generating the copy
-                // Log error if needed, but continue with other semesters
+                // Skip problematic semester silently (as before)
                 continue;
             }
         }
 
-        // Sort student copies by ClassYear then Semester
-        studentCopies.sort((sc1, sc2) -> {
-            try {
-                // Compare by ClassYear first
-                int classYearCompare = orderingService.compareClassYearStrings(
-                        sc1.getClassyear().getName(),
-                        sc2.getClassyear().getName()
-                );
-                if (classYearCompare != 0) {
-                    return classYearCompare;
-                }
-                // If same ClassYear, compare by Semester
-                return orderingService.compareSemesterStrings(
-                        sc1.getSemester().getId(),
-                        sc2.getSemester().getId()
-                );
-            } catch (Exception e) {
-                // If comparison fails, maintain current order
-                return 0;
-            }
-        });
+        // Sort using ProgressionSequence (department-aware)
+        studentCopies.sort(Comparator.comparingInt(copy ->
+                getProgressionSequenceNumber(studentDept,
+                        copy.getClassyear().getId(),
+                        copy.getSemester().getId())
+        ));
 
         // Build GradeReportDTO
         GradeReportDTO gradeReport = new GradeReportDTO();
-        
+
         // Student Information
-        gradeReport.setIdNumber(student.getUser().getUsername());
+        gradeReport.setIdNumber(studentUser.getUsername());
         gradeReport.setFullName(String.join(" ",
                 student.getFirstNameENG(),
                 student.getFatherNameENG(),
@@ -210,10 +168,39 @@ public class GradeReportService {
         gradeReport.setDateEnrolledGC(student.getDateEnrolledGC());
         gradeReport.setDateIssuedGC(LocalDate.now());
 
-        // Student Copies
+        // Attach sorted copies
         gradeReport.setStudentCopies(studentCopies);
 
         return gradeReport;
+    }
+
+    /**
+     * Returns the progression sequence number for a given classYear + semester.
+     * Uses department-specific rule first, then global fallback.
+     * Returns Integer.MAX_VALUE if no rule found (so it goes to the end).
+     */
+    private int getProgressionSequenceNumber(Department dept, Long classYearId, String semesterCode) {
+        ClassYear cy = classYearRepository.findById(classYearId).orElse(null);
+        Semester sem = semesterRepo.findById(semesterCode).orElse(null);
+        if (cy == null || sem == null) {
+            return Integer.MAX_VALUE;
+        }
+
+        // Try department-specific
+        if (dept != null) {
+            Optional<ProgressionSequence> specific = progressionSequenceRepository
+                    .findByDepartmentAndClassYearAndSemester(dept, cy, sem);
+            if (specific.isPresent()) {
+                return specific.get().getSequenceNumber();
+            }
+        }
+
+        // Fallback to global
+        Optional<ProgressionSequence> global = progressionSequenceRepository
+                .findByDepartmentIsNullAndClassYearAndSemester(cy, sem);
+
+        return global.map(ProgressionSequence::getSequenceNumber)
+                .orElse(Integer.MAX_VALUE);
     }
 
     /**
