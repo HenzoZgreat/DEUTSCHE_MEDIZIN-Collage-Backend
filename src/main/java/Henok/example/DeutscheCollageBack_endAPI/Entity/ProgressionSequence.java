@@ -10,15 +10,9 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "progression_sequence",
         uniqueConstraints = {
-                // Per-department uniqueness
                 @UniqueConstraint(
                         columnNames = {"department_id", "class_year_id", "semester_id"},
                         name = "uk_progression_dept_classyear_semester"
-                ),
-                // Global uniqueness (department_id IS NULL)
-                @UniqueConstraint(
-                        columnNames = {"class_year_id", "semester_id"},
-                        name = "uk_progression_global_classyear_semester"
                 )
         })
 @Data
