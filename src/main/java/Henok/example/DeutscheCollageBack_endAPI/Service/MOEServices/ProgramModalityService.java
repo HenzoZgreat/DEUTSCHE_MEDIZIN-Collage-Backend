@@ -3,13 +3,17 @@ package Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.MOE_DTOs.ProgramModalityDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramLevel;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramModality;
+import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.DepartmentRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.ProgramLevelRepository;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.ProgramModalityRepository;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.StudentDetailsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +27,10 @@ public class ProgramModalityService {
     private ProgramModalityRepository programModalityRepository;
     @Autowired
     private ProgramLevelRepository programLevelRepository;
+    @Autowired
+    private StudentDetailsRepository studentDetailsRepository; // For delete checks
+    @Autowired
+    private DepartmentRepo departmentRepository; // For delete checks
 
     // Save single
     public ProgramModalityDTO save(ProgramModalityDTO dto) {
@@ -94,10 +102,43 @@ public class ProgramModalityService {
         return toDto(programModalityRepository.save(existing));
     }
 
+    /**
+     * Hard-deletes a ProgramModality ONLY if it is not referenced by:
+     *  - any StudentDetails (students enrolled in this modality)
+     *  - any Department (departments offering programs in this modality)
+     *
+     * Throws a clear exception if deletion is blocked.
+     */
+    @Transactional
     public void delete(String modalityCode) {
-        ProgramModality entity = programModalityRepository.findByModalityCode(modalityCode)
-                .orElseThrow(() -> new ResourceNotFoundException("ProgramModality with code " + modalityCode + " not found"));
-        programModalityRepository.delete(entity);
+
+        // 1. Find the entity
+        ProgramModality modality = programModalityRepository.findByModalityCode(modalityCode)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Program modality with code '" + modalityCode + "' not found"));
+
+        // 2. Check usage - prevent deletion if still referenced
+        boolean hasStudents = studentDetailsRepository.existsByProgramModality(modality);
+        boolean hasDepartments = departmentRepository.existsByProgramModality(modality);
+
+        if (hasStudents) {
+            throw new BadRequestException(
+                    "Cannot delete modality '" + modalityCode + "'. " +
+                            "There are still students enrolled in this program modality. " +
+                            "You must graduate, transfer, or reassign all students first."
+            );
+        }
+
+        if (hasDepartments) {
+            throw new BadRequestException(
+                    "Cannot delete modality '" + modalityCode + "'. " +
+                            "One or more departments are still using this program modality. " +
+                            "Remove or change the modality reference in those departments first."
+            );
+        }
+
+        // 3. Safe to delete
+        programModalityRepository.delete(modality);
     }
 
     // --- Helper Methods ---

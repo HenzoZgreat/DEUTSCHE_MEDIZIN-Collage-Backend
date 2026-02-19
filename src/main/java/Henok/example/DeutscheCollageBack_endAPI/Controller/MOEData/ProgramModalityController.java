@@ -2,6 +2,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Controller.MOEData;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.MOE_DTOs.ProgramModalityDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramModality;
+import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.MOEServices.ProgramModalityService;
@@ -105,14 +106,38 @@ public class ProgramModalityController {
         }
     }
 
+    /**
+     * Hard delete of a program modality.
+     * Deletion is blocked if modality is still referenced by students or departments.
+     */
     @DeleteMapping("/{modalityCode}")
-    public ResponseEntity<?> delete(@PathVariable String modalityCode) {
+    public ResponseEntity<?> deleteProgramModality(@PathVariable String modalityCode) {
         try {
             programModalityService.delete(modalityCode);
+
+            // 204 No Content is standard for successful DELETE with no body
             return ResponseEntity.noContent().build();
+
         } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
+
+        } catch (BadRequestException e) {
+            // 409 Conflict or 400 Bad Request — both acceptable
+            // 409 is often used when resource state prevents operation
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ErrorResponse(e.getMessage()));
+
+        } catch (DataIntegrityViolationException e) {
+            // In case some unexpected foreign key constraint still blocks
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ErrorResponse(
+                            "Cannot delete modality due to database constraints. " +
+                                    "It may still be referenced in other tables."
+                    ));
+
         } catch (Exception e) {
+            // Catch-all for unexpected errors (logging should happen here in real app)
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Failed to delete program modality: " + e.getMessage()));
         }

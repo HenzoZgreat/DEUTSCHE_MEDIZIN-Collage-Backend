@@ -16,4 +16,6 @@ public interface ProgramModalityRepository extends JpaRepository<ProgramModality
     Optional<ProgramModality> findByModalityCode(String modalityCode);
 
     List<ProgramModality> findByProgramLevel(ProgramLevel programLevel);
+
+    boolean existsByProgramLevel(ProgramLevel level);
 }

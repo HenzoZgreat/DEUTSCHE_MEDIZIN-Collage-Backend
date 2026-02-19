@@ -96,6 +96,13 @@ public interface StudentCourseScoreRepo extends JpaRepository<StudentCourseScore
     // Returns 0 if no matches
     long countByCourseAndBatchClassYearSemester(Course course, BatchClassYearSemester bcys);
 
+    /**
+     * Counts how many course score records exist for this student.
+     * This represents the total number of courses the student has taken/been registered for.
+     */
+    long countByStudent(User student);
+
+
     // Finds all enrollments for a specific course + BCYS combination
     // Why: Used to get the exact student list for one course the teacher is teaching
     List<StudentCourseScore> findByCourseAndBatchClassYearSemester(Course course, BatchClassYearSemester bcys);
@@ -129,9 +136,12 @@ public interface StudentCourseScoreRepo extends JpaRepository<StudentCourseScore
 
     List<StudentCourseScore> findByStudent(User student);
 
-    /**
-     * Counts how many course score records exist for this student.
-     * This represents the total number of courses the student has taken/been registered for.
-     */
-    long countByStudent(User student);
+
+
+    @Query("SELECT scs FROM StudentCourseScore scs " +
+            "JOIN FETCH scs.course c " +
+            "JOIN FETCH scs.courseSource cs " +
+            "JOIN FETCH scs.batchClassYearSemester bcys " +
+            "WHERE scs.student.id = :studentId")
+    List<StudentCourseScore> findByStudentWithCourseAndSourceAndBcys(@Param("studentId") Long studentId);
 }

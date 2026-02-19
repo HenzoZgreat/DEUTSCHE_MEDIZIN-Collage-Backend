@@ -87,27 +87,27 @@ public class StudentCourseScoreService {
         studentCourseScoreRepo.save(studentCourseScore);
     }
 
-    public void updateScore(Long studentId, Long courseId, Long batchClassYearSemesterId, Double score) {
+    public void updateScore(Long studentUserId, Long courseId, Long batchClassYearSemesterId, Double score) {
         if (score != null && (score < 0 || score > 100)) {
             throw new IllegalArgumentException("Score must be between 0 and 100");
         }
 
-        User student = userRepo.findById(studentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
+        User student = userRepo.findById(studentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentUserId));
         Course course = courseRepo.findById(courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
         BatchClassYearSemester bcys = batchClassYearSemesterRepo.findById(batchClassYearSemesterId)
                 .orElseThrow(() -> new ResourceNotFoundException("BatchClassYearSemester not found with id: " + batchClassYearSemesterId));
 
         StudentCourseScore studentCourseScore = studentCourseScoreRepo.findByStudentAndCourseAndBatchClassYearSemester(student, course, bcys)
-                .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found for student " + studentId + " and course " + courseId));
+                .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found for student " + studentUserId + " and course " + courseId));
 
         studentCourseScore.setScore(score);
         studentCourseScoreRepo.save(studentCourseScore);
 
         // Publish event AFTER successful save
         applicationEventPublisher.publishEvent(
-                new ScoreUpdatedEvent(this, studentId)
+                new ScoreUpdatedEvent(this, studentUserId)
         );
     }
 
@@ -355,6 +355,12 @@ public class StudentCourseScoreService {
             }
 
             studentCourseScoreRepo.save(studentCourseScore);
+
+            // Publish event AFTER successful save
+            Long studentUserId = studentCourseScore.getStudent().getId(); // capture student ID for event
+            applicationEventPublisher.publishEvent(
+                    new ScoreUpdatedEvent(this, studentUserId)
+            );
         }
     }
 

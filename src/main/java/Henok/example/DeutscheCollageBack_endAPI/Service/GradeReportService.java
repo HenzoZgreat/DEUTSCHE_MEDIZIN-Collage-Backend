@@ -10,12 +10,12 @@ import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramLevel;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Semester;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.SemesterRepo;
-import Henok.example.DeutscheCollageBack_endAPI.Service.Utility.ClassYearSemesterOrderingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -30,6 +30,8 @@ public class GradeReportService {
     private BatchClassYearSemesterRepo batchClassYearSemesterRepo;
     @Autowired
     private StudentCopyService studentCopyService;
+    @Autowired
+    private GradingSystemService gradingSystemService;
     @Autowired
     private ProgressionSequenceRepository progressionSequenceRepository;
     @Autowired
@@ -167,6 +169,42 @@ public class GradeReportService {
 
         gradeReport.setDateEnrolledGC(student.getDateEnrolledGC());
         gradeReport.setDateIssuedGC(LocalDate.now());
+
+        // ──────────────────────────────────────────────
+        // Add footer text here
+        GradingSystem gradingSystem = gradingSystemService.findApplicableGradingSystem(department);
+
+        StringBuilder footer = new StringBuilder();
+
+        // 1. Grading intervals in one line
+        List<MarkInterval> intervals = gradingSystem.getIntervals();
+        intervals.sort(Comparator.comparingDouble(MarkInterval::getGivenValue).reversed()); // A+ first
+
+        for (int i = 0; i < intervals.size(); i++) {
+            MarkInterval interval = intervals.get(i);
+            footer.append(interval.getGradeLetter())
+                    .append(" = ")
+                    .append(String.format("%.2f", interval.getGivenValue()));
+            if (i < intervals.size() - 1) {
+                footer.append(", ");
+            }
+        }
+        footer.append("\n");
+
+        // 2. Notation / symbols
+        footer.append("** = Course Repeated, * = Credit Transferred / Taken Externally\n\n");
+
+        // 3. Date issued (human readable format - adjust locale/formatter if needed)
+        footer.append("Date Issued: ")
+                .append(gradeReport.getDateIssuedGC()
+                        .format(DateTimeFormatter.ofPattern("dd MMMM yyyy")))
+                .append("\n");
+
+        // 4. Final disclaimer
+        footer.append("THE TRANSCRIPT IS OFFICIAL ONLY WHEN SIGNED AND SEALED BY THE REGISTRAR");
+
+        gradeReport.setFooterText(footer.toString());
+        // ──────────────────────────────────────────────
 
         // Attach sorted copies
         gradeReport.setStudentCopies(studentCopies);

@@ -6,10 +6,12 @@ import Henok.example.DeutscheCollageBack_endAPI.DTO.DepartmentDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramLevel;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramModality;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
+import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.DepartmentRepo;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.ProgramLevelRepository;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.ProgramModalityRepository;
+import Henok.example.DeutscheCollageBack_endAPI.Repository.StudentDetailsRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +33,9 @@ public class DepartmentService {
 
     @Autowired
     private ProgramLevelRepository programLevelRepository;
+
+    @Autowired
+    private StudentDetailsRepository studentDetailsRepository;
 
     public void addDepartments(List<DepartmentDTO> departmentDTOs) {
         if (departmentDTOs == null || departmentDTOs.isEmpty()) {
@@ -196,10 +201,26 @@ public class DepartmentService {
         departmentRepository.save(existingDepartment);
     }
 
+    // Service method to delete a department
+    // Checks if the department exists and if it is referenced by any students before deletion.
+    // Why: Prevents deletion of departments that are in use to maintain data integrity.
+    // If referenced, throws BadRequestException to indicate the operation is invalid.
     public void deleteDepartment(Long id) {
-        if (!departmentRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Department not found with id: " + id);
+        // Check if the department exists
+        Department department = departmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + id));
+
+        // Check if the department is referenced by any students
+        // Property: Uses countByDepartmentEnrolled to efficiently check references without loading all entities.
+        long studentCount = studentDetailsRepository.countByDepartmentEnrolled(department);
+        if (studentCount > 0) {
+            throw new BadRequestException("Cannot delete department as it is referenced by " + studentCount + " students.");
         }
+
+        // TODO: Add checks for other potential references (e.g., courses, teachers) if applicable.
+        // For now, assuming primary reference is via students based on provided entities.
+
+        // Proceed with deletion if no references found
         departmentRepository.deleteById(id);
     }
 

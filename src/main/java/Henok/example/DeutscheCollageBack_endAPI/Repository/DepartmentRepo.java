@@ -15,4 +15,8 @@ public interface DepartmentRepo extends JpaRepository<Department, Long> {
     List<Department> findByProgramModality(ProgramModality programModality);
 
     List<Department> findByProgramLevel(ProgramLevel programLevel);
+
+    boolean existsByProgramLevel(ProgramLevel level);
+
+    boolean existsByProgramModality(ProgramModality modality);
 }

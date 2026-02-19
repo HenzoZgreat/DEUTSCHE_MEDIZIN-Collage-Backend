@@ -3,6 +3,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Controller;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.DepartmentResponseDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Department;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.DepartmentDTO;
+import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ErrorResponse;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Service.DepartmentService;
@@ -128,6 +129,9 @@ public class DepartmentController {
             return ResponseEntity.ok("Department deleted successfully");
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (BadRequestException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

@@ -130,6 +130,7 @@ public class FilterDataController {
                     Map<String, Object> map = new HashMap<>();
                     map.put("id", ay.getYearCode());
                     map.put("name", ay.getAcademicYearGC());
+                    map.put("name_EC", ay.getAcademicYearEC());
                     return map;
                 })
                 .collect(Collectors.toList());

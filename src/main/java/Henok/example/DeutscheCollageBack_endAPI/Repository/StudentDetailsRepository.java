@@ -1,6 +1,7 @@
 package Henok.example.DeutscheCollageBack_endAPI.Repository;
 
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.ProgramModality;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.DocumentStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Gender;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,10 +20,10 @@ public interface StudentDetailsRepository extends JpaRepository<StudentDetails, 
     Optional<StudentDetails> findByUser(User student);
 
     boolean existsByUserId(Long userId);
-
     boolean existsByPhoneNumber(String phoneNumber);
-
     boolean existsByExitExamUserID(String exitExamUserID);
+    boolean existsByProgramModality(ProgramModality modality);
+
 
     // Fetches all students by a list of IDs with necessary relations eagerly loaded
     @Query("""
@@ -142,6 +143,7 @@ public interface StudentDetailsRepository extends JpaRepository<StudentDetails, 
             "GROUP BY d.deptName")
     List<DepartmentCountProjection> countStudentsByDepartment();
 
+
     interface DepartmentCountProjection {
         String getDepartmentName();
         Long getCount();
@@ -180,5 +182,15 @@ public interface StudentDetailsRepository extends JpaRepository<StudentDetails, 
     // Projection to fetch only enrollment dates (dateEnrolledGC) – avoids loading full entities
     @Query("SELECT s.dateEnrolledGC FROM StudentDetails s WHERE s.dateEnrolledGC IS NOT NULL")
     List<LocalDate> findAllEnrollmentDates();
+
+
+    // StudentDetailsRepository
+    @Query("SELECT sd FROM StudentDetails sd " +
+            "JOIN FETCH sd.user u " +
+            "JOIN FETCH sd.departmentEnrolled " +
+            "JOIN FETCH sd.studentRecentStatus " +
+            "JOIN FETCH sd.batchClassYearSemester " +
+            "WHERE u.id = :userId")
+    Optional<StudentDetails> findWithUserAndDepartmentAndStatusAndBcys(@Param("userId") Long userId);
 }
 

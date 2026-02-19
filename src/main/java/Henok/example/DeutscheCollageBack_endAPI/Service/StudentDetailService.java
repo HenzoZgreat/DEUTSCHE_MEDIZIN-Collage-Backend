@@ -5,16 +5,14 @@ import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.Student
 import Henok.example.DeutscheCollageBack_endAPI.DTO.RegistrationAndLogin.UserRegisterRequest;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Student.StudentProfileResponse;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentSlips.StudentsListForSlipDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentDetailsDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentDetailsSummaryDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentUpdateDTO;
-import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentListDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.*;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.StudentCGPADTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.*;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.ApplicationStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.DocumentStatus;
 import Henok.example.DeutscheCollageBack_endAPI.Enums.Role;
+import Henok.example.DeutscheCollageBack_endAPI.Error.BadRequestException;
 import Henok.example.DeutscheCollageBack_endAPI.Error.ResourceNotFoundException;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.*;
 import Henok.example.DeutscheCollageBack_endAPI.Repository.MOE_Repos.*;
@@ -41,57 +39,46 @@ public class StudentDetailService {
 
     @Autowired
     private StudentDetailsRepository studentDetailsRepository;
-
     @Autowired
     private AppliedStudentRepository appliedStudentRepository;
 
     @Autowired
     private UserRepository userRepository;
-
     @Autowired
     private UserService userService;
 
     @Autowired
     private WoredaRepository woredaRepository;
-
     @Autowired
     private ZoneRepository zoneRepository;
-
     @Autowired
     private RegionRepository regionRepository;
-
     @Autowired
     private ImpairmentRepository impairmentRepository;
-
     @Autowired
     private SchoolBackgroundRepository schoolBackgroundRepository;
 
     @Autowired
     private BatchClassYearSemesterRepo batchClassYearSemesterRepository;
-
     @Autowired
     private StudentStatusRepo studentStatusRepository;
-
     @Autowired
     private DepartmentRepo departmentRepository;
-
     @Autowired
     private ProgramModalityRepository programModalityRepository;
-
     @Autowired
     private NotificationService notificationService;
-
     @Autowired
     private AcademicYearRepo academicYearRepository;
-
     @Autowired
     private StudentCopyService studentCopyService;
-
     @Autowired
     private GradingSystemService gradingSystemService;
 
     @Autowired
     private StudentCourseScoreRepo studentCourseScoreRepo;
+    @Autowired
+    private CourseRepo courseRepository;
 
 
 
@@ -99,22 +86,22 @@ public class StudentDetailService {
     // Why: Handles student registration with multipart form data, validates inputs, and ensures data integrity
     @Transactional(rollbackFor = Exception.class)
     public StudentDetails registerStudent(StudentRegisterRequest request, MultipartFile studentPhoto, MultipartFile document) {
-        System.out.println("================ Starting student registration process... ================");
+//        System.out.println("================ Starting student registration process... ================");
         // Validate required fields
         validateRegistrationRequest(request);
-        System.out.println("Registration request validated successfully.");
+//        System.out.println("Registration request validated successfully.");
 
         // Check for duplicate phone number
         if (studentDetailsRepository.existsByPhoneNumber(request.getPhoneNumber())) {
             throw new IllegalArgumentException("Phone number already in use");
         }
-        System.out.println("Phone number is unique.");
+//        System.out.println("Phone number is unique.");
         // Check for duplicate exitExamUserID if provided
         if (request.getExitExamUserID() != null && !request.getExitExamUserID().isEmpty()
                 && studentDetailsRepository.existsByExitExamUserID(request.getExitExamUserID())) {
             throw new IllegalArgumentException("Exit exam user ID already in use");
         }
-        System.out.println("Exit exam user ID is unique or not provided.");
+//        System.out.println("Exit exam user ID is unique or not provided.");
 
         // Validate file sizes
         if (studentPhoto != null && !studentPhoto.isEmpty() && studentPhoto.getSize() > 2_000_000) { // 2MB limit
@@ -123,7 +110,7 @@ public class StudentDetailService {
         if (document != null && !document.isEmpty() && document.getSize() > 10_000_000) { // 10MB limit
             throw new IllegalArgumentException("Document size exceeds 10MB limit");
         }
-        System.out.println("File sizes are within limits.");
+//        System.out.println("File sizes are within limits.");
 
         // Register user with STUDENT role
         UserRegisterRequest userRequest = new UserRegisterRequest();
@@ -136,7 +123,7 @@ public class StudentDetailService {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("User registration failed: " + e.getMessage());
         }
-        System.out.println("User registered successfully with username: " + user.getUsername());
+//        System.out.println("User registered successfully with username: " + user.getUsername());
 
         // Map request to StudentDetails entity
         StudentDetails student;
@@ -147,18 +134,18 @@ public class StudentDetailService {
         } catch (IOException e) {
             throw new IllegalArgumentException("Failed to process file uploads: " + e.getMessage());
         }
-        System.out.println("StudentDetails entity created successfully !! ");
+//        System.out.println("StudentDetails entity created successfully !! ");
 
         // Save student
         try {
             StudentDetails newStudent = studentDetailsRepository.save(student);
-            System.out.println("Student registered successfully with ID: " + newStudent.getId());
+//            System.out.println("Student registered successfully with ID: " + newStudent.getId());
             notificationService.createNotification(Arrays.asList(
                     Role.GENERAL_MANAGER, Role.DEAN, Role.VICE_DEAN, Role.DEPARTMENT_HEAD, Role.REGISTRAR),
                     null, Role.REGISTRAR,
                     "New Student Registered : " + newStudent.getFirstNameAMH() + " " + newStudent.getFatherNameAMH());
 
-            System.out.println("Finally Sent Notifications");
+//            System.out.println("Finally Sent Notifications");
             return newStudent;
         } catch (DataIntegrityViolationException e) {
             throw new IllegalArgumentException("Failed to register student due to duplicate entry or constraint violation: " + e.getMessage());
@@ -272,6 +259,7 @@ public class StudentDetailService {
                     StudentCGPADTO dto = new StudentCGPADTO();
 
                     dto.setStudentId(student.getId());
+                    dto.setStudentUserId(student.getUser().getId());
                     dto.setIdNumber(student.getUser().getUsername());
                     
                     String fullName = String.join(" ",
@@ -369,7 +357,7 @@ public class StudentDetailService {
     // Updates a student's details with optional file uploads
     // Why: Allows modification with multipart form data, respects enabled status
     // Updates a student's details with optional file uploads and returns DTO
-// Why: Allows modification with multipart form data, returns updated DTO
+    // Why: Allows modification with multipart form data, returns updated DTO
     @Transactional(rollbackFor = Exception.class)
     public StudentDetailsDTO updateStudent(Long id, StudentUpdateDTO dto, MultipartFile studentPhoto, MultipartFile document) {
         // Validate DTO
@@ -1334,6 +1322,118 @@ System.out.println("---------Finished Registering Applicant --------");
         return total;
     }
 
+    /**
+     * Retrieves academic progress summary for a student including taken and remaining courses.
+     * Optimized to minimize database roundtrips and avoid N+1 issues.
+     *
+     * @param studentUserId the ID of the User entity linked to StudentDetails
+     * @return StudentAcademicProgressDTO with all calculated data
+     * @throws ResourceNotFoundException if student not found
+     * @throws BadRequestException if invalid user ID
+     */
+    public StudentAcademicProgressDTO getStudentAcademicProgress(Long studentUserId) {
+
+        if (studentUserId == null || studentUserId <= 0) {
+            throw new BadRequestException("Invalid student user ID");
+        }
+
+        // Fetch StudentDetails with necessary eager fetching or JOIN FETCH
+        StudentDetails studentDetails = studentDetailsRepository.findWithUserAndDepartmentAndStatusAndBcys(studentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with user ID: " + studentUserId));
+
+        User user = studentDetails.getUser();
+        Department department = studentDetails.getDepartmentEnrolled();
+        BatchClassYearSemester currentBcys = studentDetails.getBatchClassYearSemester();
+        StudentStatus status = studentDetails.getStudentRecentStatus();
+
+        // 1. Get all taken courses (StudentCourseScore entries) for this student
+        // We fetch all in one query with JOIN FETCH to avoid N+1
+        List<StudentCourseScore> takenScores = studentCourseScoreRepo.findByStudentWithCourseAndSourceAndBcys(user.getId());
+
+        // Build taken courses list + calculate totals
+        List<TakenCourseDTO> takenDtos = new ArrayList<>();
+        int totalTakenCr = 0;
+
+        for (StudentCourseScore score : takenScores) {
+            Course course = score.getCourse();
+            BatchClassYearSemester bcys = score.getBatchClassYearSemester();
+            CourseSource source = score.getCourseSource();
+
+            int crHrs = (course.getTheoryHrs() != null ? course.getTheoryHrs() : 0) +
+                    (course.getLabHrs() != null ? course.getLabHrs() : 0);
+
+            takenDtos.add(TakenCourseDTO.builder()
+                    .courseId(course.getCID())
+                    .courseCode(course.getCCode())
+                    .courseTitle(course.getCTitle())
+                    .creditHours(crHrs)
+                    .courseSource(source.getSourceName())
+                    .isReleased(score.isReleased())
+                    .takenIn(bcys.getDisplayName())
+                    .build());
+
+            totalTakenCr += crHrs;
+        }
+
+        // 2. Get ALL courses that belong to the student's department
+        // We assume these are the curriculum courses the student must take
+        List<Course> allDepartmentCourses = courseRepository.findByDepartment(department);
+
+        // 3. Build set of taken course IDs for fast lookup
+        Set<Long> takenCourseIds = takenScores.stream()
+                .map(s -> s.getCourse().getCID())
+                .collect(Collectors.toSet());
+
+        // 4. Calculate remaining courses
+        List<RemainingCourseDTO> remainingDtos = new ArrayList<>();
+        int totalRemainingCr = 0;
+
+        for (Course course : allDepartmentCourses) {
+            if (!takenCourseIds.contains(course.getCID())) {
+
+                int crHrs = (course.getTheoryHrs() != null ? course.getTheoryHrs() : 0) +
+                        (course.getLabHrs() != null ? course.getLabHrs() : 0);
+
+                String expectedIn = null;
+                if (course.getClassYear() != null && course.getSemester() != null) {
+                    expectedIn = course.getClassYear().getClassYear() + " - " +
+                            course.getSemester().getAcademicPeriodCode();
+                }
+
+                remainingDtos.add(RemainingCourseDTO.builder()
+                        .courseId(course.getCID())
+                        .courseCode(course.getCCode())
+                        .courseTitle(course.getCTitle())
+                        .creditHours(crHrs)
+                        .expectedIn(expectedIn)
+                        .build());
+
+                totalRemainingCr += crHrs;
+            }
+        }
+
+        // Build full response
+        String fullName = String.format("%s %s %s",
+                studentDetails.getFirstNameENG(),
+                studentDetails.getFatherNameENG(),
+                studentDetails.getGrandfatherNameENG());
+
+        return StudentAcademicProgressDTO.builder()
+                .studentId(user.getId())
+                .username(user.getUsername())
+                .fullName(fullName.trim())
+                .department(department.getDeptName())   // assuming you have this field
+                .currentStatus(status.getStatusName())
+                .currentBatchClassYearSemester(currentBcys.getDisplayName())
+                .takenCourses(takenDtos)
+                .totalTakenCourses(takenDtos.size())
+                .totalTakenCreditHours(totalTakenCr)
+                .remainingCourses(remainingDtos)
+                .totalRemainingCourses(remainingDtos.size())
+                .totalRemainingCreditHours(totalRemainingCr)
+                .build();
+    }
+
     @EventListener
     @Async   // ← very important: run in background, don't block HTTP response
     @Transactional
@@ -1354,7 +1454,7 @@ System.out.println("---------Finished Registering Applicant --------");
             int newTotalCr = calculateTotalRegisteredCreditHours(student);
 
             details.setCgpa(BigDecimal.valueOf(newCgpa).setScale(2, RoundingMode.HALF_UP));
-            details.setTotalEarnedCreditHours(newTotalCr > 0 ? newTotalCr : 0);
+            details.setTotalEarnedCreditHours(Math.max(newTotalCr, 0));
 
             // ── NEW ── Total number of courses taken
             long courseCount = studentCourseScoreRepo.countByStudent(student);

@@ -101,7 +101,6 @@ public class AuthController {
             response.put("studentId", studentDetails.getId().toString());
             response.put("userId", studentDetails.getUser().getId().toString());
             response.put("username", studentDetails.getUser().getUsername());
-            response.put("password", request.getPassword()); // Note: In production, avoid returning plain password
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)

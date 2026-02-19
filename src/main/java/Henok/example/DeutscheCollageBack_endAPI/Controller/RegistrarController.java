@@ -3,6 +3,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Controller;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.AssessmentScoresResponse;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.FormTemplateListDTO;
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarDashboardDTO;
+import Henok.example.DeutscheCollageBack_endAPI.DTO.Students.StudentAcademicProgressDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.Assessment;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.FormTemplate;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.User;
@@ -284,6 +285,37 @@ public class RegistrarController {
         } catch (Exception e) {
             // Catch unexpected runtime issues (db connection, etc.)
             throw new RuntimeException("Failed to initialize CGPA for all students: " + e.getMessage(), e);
+        }
+    }
+
+    // In your StudentController (or appropriate controller)
+
+    @GetMapping("/students/{userId}/academic-progress")
+    public ResponseEntity<?> getStudentAcademicProgress(@PathVariable Long userId) {
+
+        try {
+            // You can add role/permission check here if needed
+            // e.g. only student himself, registrar, advisor, etc.
+            StudentAcademicProgressDTO progress = studentDetailsService.getStudentAcademicProgress(userId);
+
+            return ResponseEntity.ok(progress);
+
+        } catch (ResourceNotFoundException ex) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(ex.getMessage()));
+
+        } catch (BadRequestException ex) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(ex.getMessage()));
+
+        } catch (Exception ex) {
+            // Log the error in production
+//            log.error("Unexpected error fetching academic progress for user {}: {}", userId, ex.getMessage(), ex);
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("An unexpected error occurred. Please try again later."));
         }
     }
 

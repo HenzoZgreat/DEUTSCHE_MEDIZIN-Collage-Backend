@@ -30,6 +30,7 @@ public class GradeReportDTO {
     
     // List of simplified student copies for all semesters (without student info)
     private List<SimplifiedStudentCopyDTO> studentCopies;
+    private String footerText;
     
     // Nested DTOs
     @Data
