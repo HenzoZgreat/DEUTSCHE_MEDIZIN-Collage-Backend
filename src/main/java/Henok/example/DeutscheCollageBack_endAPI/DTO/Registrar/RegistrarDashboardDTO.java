@@ -24,6 +24,8 @@ public class RegistrarDashboardDTO {
 
     // Charts
     private Map<Gender, Long> applicantGenderDistribution;
+    private Map<Gender, Long> registeredStudentsGenderDistribution;      // NEW - all registered
+    private Map<Gender, Long> activeStudentsGenderDistribution;          // NEW - only active
     private Map<String, Long> enrollmentByDepartment;
     private List<AcademicYearEnrollment> enrollmentTrendsByAcademicYear; // New: trends by academic year
     private Map<String, Double> averageScoresByDepartment;

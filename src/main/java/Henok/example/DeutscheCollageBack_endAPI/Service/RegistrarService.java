@@ -315,7 +315,7 @@ public class RegistrarService {
 
         dto.setIncompleteDocuments(studentDetailsRepository.countByDocumentStatus(DocumentStatus.INCOMPLETE));
 
-        // === SAFE HANDLING FOR APPLICANT GENDER DISTRIBUTION ===
+        // === SAFE HANDLING FOR GENDER DISTRIBUTION ===
         // Why: The previous countByGenderGrouped() may fail due to empty results, null gender, or unsupported return type.
         // Solution: Use simple, safe derived query methods + manual mapping.
         try {
@@ -328,6 +328,30 @@ public class RegistrarService {
         } catch (Exception e) {
             // Prevent crash - return empty map if anything goes wrong
             dto.setApplicantGenderDistribution(Collections.emptyMap());
+        }
+
+        // Gender distribution for ALL registered students
+        try {
+            Map<Gender, Long> registeredGender = new EnumMap<>(Gender.class);
+            for (Gender g : Gender.values()) {
+                long count = studentDetailsRepository.countByGender(g);
+                registeredGender.put(g, count);
+            }
+            dto.setRegisteredStudentsGenderDistribution(registeredGender);
+        } catch (Exception e) {
+            dto.setRegisteredStudentsGenderDistribution(Collections.emptyMap());
+        }
+
+        // Gender distribution for ACTIVE students only
+        try {
+            Map<Gender, Long> activeGender = new EnumMap<>(Gender.class);
+            for (Gender g : Gender.values()) {
+                long count = studentDetailsRepository.countByGenderAndStudentRecentStatus(g, activeStatus);
+                activeGender.put(g, count);
+            }
+            dto.setActiveStudentsGenderDistribution(activeGender);
+        } catch (Exception e) {
+            dto.setActiveStudentsGenderDistribution(Collections.emptyMap());
         }
 
         // === SAFE HANDLING FOR ENROLLMENT BY DEPARTMENT ===

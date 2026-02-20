@@ -133,7 +133,6 @@ public interface StudentDetailsRepository extends JpaRepository<StudentDetails, 
     long countByDepartmentEnrolled(Department department);
 
 
-
     // ==================== NEW METHODS FOR Registrar DASHBOARD ====================
 
     // Returns list of department name + count for dashboard
@@ -175,9 +174,14 @@ public interface StudentDetailsRepository extends JpaRepository<StudentDetails, 
     // Count students with impairment (not null)
     long countByImpairmentIsNotNull();
 
+    // Counts registered students by gender
+    long countByGender(Gender gender);
+
     // Count distinct departments (for department overview)
     @Query("SELECT COUNT(DISTINCT s.departmentEnrolled) FROM StudentDetails s")
     long countDistinctDepartments();
+
+    long countByGenderAndStudentRecentStatus(Gender gender, StudentStatus status);
 
     // Projection to fetch only enrollment dates (dateEnrolledGC) – avoids loading full entities
     @Query("SELECT s.dateEnrolledGC FROM StudentDetails s WHERE s.dateEnrolledGC IS NOT NULL")
