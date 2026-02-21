@@ -113,14 +113,14 @@ public class StudentCourseScoreController {
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDir,
 
-            // Optional filters (all nullable by default)
+            @RequestParam(required = false) Long departmentId,
             @RequestParam(required = false) Long courseId,
             @RequestParam(required = false) Long bcysId,
             @RequestParam(required = false) Long studentId,
-            @RequestParam(required = false) Long departmentId,          // ← new
+            @RequestParam(required = false) Boolean isReleased,
 
-            // Optional: filter only released / unreleased scores
-            @RequestParam(required = false) Boolean isReleased) {
+            // ── New parameter ──
+            @RequestParam(required = false) Long studentStatusId) {   // ← filter by student_recent_status.id
 
         try {
             Sort sort = sortDir.equalsIgnoreCase("desc")
@@ -132,8 +132,12 @@ public class StudentCourseScoreController {
             PaginatedResponseDTO<StudentCourseScoreResponseDTO> response =
                     studentCourseScoreService.getAllStudentCourseScoresPaginated(
                             pageable,
-                            departmentId,     // ← pass it
-                            courseId, bcysId, studentId, isReleased);
+                            departmentId,
+                            courseId,
+                            bcysId,
+                            studentId,
+                            isReleased,
+                            studentStatusId);   // ← pass the new param
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {

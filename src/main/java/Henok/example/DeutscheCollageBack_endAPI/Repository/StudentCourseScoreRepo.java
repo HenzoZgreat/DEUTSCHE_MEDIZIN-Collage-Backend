@@ -2,6 +2,7 @@ package Henok.example.DeutscheCollageBack_endAPI.Repository;
 
 import Henok.example.DeutscheCollageBack_endAPI.DTO.Registrar.RegistrarDashboardDTO;
 import Henok.example.DeutscheCollageBack_endAPI.Entity.*;
+import Henok.example.DeutscheCollageBack_endAPI.Entity.MOE_Data.Semester;
 import Henok.example.DeutscheCollageBack_endAPI.Service.TeacherService;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -43,6 +44,57 @@ public interface StudentCourseScoreRepo extends JpaRepository<StudentCourseScore
             CourseSource courseSource);
 
     boolean existsByStudentAndCourseAndBatchClassYearSemester(User student, Course course, BatchClassYearSemester batchClassYearSemester);
+
+    /**
+     * Checks if there is already a record for the given student + course
+     * in the same (classYear + semester) combination.
+     *
+     * Uses JPQL → parameters are safely bound (no SQL injection risk)
+     */
+    @Query("""
+        SELECT CASE 
+                 WHEN COUNT(s) > 0 THEN true 
+                 ELSE false 
+               END
+        FROM StudentCourseScore s
+        WHERE s.student = :student
+          AND s.course = :course
+          AND s.batchClassYearSemester.classYear = :classYear
+          AND s.batchClassYearSemester.semester = :semester
+    """)
+    boolean existsByStudentAndCourseAndClassYearAndSemester(
+            @Param("student")   User student,
+            @Param("course")    Course course,
+            @Param("classYear") ClassYear classYear,
+            @Param("semester")  Semester semester
+    );
+
+
+    /**
+     * Finds one existing record (if any) for the given student + course
+     * in the same (classYear + semester) combination.
+     *
+     * Used mainly during updates to exclude the current record itself
+     * when checking for duplicates after a proposed change.
+     *
+     * Returns Optional → safe when no record exists.
+     * Uses JPQL → parameters are safely bound.
+     */
+    @Query("""
+        SELECT s 
+        FROM StudentCourseScore s
+        WHERE s.student = :student
+          AND s.course = :course
+          AND s.batchClassYearSemester.classYear = :classYear
+          AND s.batchClassYearSemester.semester = :semester
+    """)
+    Optional<StudentCourseScore> findFirstByStudentAndCourseAndClassYearAndSemester(
+            @Param("student")   User student,
+            @Param("course")    Course course,
+            @Param("classYear") ClassYear classYear,
+            @Param("semester")  Semester semester
+    );
+
 
     Optional<StudentCourseScore> findByStudentAndCourseAndBatchClassYearSemester(User student, Course course, BatchClassYearSemester batchClassYearSemester);
 

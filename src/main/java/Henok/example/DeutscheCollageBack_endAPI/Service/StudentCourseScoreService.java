@@ -72,10 +72,34 @@ public class StudentCourseScoreService {
         CourseSource courseSource = courseSourceRepo.findById(dto.getSourceId())
                 .orElseThrow(() -> new ResourceNotFoundException("Course source not found with id: " + dto.getSourceId()));
 
+        // ────────────────────────────────────────────────────────────────
+        // Existing check: same student + course + exact same BCYS record
+        // ────────────────────────────────────────────────────────────────
         if (studentCourseScoreRepo.existsByStudentAndCourseAndBatchClassYearSemester(student, course, bcys)) {
-            throw new IllegalArgumentException("Student is already enrolled in this course for the given semester");
+            throw new IllegalArgumentException(
+                    "Student is already enrolled in this course for this exact batch-class-year-semester period"
+            );
         }
 
+        // ────────────────────────────────────────────────────────────────
+        // NEW CHECK: prevent duplicate course in the same class year + semester
+        // (even if different batch / different BCYS record)
+        // ────────────────────────────────────────────────────────────────
+        boolean alreadyEnrolledInSamePeriod = studentCourseScoreRepo.existsByStudentAndCourseAndClassYearAndSemester(
+                student,
+                course,
+                bcys.getClassYear(),
+                bcys.getSemester()
+        );
+
+        if (alreadyEnrolledInSamePeriod) {
+            throw new IllegalArgumentException(
+                    "Student is already enrolled in course " + course.getCCode() +
+                            " for " + bcys.getClassYear().getClassYear() + " - " + bcys.getSemester().getAcademicPeriod()
+            );
+        }
+
+        // Prerequisite check (unchanged)
         for (Course prereq : course.getPrerequisites()) {
             if (!studentCourseScoreRepo.findByStudentAndCourseAndBatchClassYearSemester(student, prereq, null)
                     .map(sc -> sc.getScore() != null && sc.getScore() >= 50).orElse(false)) {
@@ -83,6 +107,7 @@ public class StudentCourseScoreService {
             }
         }
 
+        // Create and save the new record (unchanged)
         StudentCourseScore studentCourseScore = new StudentCourseScore(null, student, course, bcys, courseSource, null, false);
         studentCourseScoreRepo.save(studentCourseScore);
     }
@@ -190,16 +215,17 @@ public class StudentCourseScoreService {
      */
     public PaginatedResponseDTO<StudentCourseScoreResponseDTO> getAllStudentCourseScoresPaginated(
             Pageable pageable,
-            Long departmentId,           // ← new parameter
+            Long departmentId,
             Long courseId,
             Long bcysId,
             Long studentId,
-            Boolean isReleased) {
+            Boolean isReleased,
+            Long studentStatusId) {   // ← new parameter
 
         // Start with empty / match-all specification
         Specification<StudentCourseScore> spec = (root, query, cb) -> null;
 
-        // Department filter – join student → studentDetails → departmentEnrolled
+        // Existing department filter (subquery style)
         if (departmentId != null) {
             spec = spec.and((root, query, cb) -> {
                 Subquery<Long> subquery = query.subquery(Long.class);
@@ -208,7 +234,19 @@ public class StudentCourseScoreService {
                 subquery.where(
                         cb.equal(subRoot.get("departmentEnrolled").get("dptID"), departmentId)
                 );
+                return cb.in(root.get("student").get("id")).value(subquery);
+            });
+        }
 
+        // ── New: Student Status filter ──
+        if (studentStatusId != null) {
+            spec = spec.and((root, query, cb) -> {
+                Subquery<Long> subquery = query.subquery(Long.class);
+                Root<StudentDetails> subRoot = subquery.from(StudentDetails.class);
+                subquery.select(subRoot.get("user").get("id"));
+                subquery.where(
+                        cb.equal(subRoot.get("studentRecentStatus").get("id"), studentStatusId)
+                );
                 return cb.in(root.get("student").get("id")).value(subquery);
             });
         }
@@ -254,6 +292,7 @@ public class StudentCourseScoreService {
 
         return response;
     }
+
     private StudentCourseScoreResponseDTO mapToResponseDTO(StudentCourseScore score) {
         StudentCourseScoreResponseDTO dto = new StudentCourseScoreResponseDTO();
         dto.setId(score.getId());
@@ -307,6 +346,7 @@ public class StudentCourseScoreService {
         return dto;
     }
 
+    @Transactional
     public void bulkUpdateStudentCourseScores(StudentCourseScoreBulkUpdateDTO bulkUpdateDTO) {
         if (bulkUpdateDTO == null || bulkUpdateDTO.getUpdates() == null || bulkUpdateDTO.getUpdates().isEmpty()) {
             throw new IllegalArgumentException("Bulk update DTO cannot be null or empty");
@@ -320,7 +360,50 @@ public class StudentCourseScoreService {
             StudentCourseScore studentCourseScore = studentCourseScoreRepo.findById(updateRequest.getId())
                     .orElseThrow(() -> new ResourceNotFoundException("Student course score not found with id: " + updateRequest.getId()));
 
-            // Update score only if provided (not null)
+            User student = studentCourseScore.getStudent();
+            Course currentCourse = studentCourseScore.getCourse();
+            BatchClassYearSemester currentBcys = studentCourseScore.getBatchClassYearSemester();
+
+            // ────────────────────────────────────────────────────────────────
+            // Prepare values after update (use new values if provided, else keep current)
+            // ────────────────────────────────────────────────────────────────
+            Course finalCourse = currentCourse;
+            if (updateRequest.getCourseId() != null) {
+                finalCourse = courseRepo.findById(updateRequest.getCourseId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + updateRequest.getCourseId()));
+            }
+
+            BatchClassYearSemester finalBcys = currentBcys;
+            if (updateRequest.getBatchClassYearSemesterId() != null) {
+                finalBcys = batchClassYearSemesterRepo.findById(updateRequest.getBatchClassYearSemesterId())
+                        .orElseThrow(() -> new ResourceNotFoundException("BatchClassYearSemester not found with id: " + updateRequest.getBatchClassYearSemesterId()));
+            }
+
+            // ────────────────────────────────────────────────────────────────
+            // NEW CHECK: If we are changing BCYS (or course), ensure no duplicate
+            // for the final (student + course + classYear + semester) combination
+            // ────────────────────────────────────────────────────────────────
+            if (updateRequest.getBatchClassYearSemesterId() != null || updateRequest.getCourseId() != null) {
+                // We only need to check if the combination is changing
+                boolean wouldBeDuplicate = studentCourseScoreRepo.existsByStudentAndCourseAndClassYearAndSemester(
+                        student,
+                        finalCourse,
+                        finalBcys.getClassYear(),
+                        finalBcys.getSemester()
+                ) && !studentCourseScore.getId().equals(studentCourseScoreRepo.findFirstByStudentAndCourseAndClassYearAndSemester(
+                        student, finalCourse, finalBcys.getClassYear(), finalBcys.getSemester()
+                ).map(StudentCourseScore::getId).orElse(-1L));
+
+                if (wouldBeDuplicate) {
+                    throw new IllegalArgumentException(
+                            "Cannot update: Student would be enrolled in course " + finalCourse.getCCode() +
+                                    " twice in the same period (" + finalBcys.getClassYear().getClassYear() +
+                                    " - " + finalBcys.getSemester().getAcademicPeriod() + ")"
+                    );
+                }
+            }
+
+            // ── Apply updates (only if provided) ──
             if (updateRequest.getScore() != null) {
                 if (updateRequest.getScore() < 0 || updateRequest.getScore() > 100) {
                     throw new IllegalArgumentException("Score must be between 0 and 100 for record with id: " + updateRequest.getId());
@@ -328,42 +411,33 @@ public class StudentCourseScoreService {
                 studentCourseScore.setScore(updateRequest.getScore());
             }
 
-            // Update courseSource only if provided
             if (updateRequest.getCourseSourceId() != null) {
                 CourseSource newSource = courseSourceRepo.findById(updateRequest.getCourseSourceId())
                         .orElseThrow(() -> new ResourceNotFoundException("Course source not found with id: " + updateRequest.getCourseSourceId()));
                 studentCourseScore.setCourseSource(newSource);
             }
 
-            // Update isReleased only if provided
             if (updateRequest.getIsReleased() != null) {
                 studentCourseScore.setReleased(updateRequest.getIsReleased());
             }
 
-            // ── Newly added: Update course only if provided ──
             if (updateRequest.getCourseId() != null) {
-                Course newCourse = courseRepo.findById(updateRequest.getCourseId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + updateRequest.getCourseId()));
-                studentCourseScore.setCourse(newCourse);
+                studentCourseScore.setCourse(finalCourse);
             }
 
-            // ── Newly added: Update batchClassYearSemester only if provided ──
             if (updateRequest.getBatchClassYearSemesterId() != null) {
-                BatchClassYearSemester newBcys = batchClassYearSemesterRepo.findById(updateRequest.getBatchClassYearSemesterId())
-                        .orElseThrow(() -> new ResourceNotFoundException("BatchClassYearSemester not found with id: " + updateRequest.getBatchClassYearSemesterId()));
-                studentCourseScore.setBatchClassYearSemester(newBcys);
+                studentCourseScore.setBatchClassYearSemester(finalBcys);
             }
 
             studentCourseScoreRepo.save(studentCourseScore);
 
             // Publish event AFTER successful save
-            Long studentUserId = studentCourseScore.getStudent().getId(); // capture student ID for event
+            Long studentUserId = studentCourseScore.getStudent().getId();
             applicationEventPublisher.publishEvent(
                     new ScoreUpdatedEvent(this, studentUserId)
             );
         }
     }
-
     /**
      * Deletes multiple StudentCourseScore records by their IDs.
      *
